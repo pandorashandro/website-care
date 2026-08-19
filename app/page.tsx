@@ -1,26 +1,14 @@
-import { supabase } from "@/lib/supabase";
+import Link from "next/link";
 
-export default async function Home() {
-  const { data, error } = await supabase
-    .from("test_connection")
-    .select("*");
-
+export default function Home() {
   return (
-    <main style={{ padding: "40px", fontFamily: "Arial" }}>
-      <h1>Supabase Connection Test</h1>
-
-      {error ? (
-        <div>
-          <p>Supabase is connected, but our test table doesn't exist yet.</p>
-          <p>That's okay! We'll create our database next.</p>
-          <pre>{error.message}</pre>
-        </div>
-      ) : (
-        <div>
-          <p>🎉 Supabase connection works!</p>
-          <pre>{JSON.stringify(data, null, 2)}</pre>
-        </div>
-      )}
+    <main className="flex flex-1 flex-col items-center justify-center gap-4 text-center">
+      <h1 className="text-3xl font-bold">Website Care</h1>
+      <p className="text-lg">Website monitoring and optimization platform</p>
+      <div className="flex gap-4">
+        <Link href="/signup">Sign up</Link>
+        <Link href="/login">Log in</Link>
+      </div>
     </main>
   );
 }
