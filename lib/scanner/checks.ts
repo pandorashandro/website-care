@@ -25,7 +25,7 @@ function isPrivateIp(ip: string): boolean {
  * protection — it does not resolve DNS to catch hostnames that resolve to
  * private IPs.
  */
-function isBlockedHost(hostname: string): boolean {
+export function isBlockedHost(hostname: string): boolean {
   const host = hostname.toLowerCase()
 
   if (host === 'localhost' || host.endsWith('.localhost') || host === '0.0.0.0') {

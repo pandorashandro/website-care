@@ -5,6 +5,8 @@ import ScanWebsiteButton from '@/app/dashboard/scan-website-button'
 import { aggregateIssues, type RawIssueRow } from '@/lib/scanner/aggregate-issues'
 import { calculateHealthScore, type Category } from '@/lib/scanner/calculate-health-score'
 import { detectWordPress } from '@/lib/integrations/wordpress/detect-wordpress'
+import ConnectWordPressButton from './connect-wordpress-button'
+import DisconnectWordPressButton from './disconnect-wordpress-button'
 
 type Website = {
   id: string
@@ -21,6 +23,11 @@ type Scan = {
 }
 
 type Issue = RawIssueRow & { id: string }
+
+type WordPressConnection = {
+  status: string | null
+  wp_display_name: string | null
+}
 
 const SEVERITY_DISPLAY_ORDER = ['critical', 'high', 'medium', 'low'] as const
 
@@ -165,6 +172,16 @@ export default async function WebsiteReportPage(props: PageProps<'/dashboard/web
 
     issues = issueRows ?? []
   }
+
+  // Explicit safe column list — never select encrypted_app_password here.
+  const { data: wordpressConnection } = await supabase
+    .from('wordpress_connections')
+    .select('status, wp_display_name')
+    .eq('website_id', website.id)
+    .maybeSingle()
+    .returns<WordPressConnection>()
+
+  const isWordPressConnected = wordpressConnection?.status === 'connected'
 
   const severityCounts: Record<string, number> = {}
   for (const issue of issues) {
@@ -317,18 +334,23 @@ export default async function WebsiteReportPage(props: PageProps<'/dashboard/web
               </div>
               <div className="flex items-center justify-between">
                 <dt className="text-gray-500">Connection</dt>
-                <dd className="font-medium text-gray-900">Not connected</dd>
+                <dd className="font-medium text-gray-900">
+                  {isWordPressConnected ? 'Connected ✓' : 'Not connected'}
+                </dd>
               </div>
+              {isWordPressConnected && wordpressConnection?.wp_display_name && (
+                <div className="flex items-center justify-between">
+                  <dt className="text-gray-500">Connected as</dt>
+                  <dd className="font-medium text-gray-900">{wordpressConnection.wp_display_name}</dd>
+                </div>
+              )}
             </dl>
 
-            <button
-              type="button"
-              disabled
-              title="Coming in Phase 13.2"
-              className="mt-4 w-full cursor-not-allowed rounded-md border border-gray-200 px-3 py-2 text-sm font-medium text-gray-400"
-            >
-              Connect WordPress (coming soon)
-            </button>
+            {isWordPressConnected ? (
+              <DisconnectWordPressButton websiteId={website.id} />
+            ) : (
+              <ConnectWordPressButton websiteId={website.id} />
+            )}
           </>
         )}
       </div>
