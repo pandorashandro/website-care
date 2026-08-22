@@ -3,7 +3,15 @@ import { createClient } from '@/lib/supabase/server'
 import { decryptCredential } from '@/lib/security/encryption'
 
 export type ConnectedWordPressCredentials =
-  | { ok: true; websiteUrl: string; username: string; applicationPassword: string; displayName: string | null }
+  | {
+      ok: true
+      websiteUrl: string
+      /** The Website Care website's own name — already ownership-verified, safe to use as a trusted brand/context signal. */
+      websiteName: string
+      username: string
+      applicationPassword: string
+      displayName: string | null
+    }
   | { ok: false; reason: 'no_connection' }
   | { ok: false; reason: 'decrypt_failed'; displayName: string | null }
 
@@ -35,7 +43,7 @@ export async function getConnectedWordPressCredentials(
 
   const { data: website, error: websiteError } = await supabase
     .from('websites')
-    .select('id, url')
+    .select('id, url, name')
     .eq('id', websiteId)
     .eq('user_id', user.id)
     .single()
@@ -59,6 +67,7 @@ export async function getConnectedWordPressCredentials(
     return {
       ok: true,
       websiteUrl: website.url,
+      websiteName: website.name,
       username: connection.wp_username,
       applicationPassword,
       displayName: connection.wp_display_name,
