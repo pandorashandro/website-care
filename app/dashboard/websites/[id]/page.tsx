@@ -1,0 +1,240 @@
+import Link from 'next/link'
+import { notFound } from 'next/navigation'
+import { createClient } from '@/lib/supabase/server'
+import ScanWebsiteButton from '@/app/dashboard/scan-website-button'
+
+type Website = {
+  id: string
+  name: string
+  url: string
+  created_at: string
+}
+
+type Scan = {
+  id: string
+  status: 'running' | 'completed' | 'failed'
+  score: number | null
+  created_at: string
+}
+
+type Issue = {
+  id: string
+  type: string
+  severity: string
+  title: string
+  description: string
+  recommendation: string
+}
+
+const SEVERITY_DISPLAY_ORDER = ['critical', 'high', 'medium', 'low'] as const
+
+const SEVERITY_ORDER: Record<string, number> = { critical: 0, high: 1, medium: 2, low: 3 }
+
+const SEVERITY_LABELS: Record<string, string> = {
+  critical: 'Critical',
+  high: 'High',
+  medium: 'Medium',
+  low: 'Low',
+}
+
+const SEVERITY_BADGE_CLASS: Record<string, string> = {
+  critical: 'bg-red-100 text-red-700',
+  high: 'bg-orange-100 text-orange-700',
+  medium: 'bg-yellow-100 text-yellow-700',
+  low: 'bg-blue-100 text-blue-700',
+}
+
+const CATEGORY_LABELS: Record<string, string> = {
+  technical: 'Technical',
+  seo: 'SEO',
+  accessibility: 'Accessibility',
+}
+
+function formatDate(value: string): string {
+  return new Date(value).toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+  })
+}
+
+function healthLabel(score: number): string {
+  if (score >= 90) return 'Excellent'
+  if (score >= 75) return 'Good'
+  if (score >= 50) return 'Needs Attention'
+  return 'Poor'
+}
+
+function healthBadgeClass(score: number): string {
+  if (score >= 90) return 'bg-green-50 text-green-700'
+  if (score >= 75) return 'bg-emerald-50 text-emerald-700'
+  if (score >= 50) return 'bg-yellow-50 text-yellow-700'
+  return 'bg-red-50 text-red-700'
+}
+
+function formatCategory(type: string): string {
+  return CATEGORY_LABELS[type] ?? type.charAt(0).toUpperCase() + type.slice(1)
+}
+
+export default async function WebsiteReportPage(props: PageProps<'/dashboard/websites/[id]'>) {
+  const { id } = await props.params
+
+  const supabase = await createClient()
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) {
+    return null
+  }
+
+  const { data: website, error: websiteError } = await supabase
+    .from('websites')
+    .select('id, name, url, created_at')
+    .eq('id', id)
+    .eq('user_id', user.id)
+    .single()
+    .returns<Website>()
+
+  if (websiteError || !website) {
+    notFound()
+  }
+
+  const { data: latestScan } = await supabase
+    .from('scans')
+    .select('id, status, score, created_at')
+    .eq('website_id', website.id)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+    .returns<Scan>()
+
+  let issues: Issue[] = []
+
+  if (latestScan && latestScan.status === 'completed') {
+    const { data: issueRows } = await supabase
+      .from('issues')
+      .select('id, type, severity, title, description, recommendation')
+      .eq('scan_id', latestScan.id)
+      .returns<Issue[]>()
+
+    issues = (issueRows ?? [])
+      .slice()
+      .sort((a, b) => (SEVERITY_ORDER[a.severity] ?? 99) - (SEVERITY_ORDER[b.severity] ?? 99))
+  }
+
+  const severityCounts: Record<string, number> = {}
+  for (const issue of issues) {
+    severityCounts[issue.severity] = (severityCounts[issue.severity] ?? 0) + 1
+  }
+
+  return (
+    <div className="mx-auto max-w-3xl px-6 py-10">
+      <Link href="/dashboard" className="text-sm text-gray-500 hover:text-gray-700">
+        ← Back to Websites
+      </Link>
+
+      <div className="mt-4 flex flex-col gap-4 rounded-lg border border-gray-200 bg-white p-6 shadow-sm sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
+          <h1 className="truncate text-2xl font-semibold text-gray-900">{website.name}</h1>
+          <a
+            href={website.url}
+            target="_blank"
+            rel="noreferrer"
+            className="mt-1 block truncate text-sm text-gray-500 hover:text-gray-700"
+          >
+            {website.url}
+          </a>
+
+          {!latestScan ? (
+            <p className="mt-4 text-sm text-gray-500">This website hasn&apos;t been scanned yet.</p>
+          ) : latestScan.status === 'completed' && latestScan.score !== null ? (
+            <div className="mt-4 flex flex-wrap items-center gap-3">
+              <span
+                className={`inline-flex items-center rounded-full px-3 py-1 text-sm font-semibold ${healthBadgeClass(latestScan.score)}`}
+              >
+                {latestScan.score} · {healthLabel(latestScan.score)}
+              </span>
+              <span className="text-sm text-gray-500">
+                Scanned {formatDate(latestScan.created_at)}
+              </span>
+              <span className="text-sm text-gray-500">
+                {issues.length} issue{issues.length === 1 ? '' : 's'} found
+              </span>
+            </div>
+          ) : latestScan.status === 'running' ? (
+            <p className="mt-4 text-sm text-blue-600">Scan in progress…</p>
+          ) : (
+            <p className="mt-4 text-sm text-red-600">The last scan failed. Try scanning again.</p>
+          )}
+        </div>
+
+        <div className="sm:w-48 sm:shrink-0">
+          <ScanWebsiteButton
+            websiteId={website.id}
+            label={latestScan ? 'Scan Again' : 'Scan Website'}
+          />
+        </div>
+      </div>
+
+      {latestScan?.status === 'completed' && (
+        <div className="mt-8">
+          {issues.length === 0 ? (
+            <div className="rounded-lg border border-dashed border-gray-300 bg-white px-6 py-12 text-center">
+              <h2 className="text-sm font-medium text-gray-900">No issues found</h2>
+              <p className="mt-1 text-sm text-gray-500">
+                This website passed every check in its latest scan.
+              </p>
+            </div>
+          ) : (
+            <>
+              <div className="flex flex-wrap gap-2">
+                {SEVERITY_DISPLAY_ORDER.filter((severity) => severityCounts[severity] > 0).map(
+                  (severity) => (
+                    <span
+                      key={severity}
+                      className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-medium ${SEVERITY_BADGE_CLASS[severity]}`}
+                    >
+                      {severityCounts[severity]} {SEVERITY_LABELS[severity]}
+                    </span>
+                  )
+                )}
+              </div>
+
+              <div className="mt-4 space-y-3">
+                {issues.map((issue) => (
+                  <div
+                    key={issue.id}
+                    className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm"
+                  >
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span
+                        className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                          SEVERITY_BADGE_CLASS[issue.severity] ?? 'bg-gray-100 text-gray-700'
+                        }`}
+                      >
+                        {SEVERITY_LABELS[issue.severity] ?? issue.severity}
+                      </span>
+                      <span className="inline-flex items-center rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-600">
+                        {formatCategory(issue.type)}
+                      </span>
+                    </div>
+
+                    <h3 className="mt-3 text-sm font-semibold text-gray-900">{issue.title}</h3>
+                    <p className="mt-1 text-sm text-gray-600">{issue.description}</p>
+
+                    <p className="mt-3 text-sm text-gray-700">
+                      <span className="font-medium text-gray-900">Recommended: </span>
+                      {issue.recommendation}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
