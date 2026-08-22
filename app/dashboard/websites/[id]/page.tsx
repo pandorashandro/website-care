@@ -10,6 +10,7 @@ import { getWordPressConnectionSummary } from './wordpress-capabilities'
 import { evaluateFixability, type FixabilityLevel } from '@/lib/fixes/fixability'
 import ConnectWordPressButton from './connect-wordpress-button'
 import DisconnectWordPressButton from './disconnect-wordpress-button'
+import PrepareFixButton from './prepare-fix-button'
 
 type Website = {
   id: string
@@ -558,15 +559,12 @@ export default async function WebsiteReportPage(props: PageProps<'/dashboard/web
                       {issue.recommendation}
                     </p>
 
-                    {fixability.level === 'assisted' && (
-                      <button
-                        type="button"
-                        disabled
-                        title="Website Care will let you review and approve fixes before anything changes — coming soon."
-                        className="mt-3 cursor-not-allowed rounded-md border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-400"
-                      >
-                        Preview Fix — coming next
-                      </button>
+                    {fixability.level === 'assisted' && issue.affectedPageUrls[0] && (
+                      <PrepareFixButton
+                        websiteId={website.id}
+                        pageUrl={issue.affectedPageUrls[0]}
+                        pageLabel={formatPageLabel(issue.affectedPageUrls[0])}
+                      />
                     )}
 
                     <div className="mt-3">
