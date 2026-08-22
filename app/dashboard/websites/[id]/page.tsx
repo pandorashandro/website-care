@@ -19,6 +19,7 @@ type Scan = {
 
 type Issue = {
   id: string
+  page_url: string | null
   type: string
   severity: string
   title: string
@@ -76,6 +77,22 @@ function formatCategory(type: string): string {
   return CATEGORY_LABELS[type] ?? type.charAt(0).toUpperCase() + type.slice(1)
 }
 
+/**
+ * Older issue rows may have page_url = null (created before that column
+ * existed), so this must degrade gracefully rather than throw.
+ */
+function formatPageLabel(pageUrl: string | null): string {
+  if (!pageUrl) return 'Homepage'
+
+  try {
+    const { pathname, search } = new URL(pageUrl)
+    const path = `${pathname}${search}`
+    return path === '' || path === '/' ? 'Homepage' : path
+  } catch {
+    return pageUrl
+  }
+}
+
 export default async function WebsiteReportPage(props: PageProps<'/dashboard/websites/[id]'>) {
   const { id } = await props.params
 
@@ -115,7 +132,7 @@ export default async function WebsiteReportPage(props: PageProps<'/dashboard/web
   if (latestScan && latestScan.status === 'completed') {
     const { data: issueRows } = await supabase
       .from('issues')
-      .select('id, type, severity, title, description, recommendation')
+      .select('id, page_url, type, severity, title, description, recommendation')
       .eq('scan_id', latestScan.id)
       .returns<Issue[]>()
 
@@ -128,6 +145,13 @@ export default async function WebsiteReportPage(props: PageProps<'/dashboard/web
   for (const issue of issues) {
     severityCounts[issue.severity] = (severityCounts[issue.severity] ?? 0) + 1
   }
+
+  // Only pages with at least one issue can be counted this way (schema has
+  // no separate "pages crawled" record), so this is a lower bound, not the
+  // exact page count — labeled accordingly below rather than as "scanned."
+  const pageUrlsWithIssues = new Set(
+    issues.map((issue) => issue.page_url).filter((url): url is string => !!url)
+  )
 
   return (
     <div className="mx-auto max-w-3xl px-6 py-10">
@@ -162,6 +186,12 @@ export default async function WebsiteReportPage(props: PageProps<'/dashboard/web
               <span className="text-sm text-gray-500">
                 {issues.length} issue{issues.length === 1 ? '' : 's'} found
               </span>
+              {pageUrlsWithIssues.size > 0 && (
+                <span className="text-sm text-gray-500">
+                  {pageUrlsWithIssues.size} page{pageUrlsWithIssues.size === 1 ? '' : 's'} with
+                  issues
+                </span>
+              )}
             </div>
           ) : latestScan.status === 'running' ? (
             <p className="mt-4 text-sm text-blue-600">Scan in progress…</p>
@@ -218,6 +248,9 @@ export default async function WebsiteReportPage(props: PageProps<'/dashboard/web
                       </span>
                       <span className="inline-flex items-center rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-600">
                         {formatCategory(issue.type)}
+                      </span>
+                      <span className="inline-flex items-center rounded-full bg-gray-50 px-2.5 py-0.5 font-mono text-xs text-gray-500">
+                        {formatPageLabel(issue.page_url)}
                       </span>
                     </div>
 

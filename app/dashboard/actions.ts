@@ -3,7 +3,7 @@
 import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
-import { runHomepageScan } from '@/lib/scanner/run-homepage-scan'
+import { crawlWebsite } from '@/lib/scanner/crawl-website'
 
 export async function logout() {
   const supabase = await createClient()
@@ -111,19 +111,22 @@ export async function scanWebsite(
   }
 
   try {
-    const result = await runHomepageScan(website.url)
+    const result = await crawlWebsite(website.url)
 
-    if (result.issues.length > 0) {
-      const { error: issuesError } = await supabase.from('issues').insert(
-        result.issues.map((issue) => ({
-          scan_id: scan.id,
-          type: issue.type,
-          severity: issue.severity,
-          title: issue.title,
-          description: issue.description,
-          recommendation: issue.recommendation,
-        }))
-      )
+    const issueRows = result.pages.flatMap((page) =>
+      page.issues.map((issue) => ({
+        scan_id: scan.id,
+        page_url: page.url,
+        type: issue.type,
+        severity: issue.severity,
+        title: issue.title,
+        description: issue.description,
+        recommendation: issue.recommendation,
+      }))
+    )
+
+    if (issueRows.length > 0) {
+      const { error: issuesError } = await supabase.from('issues').insert(issueRows)
 
       if (issuesError) {
         throw new Error('Could not save scan issues.')
@@ -132,7 +135,7 @@ export async function scanWebsite(
 
     const { error: updateError } = await supabase
       .from('scans')
-      .update({ status: 'completed', score: result.score })
+      .update({ status: 'completed', score: result.overallScore })
       .eq('id', scan.id)
 
     if (updateError) {
