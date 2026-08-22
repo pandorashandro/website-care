@@ -11,9 +11,17 @@ export type CrawledPage = {
   issues: ScanIssue[]
 }
 
+export type DiscoveredLink = {
+  sourceUrl: string
+  targetUrl: string
+}
+
 export type CrawlResult = {
   pages: CrawledPage[]
   overallScore: number
+  /** Every same-host, non-asset link found on a crawled page, whether or not its target was itself crawled. */
+  discoveredLinks: DiscoveredLink[]
+  hostname: string
 }
 
 function clampScore(score: number): number {
@@ -42,6 +50,7 @@ export async function crawlWebsite(startUrl: string): Promise<CrawlResult> {
   const queued = new Set<string>([startingUrl])
   const queue: string[] = [startingUrl]
   const pages: CrawledPage[] = []
+  const discoveredLinks: DiscoveredLink[] = []
 
   while (queue.length > 0 && pages.length < MAX_PAGES) {
     const currentUrl = queue.shift()
@@ -57,14 +66,17 @@ export async function crawlWebsite(startUrl: string): Promise<CrawlResult> {
       issues: result.issues,
     })
 
-    if (result.reachable && result.html && hostname && pages.length < MAX_PAGES) {
+    if (result.reachable && result.html && hostname) {
       const baseForLinks = result.finalUrl ?? currentUrl
       const links = extractInternalLinks(result.html, baseForLinks, hostname)
 
       for (const link of links) {
-        if (visited.has(link) || queued.has(link)) continue
-        queued.add(link)
-        queue.push(link)
+        discoveredLinks.push({ sourceUrl: result.url, targetUrl: link })
+
+        if (!visited.has(link) && !queued.has(link)) {
+          queued.add(link)
+          queue.push(link)
+        }
       }
     }
   }
@@ -74,5 +86,5 @@ export async function crawlWebsite(startUrl: string): Promise<CrawlResult> {
       ? clampScore(Math.round(pages.reduce((sum, page) => sum + page.score, 0) / pages.length))
       : 0
 
-  return { pages, overallScore }
+  return { pages, overallScore, discoveredLinks, hostname }
 }

@@ -5,6 +5,10 @@ import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { crawlWebsite } from '@/lib/scanner/crawl-website'
 import { calculateHealthScore } from '@/lib/scanner/calculate-health-score'
+import { checkRobots } from '@/lib/scanner/check-robots'
+import { checkSitemap } from '@/lib/scanner/check-sitemap'
+import { checkInternalLinks } from '@/lib/scanner/check-internal-links'
+import type { ScanIssue } from '@/lib/scanner/issue-definitions'
 
 export async function logout() {
   const supabase = await createClient()
@@ -114,17 +118,31 @@ export async function scanWebsite(
   try {
     const result = await crawlWebsite(website.url)
 
-    const issueRows = result.pages.flatMap((page) =>
-      page.issues.map((issue) => ({
-        scan_id: scan.id,
-        page_url: page.url,
-        type: issue.type,
-        severity: issue.severity,
-        title: issue.title,
-        description: issue.description,
-        recommendation: issue.recommendation,
-      }))
+    const pageIssueRows = result.pages.flatMap((page) =>
+      page.issues.map((issue) => ({ pageUrl: page.url, issue }))
     )
+
+    const robotsResult = await checkRobots(website.url)
+    const sitemapIssues = await checkSitemap(website.url, robotsResult.sitemapUrls)
+    const siteLevelIssues: ScanIssue[] = [...robotsResult.issues, ...sitemapIssues]
+    const siteLevelIssueRows = siteLevelIssues.map((issue) => ({ pageUrl: website.url, issue }))
+
+    const crawledUrls = new Set(result.pages.map((page) => page.url))
+    const linkIssueRows = await checkInternalLinks(
+      result.discoveredLinks,
+      crawledUrls,
+      result.hostname
+    )
+
+    const issueRows = [...pageIssueRows, ...siteLevelIssueRows, ...linkIssueRows].map((row) => ({
+      scan_id: scan.id,
+      page_url: row.pageUrl,
+      type: row.issue.type,
+      severity: row.issue.severity,
+      title: row.issue.title,
+      description: row.issue.description,
+      recommendation: row.issue.recommendation,
+    }))
 
     if (issueRows.length > 0) {
       const { error: issuesError } = await supabase.from('issues').insert(issueRows)

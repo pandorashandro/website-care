@@ -226,6 +226,49 @@ export const ISSUE_DEFINITIONS = {
     title: 'Invalid canonical URL',
     recommendation: 'Fix the canonical tag so it points to a valid, absolute http or https URL.',
   },
+  robots_not_found: {
+    type: 'technical',
+    severity: 'low',
+    title: 'robots.txt not found',
+    recommendation: 'Add a robots.txt file if you need to control crawler access or advertise your sitemap.',
+  },
+  robots_unreachable: {
+    type: 'technical',
+    severity: 'medium',
+    title: 'robots.txt could not be checked',
+    recommendation: 'Verify that /robots.txt is reachable and returns a normal response.',
+  },
+  robots_blocks_site: {
+    type: 'seo',
+    severity: 'critical',
+    title: 'Search engines may be blocked from the entire site',
+    recommendation:
+      'Verify that blocking all crawlers is intentional. If the site should appear in search engines, remove the site-wide disallow rule.',
+  },
+  sitemap_not_found: {
+    type: 'seo',
+    severity: 'medium',
+    title: 'XML sitemap not found',
+    recommendation: 'Create and submit an XML sitemap so search engines can discover important pages more reliably.',
+  },
+  sitemap_unreachable: {
+    type: 'technical',
+    severity: 'medium',
+    title: 'Sitemap could not be checked',
+    recommendation: 'Verify the sitemap URL is reachable and returns a normal response.',
+  },
+  sitemap_invalid: {
+    type: 'seo',
+    severity: 'medium',
+    title: 'Sitemap does not look like a valid XML sitemap',
+    recommendation: 'Ensure the sitemap URL serves valid XML sitemap content.',
+  },
+  sitemap_external_urls: {
+    type: 'seo',
+    severity: 'low',
+    title: 'Sitemap contains external URLs',
+    recommendation: 'Remove external URLs from the sitemap so it only lists pages on this site.',
+  },
 } as const satisfies Record<string, IssueDefinition>
 
 export function buildIssue(

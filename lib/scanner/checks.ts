@@ -73,7 +73,11 @@ export type FetchPageResult =
  * where no valid response exists at all (timeout, network error, blocked
  * target, an unresolvable redirect chain).
  */
-export async function fetchPage(url: string): Promise<FetchPageResult> {
+export async function fetchPage(
+  url: string,
+  options?: { method?: 'GET' | 'HEAD' }
+): Promise<FetchPageResult> {
+  const method = options?.method ?? 'GET'
   const controller = new AbortController()
   const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS)
   const startedAt = Date.now()
@@ -106,7 +110,7 @@ export async function fetchPage(url: string): Promise<FetchPageResult> {
       seenUrls.add(normalizedCurrent)
 
       const response = await fetch(normalizedCurrent, {
-        method: 'GET',
+        method,
         redirect: 'manual',
         signal: controller.signal,
         headers: { 'User-Agent': 'Mozilla/5.0 (compatible; WebsiteCareBot/1.0)' },
