@@ -7,6 +7,7 @@ import { calculateHealthScore, type Category } from '@/lib/scanner/calculate-hea
 import { detectWordPress } from '@/lib/integrations/wordpress/detect-wordpress'
 import type { CapabilityValue, WordPressCapabilities } from '@/lib/integrations/wordpress/capabilities'
 import { getWordPressConnectionSummary } from './wordpress-capabilities'
+import { evaluateFixability, type FixabilityLevel } from '@/lib/fixes/fixability'
 import ConnectWordPressButton from './connect-wordpress-button'
 import DisconnectWordPressButton from './disconnect-wordpress-button'
 
@@ -43,6 +44,18 @@ const CAPABILITY_TEXT_CLASS: Record<CapabilityValue, string> = {
   available: 'font-medium text-green-700',
   unavailable: 'font-medium text-gray-400',
   unknown: 'font-medium text-gray-400',
+}
+
+const FIXABILITY_LABELS: Record<FixabilityLevel, string> = {
+  assisted: 'Fix available',
+  manual: 'Guided fix',
+  unavailable: 'Not currently supported',
+}
+
+const FIXABILITY_BADGE_CLASS: Record<FixabilityLevel, string> = {
+  assisted: 'bg-green-50 text-green-700',
+  manual: 'bg-blue-50 text-blue-700',
+  unavailable: 'bg-gray-100 text-gray-500',
 }
 
 const SEVERITY_DISPLAY_ORDER = ['critical', 'high', 'medium', 'low'] as const
@@ -215,6 +228,22 @@ export default async function WebsiteReportPage(props: PageProps<'/dashboard/web
 
   const wordpress = await wordpressPromise
   const wordpressConnection = await wordpressConnectionPromise
+
+  // Centralizes fixability evaluation for both the "Fix These First" and
+  // grouped-issue sections below — pure, deterministic, and does not affect
+  // priority ranking or health scoring, which are computed independently above.
+  function getFixability(issueTitle: string) {
+    return evaluateFixability({
+      issueTitle,
+      wordpressDetected: wordpress.status !== 'unknown',
+      wordpressConnected: wordpressConnection.connected,
+      connectionValid: wordpressConnection.connected ? wordpressConnection.connectionValid : false,
+      capabilities:
+        wordpressConnection.connected && wordpressConnection.connectionValid
+          ? wordpressConnection.capabilities
+          : null,
+    })
+  }
 
   return (
     <div className="mx-auto max-w-3xl px-6 py-10">
@@ -434,7 +463,10 @@ export default async function WebsiteReportPage(props: PageProps<'/dashboard/web
                 <div className="mt-6">
                   <h2 className="text-base font-semibold text-gray-900">Fix These First</h2>
                   <div className="mt-3 space-y-3">
-                    {topIssues.map((issue, index) => (
+                    {topIssues.map((issue, index) => {
+                      const fixability = getFixability(issue.title)
+
+                      return (
                       <div
                         key={`${issue.title}|${issue.type}|${issue.severity}`}
                         className={`flex gap-4 rounded-lg border border-l-4 border-gray-200 bg-white p-4 shadow-sm ${PRIORITY_BORDER_CLASS[issue.priorityLabel]}`}
@@ -449,6 +481,12 @@ export default async function WebsiteReportPage(props: PageProps<'/dashboard/web
                               className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${PRIORITY_BADGE_CLASS[issue.priorityLabel]}`}
                             >
                               {issue.priorityLabel}
+                            </span>
+                            <span
+                              title={fixability.reason}
+                              className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${FIXABILITY_BADGE_CLASS[fixability.level]}`}
+                            >
+                              {FIXABILITY_LABELS[fixability.level]}
                             </span>
                           </div>
                           <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-gray-500">
@@ -470,13 +508,17 @@ export default async function WebsiteReportPage(props: PageProps<'/dashboard/web
                           <p className="mt-2 text-sm text-gray-700">{issue.recommendation}</p>
                         </div>
                       </div>
-                    ))}
+                      )
+                    })}
                   </div>
                 </div>
               )}
 
               <div className="mt-6 space-y-3">
-                {aggregatedIssues.map((issue) => (
+                {aggregatedIssues.map((issue) => {
+                  const fixability = getFixability(issue.title)
+
+                  return (
                   <div
                     key={`${issue.title}|${issue.type}|${issue.severity}`}
                     className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm"
@@ -500,6 +542,12 @@ export default async function WebsiteReportPage(props: PageProps<'/dashboard/web
                           Homepage
                         </span>
                       )}
+                      <span
+                        title={fixability.reason}
+                        className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${FIXABILITY_BADGE_CLASS[fixability.level]}`}
+                      >
+                        {FIXABILITY_LABELS[fixability.level]}
+                      </span>
                     </div>
 
                     <h3 className="mt-3 text-sm font-semibold text-gray-900">{issue.title}</h3>
@@ -509,6 +557,17 @@ export default async function WebsiteReportPage(props: PageProps<'/dashboard/web
                       <span className="font-medium text-gray-900">Recommended: </span>
                       {issue.recommendation}
                     </p>
+
+                    {fixability.level === 'assisted' && (
+                      <button
+                        type="button"
+                        disabled
+                        title="Website Care will let you review and approve fixes before anything changes — coming soon."
+                        className="mt-3 cursor-not-allowed rounded-md border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-400"
+                      >
+                        Preview Fix — coming next
+                      </button>
+                    )}
 
                     <div className="mt-3">
                       <p className="text-xs font-medium uppercase tracking-wide text-gray-400">
@@ -528,7 +587,8 @@ export default async function WebsiteReportPage(props: PageProps<'/dashboard/web
                       )}
                     </div>
                   </div>
-                ))}
+                  )
+                })}
               </div>
             </>
           )}
