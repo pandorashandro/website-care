@@ -564,6 +564,7 @@ export default async function WebsiteReportPage(props: PageProps<'/dashboard/web
                         websiteId={website.id}
                         pageUrl={issue.affectedPageUrls[0]}
                         pageLabel={formatPageLabel(issue.affectedPageUrls[0])}
+                        issueTitle={issue.title}
                       />
                     )}
 

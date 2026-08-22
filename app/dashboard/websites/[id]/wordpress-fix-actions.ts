@@ -1,15 +1,20 @@
 'use server'
 
-import { mapWordPressContent, type WordPressContentMapping } from '@/lib/integrations/wordpress/content-mapping'
+import {
+  loadWordPressEditableContent,
+  type WordPressEditableContentResult,
+} from '@/lib/integrations/wordpress/editable-content'
 import { getConnectedWordPressCredentials } from './wordpress-credentials'
 
-export type PrepareFixState = WordPressContentMapping | null
+export type PrepareFixState = WordPressEditableContentResult | null
 
 /**
- * Read-only: determines which WordPress page/post (if any) corresponds to
- * a scanned page URL. Never writes to WordPress or the database. Triggered
- * only when the user explicitly requests it for one page at a time — never
- * run automatically across every issue on the report.
+ * Read-only: maps a scanned page URL to its exact WordPress page/post (fresh,
+ * every time — never trusts a previously-returned resourceId/restBase from
+ * the browser) and, only if that succeeds, loads its current editable
+ * content. Never writes to WordPress or the database. Triggered only when
+ * the user explicitly requests it for one page at a time — never run
+ * automatically across every issue on the report.
  */
 export async function prepareFix(
   _prevState: PrepareFixState,
@@ -19,7 +24,7 @@ export async function prepareFix(
   const pageUrl = formData.get('pageUrl') as string | null
 
   if (!websiteId || !pageUrl) {
-    return { status: 'unmapped', reason: 'Missing information for this request.' }
+    return { status: 'unavailable', reason: 'Missing information for this request.' }
   }
 
   // Re-verifies Website Care session + website ownership internally before
@@ -33,7 +38,7 @@ export async function prepareFix(
     }
   }
 
-  return mapWordPressContent(
+  return loadWordPressEditableContent(
     credentials.websiteUrl,
     pageUrl,
     credentials.username,
