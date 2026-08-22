@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { crawlWebsite } from '@/lib/scanner/crawl-website'
+import { calculateHealthScore } from '@/lib/scanner/calculate-health-score'
 
 export async function logout() {
   const supabase = await createClient()
@@ -133,9 +134,11 @@ export async function scanWebsite(
       }
     }
 
+    const healthScore = calculateHealthScore(issueRows, website.url)
+
     const { error: updateError } = await supabase
       .from('scans')
-      .update({ status: 'completed', score: result.overallScore })
+      .update({ status: 'completed', score: healthScore.overall })
       .eq('id', scan.id)
 
     if (updateError) {

@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import ScanWebsiteButton from '@/app/dashboard/scan-website-button'
 import { aggregateIssues, type RawIssueRow } from '@/lib/scanner/aggregate-issues'
+import { calculateHealthScore, type Category } from '@/lib/scanner/calculate-health-score'
 
 type Website = {
   id: string
@@ -40,7 +41,11 @@ const CATEGORY_LABELS: Record<string, string> = {
   technical: 'Technical',
   seo: 'SEO',
   accessibility: 'Accessibility',
+  performance: 'Performance',
+  content: 'Content',
 }
+
+const CATEGORY_ORDER: Category[] = ['seo', 'technical', 'accessibility', 'performance', 'content']
 
 const PRIORITY_BADGE_CLASS: Record<string, string> = {
   Urgent: 'bg-red-100 text-red-700',
@@ -79,6 +84,13 @@ function healthBadgeClass(score: number): string {
   if (score >= 75) return 'bg-emerald-50 text-emerald-700'
   if (score >= 50) return 'bg-yellow-50 text-yellow-700'
   return 'bg-red-50 text-red-700'
+}
+
+function progressBarClass(score: number): string {
+  if (score >= 90) return 'bg-green-500'
+  if (score >= 75) return 'bg-emerald-500'
+  if (score >= 50) return 'bg-yellow-500'
+  return 'bg-red-500'
 }
 
 function formatCategory(type: string): string {
@@ -162,6 +174,13 @@ export default async function WebsiteReportPage(props: PageProps<'/dashboard/web
   const aggregatedIssues = aggregateIssues(issues, website.url)
   const topIssues = aggregatedIssues.slice(0, TOP_ISSUE_COUNT)
 
+  // Always computed live from the latest scan's issues (never read from the
+  // stored scans.score) so legacy scans — created before this scoring model
+  // existed — display correctly without a database rewrite. For scans
+  // created after this change, this matches what scanWebsite stored.
+  const healthScore =
+    latestScan?.status === 'completed' ? calculateHealthScore(issues, website.url) : null
+
   return (
     <div className="mx-auto max-w-3xl px-6 py-10">
       <Link href="/dashboard" className="text-sm text-gray-500 hover:text-gray-700">
@@ -182,12 +201,12 @@ export default async function WebsiteReportPage(props: PageProps<'/dashboard/web
 
           {!latestScan ? (
             <p className="mt-4 text-sm text-gray-500">This website hasn&apos;t been scanned yet.</p>
-          ) : latestScan.status === 'completed' && latestScan.score !== null ? (
+          ) : latestScan.status === 'completed' && healthScore ? (
             <div className="mt-4 flex flex-wrap items-center gap-3">
               <span
-                className={`inline-flex items-center rounded-full px-3 py-1 text-sm font-semibold ${healthBadgeClass(latestScan.score)}`}
+                className={`inline-flex items-center rounded-full px-3 py-1 text-sm font-semibold ${healthBadgeClass(healthScore.overall)}`}
               >
-                {latestScan.score} · {healthLabel(latestScan.score)}
+                {healthScore.overall} · {healthLabel(healthScore.overall)}
               </span>
               <span className="text-sm text-gray-500">
                 Scanned {formatDate(latestScan.created_at)}
@@ -216,6 +235,43 @@ export default async function WebsiteReportPage(props: PageProps<'/dashboard/web
           />
         </div>
       </div>
+
+      {healthScore && (
+        <div className="mt-6 rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
+          <h2 className="text-base font-semibold text-gray-900">Website Health</h2>
+          <div className="mt-2 flex items-baseline gap-2">
+            <span className="text-3xl font-semibold text-gray-900">{healthScore.overall}</span>
+            <span className="text-sm text-gray-500">/ 100</span>
+            <span
+              className={`ml-1 inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${healthBadgeClass(healthScore.overall)}`}
+            >
+              {healthLabel(healthScore.overall)}
+            </span>
+          </div>
+
+          <div className="mt-5 space-y-4">
+            {CATEGORY_ORDER.map((category) => {
+              const score = healthScore.categories[category]
+              return (
+                <div key={category}>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="font-medium text-gray-900">{CATEGORY_LABELS[category]}</span>
+                    <span className="text-gray-500">
+                      {score} / 100 · {healthLabel(score)}
+                    </span>
+                  </div>
+                  <div className="mt-1 h-2 w-full overflow-hidden rounded-full bg-gray-100">
+                    <div
+                      className={`h-full rounded-full ${progressBarClass(score)}`}
+                      style={{ width: `${score}%` }}
+                    />
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
 
       {latestScan?.status === 'completed' && (
         <div className="mt-8">

@@ -35,15 +35,43 @@ function isBlockedHost(hostname: string): boolean {
   return isIP(host) ? isPrivateIp(host) : false
 }
 
+export type RedirectHop = {
+  url: string
+  status: number
+}
+
+export type FetchFailureReason =
+  | 'timeout'
+  | 'blocked'
+  | 'too_many_redirects'
+  | 'redirect_loop'
+  | 'network'
+
 export type FetchPageResult =
-  | { ok: true; html: string; durationMs: number; sizeBytes: number; finalUrl: string }
-  | { ok: false }
+  | {
+      ok: true
+      html: string
+      durationMs: number
+      sizeBytes: number
+      finalUrl: string
+      finalStatus: number
+      redirectChain: RedirectHop[]
+      redirectCount: number
+      xRobotsTag: string | null
+    }
+  | { ok: false; reason: FetchFailureReason }
 
 /**
  * Fetches a page, following redirects manually (rather than via fetch's
  * built-in `redirect: 'follow'`) so every hop can be revalidated against the
  * SSRF hostname guard before it's followed — a same-host page redirecting to
  * an internal address will be rejected instead of silently followed.
+ *
+ * `ok: true` means a real HTTP response was obtained — including error
+ * statuses like 404/403/5xx, which callers should turn into specific issues
+ * rather than a generic "unreachable" one. `ok: false` is reserved for cases
+ * where no valid response exists at all (timeout, network error, blocked
+ * target, an unresolvable redirect chain).
  */
 export async function fetchPage(url: string): Promise<FetchPageResult> {
   const controller = new AbortController()
@@ -52,24 +80,32 @@ export async function fetchPage(url: string): Promise<FetchPageResult> {
 
   try {
     let currentUrl = url
+    const redirectChain: RedirectHop[] = []
+    const seenUrls = new Set<string>()
 
     for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
       let parsed: URL
       try {
         parsed = new URL(currentUrl)
       } catch {
-        return { ok: false }
+        return { ok: false, reason: 'network' }
       }
 
       if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
-        return { ok: false }
+        return { ok: false, reason: 'blocked' }
       }
 
       if (isBlockedHost(parsed.hostname)) {
-        return { ok: false }
+        return { ok: false, reason: 'blocked' }
       }
 
-      const response = await fetch(parsed.toString(), {
+      const normalizedCurrent = parsed.toString()
+      if (seenUrls.has(normalizedCurrent)) {
+        return { ok: false, reason: 'redirect_loop' }
+      }
+      seenUrls.add(normalizedCurrent)
+
+      const response = await fetch(normalizedCurrent, {
         method: 'GET',
         redirect: 'manual',
         signal: controller.signal,
@@ -78,12 +114,14 @@ export async function fetchPage(url: string): Promise<FetchPageResult> {
 
       if (response.status >= 300 && response.status < 400) {
         const location = response.headers.get('location')
-        if (!location) return { ok: false }
+        if (!location) return { ok: false, reason: 'network' }
+
+        redirectChain.push({ url: normalizedCurrent, status: response.status })
 
         try {
           currentUrl = new URL(location, parsed).toString()
         } catch {
-          return { ok: false }
+          return { ok: false, reason: 'network' }
         }
 
         continue
@@ -92,11 +130,6 @@ export async function fetchPage(url: string): Promise<FetchPageResult> {
       // Measured once headers arrive, before reading the body — an
       // approximation of time-to-first-byte rather than full download time.
       const durationMs = Date.now() - startedAt
-
-      if (!response.ok) {
-        return { ok: false }
-      }
-
       const html = await response.text()
 
       return {
@@ -104,13 +137,17 @@ export async function fetchPage(url: string): Promise<FetchPageResult> {
         html,
         durationMs,
         sizeBytes: new TextEncoder().encode(html).length,
-        finalUrl: parsed.toString(),
+        finalUrl: normalizedCurrent,
+        finalStatus: response.status,
+        redirectChain,
+        redirectCount: redirectChain.length,
+        xRobotsTag: response.headers.get('x-robots-tag'),
       }
     }
 
-    return { ok: false }
+    return { ok: false, reason: 'too_many_redirects' }
   } catch {
-    return { ok: false }
+    return { ok: false, reason: controller.signal.aborted ? 'timeout' : 'network' }
   } finally {
     clearTimeout(timeout)
   }
@@ -159,9 +196,20 @@ export function hasImageMissingAlt(html: string): boolean {
   })
 }
 
-export function hasCanonicalTag(html: string): boolean {
+/** Returns the raw href of the <link rel="canonical"> tag, or null if absent/empty. */
+export function getCanonicalHref(html: string): string | null {
   const linkTags = html.match(/<link\b[^>]*>/gi) ?? []
-  return linkTags.some((tag) => /rel\s*=\s*["']canonical["']/i.test(tag))
+
+  for (const tag of linkTags) {
+    if (!/rel\s*=\s*["']canonical["']/i.test(tag)) continue
+
+    const href = tag.match(/href\s*=\s*["']([^"']*)["']/i)
+    if (href && href[1].trim().length > 0) {
+      return href[1].trim()
+    }
+  }
+
+  return null
 }
 
 function hasNonEmptyMetaProperty(html: string, property: string): boolean {
@@ -189,6 +237,23 @@ export function hasLangAttribute(html: string): boolean {
   if (!match) return false
 
   return /\blang\s*=\s*["'][^"']+["']/i.test(match[0])
+}
+
+/** True if <meta name="robots" content="..."> includes "noindex". */
+export function hasNoindexMetaRobots(html: string): boolean {
+  const metaTags = html.match(/<meta\b[^>]*>/gi) ?? []
+
+  return metaTags.some((tag) => {
+    if (!/name\s*=\s*["']robots["']/i.test(tag)) return false
+
+    const content = tag.match(/content\s*=\s*["']([^"']*)["']/i)
+    return !!content && /noindex/i.test(content[1])
+  })
+}
+
+/** True if the X-Robots-Tag response header value includes "noindex". */
+export function hasNoindexXRobotsTag(headerValue: string | null): boolean {
+  return !!headerValue && /noindex/i.test(headerValue)
 }
 
 function hasNonEmptyAriaLabel(openTag: string): boolean {

@@ -138,6 +138,94 @@ export const ISSUE_DEFINITIONS = {
     recommendation:
       'Add more meaningful content to the page so visitors and search engines understand what it offers.',
   },
+  page_not_found: {
+    type: 'technical',
+    severity: 'high',
+    title: 'Page returns 404',
+    recommendation: 'Restore the page or redirect links pointing to it to the most relevant working page.',
+  },
+  page_gone: {
+    type: 'technical',
+    severity: 'high',
+    title: 'Page returns 410',
+    recommendation: 'This page is permanently gone. Set up a 301 redirect to the most relevant working page.',
+  },
+  page_forbidden: {
+    type: 'technical',
+    severity: 'medium',
+    title: 'Page access forbidden',
+    recommendation:
+      'Check server or firewall configuration to confirm this page should be blocked, and fix access rules if not.',
+  },
+  server_error: {
+    type: 'technical',
+    severity: 'critical',
+    title: 'Server error',
+    recommendation: 'Check server logs and hosting configuration to resolve the underlying error.',
+  },
+  page_rate_limited: {
+    type: 'technical',
+    severity: 'medium',
+    title: 'Page is rate limited',
+    recommendation:
+      'Check rate-limiting or bot-protection settings so legitimate requests to this page are not blocked.',
+  },
+  unexpected_status: {
+    type: 'technical',
+    severity: 'medium',
+    title: 'Unexpected HTTP status',
+    recommendation:
+      'Check server logs or hosting configuration to understand why this page returns this status code.',
+  },
+  too_many_redirects: {
+    type: 'technical',
+    severity: 'high',
+    title: 'Too many redirects',
+    recommendation: 'Simplify the redirect chain so this page loads in fewer hops.',
+  },
+  redirect_loop: {
+    type: 'technical',
+    severity: 'high',
+    title: 'Redirect loop detected',
+    recommendation: 'Fix the redirect rules for this URL so it does not redirect back to itself.',
+  },
+  https_downgrade: {
+    type: 'technical',
+    severity: 'high',
+    title: 'HTTPS redirects to insecure HTTP',
+    recommendation: 'Update redirect rules so HTTPS requests never redirect to an insecure HTTP URL.',
+  },
+  long_redirect_chain: {
+    type: 'technical',
+    severity: 'low',
+    title: 'Long redirect chain',
+    recommendation: 'Update links to point directly to the final URL instead of going through multiple redirects.',
+  },
+  noindex: {
+    type: 'seo',
+    severity: 'high',
+    title: 'Page marked noindex',
+    recommendation:
+      'Verify that excluding this page from search results is intentional; remove the noindex directive if not.',
+  },
+  canonical_cross_domain: {
+    type: 'seo',
+    severity: 'medium',
+    title: 'Canonical points to another domain',
+    recommendation: "Verify that pointing this page's canonical to a different domain is intentional.",
+  },
+  canonical_http: {
+    type: 'seo',
+    severity: 'medium',
+    title: 'Canonical uses insecure HTTP',
+    recommendation: 'Update the canonical tag to use the HTTPS version of the URL.',
+  },
+  invalid_canonical: {
+    type: 'seo',
+    severity: 'medium',
+    title: 'Invalid canonical URL',
+    recommendation: 'Fix the canonical tag so it points to a valid, absolute http or https URL.',
+  },
 } as const satisfies Record<string, IssueDefinition>
 
 export function buildIssue(
