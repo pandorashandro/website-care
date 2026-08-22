@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import ScanWebsiteButton from '@/app/dashboard/scan-website-button'
 import { aggregateIssues, type RawIssueRow } from '@/lib/scanner/aggregate-issues'
 import { calculateHealthScore, type Category } from '@/lib/scanner/calculate-health-score'
+import { detectWordPress } from '@/lib/integrations/wordpress/detect-wordpress'
 
 type Website = {
   id: string
@@ -138,6 +139,12 @@ export default async function WebsiteReportPage(props: PageProps<'/dashboard/web
     notFound()
   }
 
+  // Kicked off early so it runs concurrently with the Supabase queries below
+  // rather than adding its ~2-request network latency on top of them. Not
+  // persisted anywhere (no schema change this phase) — recomputed live on
+  // every report render.
+  const wordpressPromise = detectWordPress(website.url)
+
   const { data: latestScan } = await supabase
     .from('scans')
     .select('id, status, score, created_at')
@@ -180,6 +187,8 @@ export default async function WebsiteReportPage(props: PageProps<'/dashboard/web
   // created after this change, this matches what scanWebsite stored.
   const healthScore =
     latestScan?.status === 'completed' ? calculateHealthScore(issues, website.url) : null
+
+  const wordpress = await wordpressPromise
 
   return (
     <div className="mx-auto max-w-3xl px-6 py-10">
@@ -272,6 +281,57 @@ export default async function WebsiteReportPage(props: PageProps<'/dashboard/web
           </div>
         </div>
       )}
+
+      <div className="mt-6 rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
+        <h2 className="text-base font-semibold text-gray-900">Platform</h2>
+
+        {wordpress.status === 'unknown' ? (
+          <p className="mt-2 text-sm text-gray-500">Not confirmed</p>
+        ) : (
+          <>
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <span className="text-lg font-semibold text-gray-900">
+                {wordpress.status === 'confirmed' ? 'WordPress' : 'WordPress likely'}
+              </span>
+              <span
+                className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                  wordpress.status === 'confirmed'
+                    ? 'bg-green-50 text-green-700'
+                    : 'bg-yellow-50 text-yellow-700'
+                }`}
+              >
+                {wordpress.status === 'confirmed' ? 'Detected' : 'Likely'}
+              </span>
+            </div>
+
+            {wordpress.status === 'likely' && (
+              <p className="mt-1 text-sm text-gray-500">We found several WordPress signals.</p>
+            )}
+
+            <dl className="mt-4 space-y-2 text-sm">
+              <div className="flex items-center justify-between">
+                <dt className="text-gray-500">REST API</dt>
+                <dd className="font-medium text-gray-900">
+                  {wordpress.restApiAvailable ? 'Available' : 'Unavailable'}
+                </dd>
+              </div>
+              <div className="flex items-center justify-between">
+                <dt className="text-gray-500">Connection</dt>
+                <dd className="font-medium text-gray-900">Not connected</dd>
+              </div>
+            </dl>
+
+            <button
+              type="button"
+              disabled
+              title="Coming in Phase 13.2"
+              className="mt-4 w-full cursor-not-allowed rounded-md border border-gray-200 px-3 py-2 text-sm font-medium text-gray-400"
+            >
+              Connect WordPress (coming soon)
+            </button>
+          </>
+        )}
+      </div>
 
       {latestScan?.status === 'completed' && (
         <div className="mt-8">
