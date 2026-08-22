@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import ScanWebsiteButton from '@/app/dashboard/scan-website-button'
+import { aggregateIssues, type RawIssueRow } from '@/lib/scanner/aggregate-issues'
 
 type Website = {
   id: string
@@ -17,19 +18,9 @@ type Scan = {
   created_at: string
 }
 
-type Issue = {
-  id: string
-  page_url: string | null
-  type: string
-  severity: string
-  title: string
-  description: string
-  recommendation: string
-}
+type Issue = RawIssueRow & { id: string }
 
 const SEVERITY_DISPLAY_ORDER = ['critical', 'high', 'medium', 'low'] as const
-
-const SEVERITY_ORDER: Record<string, number> = { critical: 0, high: 1, medium: 2, low: 3 }
 
 const SEVERITY_LABELS: Record<string, string> = {
   critical: 'Critical',
@@ -50,6 +41,23 @@ const CATEGORY_LABELS: Record<string, string> = {
   seo: 'SEO',
   accessibility: 'Accessibility',
 }
+
+const PRIORITY_BADGE_CLASS: Record<string, string> = {
+  Urgent: 'bg-red-100 text-red-700',
+  'High Priority': 'bg-orange-100 text-orange-700',
+  'Medium Priority': 'bg-yellow-100 text-yellow-700',
+  'Low Priority': 'bg-gray-100 text-gray-600',
+}
+
+const PRIORITY_BORDER_CLASS: Record<string, string> = {
+  Urgent: 'border-l-red-500',
+  'High Priority': 'border-l-orange-500',
+  'Medium Priority': 'border-l-yellow-500',
+  'Low Priority': 'border-l-gray-300',
+}
+
+const MAX_VISIBLE_AFFECTED_PAGES = 5
+const TOP_ISSUE_COUNT = 3
 
 function formatDate(value: string): string {
   return new Date(value).toLocaleDateString('en-US', {
@@ -136,9 +144,7 @@ export default async function WebsiteReportPage(props: PageProps<'/dashboard/web
       .eq('scan_id', latestScan.id)
       .returns<Issue[]>()
 
-    issues = (issueRows ?? [])
-      .slice()
-      .sort((a, b) => (SEVERITY_ORDER[a.severity] ?? 99) - (SEVERITY_ORDER[b.severity] ?? 99))
+    issues = issueRows ?? []
   }
 
   const severityCounts: Record<string, number> = {}
@@ -152,6 +158,9 @@ export default async function WebsiteReportPage(props: PageProps<'/dashboard/web
   const pageUrlsWithIssues = new Set(
     issues.map((issue) => issue.page_url).filter((url): url is string => !!url)
   )
+
+  const aggregatedIssues = aggregateIssues(issues, website.url)
+  const topIssues = aggregatedIssues.slice(0, TOP_ISSUE_COUNT)
 
   return (
     <div className="mx-auto max-w-3xl px-6 py-10">
@@ -219,7 +228,7 @@ export default async function WebsiteReportPage(props: PageProps<'/dashboard/web
             </div>
           ) : (
             <>
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 {SEVERITY_DISPLAY_ORDER.filter((severity) => severityCounts[severity] > 0).map(
                   (severity) => (
                     <span
@@ -232,10 +241,60 @@ export default async function WebsiteReportPage(props: PageProps<'/dashboard/web
                 )}
               </div>
 
-              <div className="mt-4 space-y-3">
-                {issues.map((issue) => (
+              <p className="mt-2 text-sm text-gray-500">
+                {issues.length} total issue{issues.length === 1 ? '' : 's'} across{' '}
+                {aggregatedIssues.length} unique issue type{aggregatedIssues.length === 1 ? '' : 's'}
+              </p>
+
+              {topIssues.length > 0 && (
+                <div className="mt-6">
+                  <h2 className="text-base font-semibold text-gray-900">Fix These First</h2>
+                  <div className="mt-3 space-y-3">
+                    {topIssues.map((issue, index) => (
+                      <div
+                        key={`${issue.title}|${issue.type}|${issue.severity}`}
+                        className={`flex gap-4 rounded-lg border border-l-4 border-gray-200 bg-white p-4 shadow-sm ${PRIORITY_BORDER_CLASS[issue.priorityLabel]}`}
+                      >
+                        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gray-900 text-xs font-semibold text-white">
+                          {index + 1}
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <h3 className="text-sm font-semibold text-gray-900">{issue.title}</h3>
+                            <span
+                              className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${PRIORITY_BADGE_CLASS[issue.priorityLabel]}`}
+                            >
+                              {issue.priorityLabel}
+                            </span>
+                          </div>
+                          <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-gray-500">
+                            <span>{SEVERITY_LABELS[issue.severity] ?? issue.severity}</span>
+                            <span aria-hidden="true">·</span>
+                            <span>{formatCategory(issue.type)}</span>
+                            <span aria-hidden="true">·</span>
+                            <span>
+                              {issue.affectedPageCount} page{issue.affectedPageCount === 1 ? '' : 's'}{' '}
+                              affected
+                            </span>
+                            {issue.homepageAffected && (
+                              <>
+                                <span aria-hidden="true">·</span>
+                                <span>Includes homepage</span>
+                              </>
+                            )}
+                          </div>
+                          <p className="mt-2 text-sm text-gray-700">{issue.recommendation}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div className="mt-6 space-y-3">
+                {aggregatedIssues.map((issue) => (
                   <div
-                    key={issue.id}
+                    key={`${issue.title}|${issue.type}|${issue.severity}`}
                     className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm"
                   >
                     <div className="flex flex-wrap items-center gap-2">
@@ -249,9 +308,14 @@ export default async function WebsiteReportPage(props: PageProps<'/dashboard/web
                       <span className="inline-flex items-center rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-600">
                         {formatCategory(issue.type)}
                       </span>
-                      <span className="inline-flex items-center rounded-full bg-gray-50 px-2.5 py-0.5 font-mono text-xs text-gray-500">
-                        {formatPageLabel(issue.page_url)}
+                      <span className="inline-flex items-center rounded-full bg-gray-50 px-2.5 py-0.5 text-xs text-gray-500">
+                        {issue.affectedPageCount} page{issue.affectedPageCount === 1 ? '' : 's'} affected
                       </span>
+                      {issue.homepageAffected && (
+                        <span className="inline-flex items-center rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-medium text-blue-600">
+                          Homepage
+                        </span>
+                      )}
                     </div>
 
                     <h3 className="mt-3 text-sm font-semibold text-gray-900">{issue.title}</h3>
@@ -261,6 +325,24 @@ export default async function WebsiteReportPage(props: PageProps<'/dashboard/web
                       <span className="font-medium text-gray-900">Recommended: </span>
                       {issue.recommendation}
                     </p>
+
+                    <div className="mt-3">
+                      <p className="text-xs font-medium uppercase tracking-wide text-gray-400">
+                        Affected pages
+                      </p>
+                      <ul className="mt-1 space-y-0.5">
+                        {issue.affectedPageUrls.slice(0, MAX_VISIBLE_AFFECTED_PAGES).map((pageUrl) => (
+                          <li key={pageUrl} className="truncate font-mono text-xs text-gray-500">
+                            {formatPageLabel(pageUrl)}
+                          </li>
+                        ))}
+                      </ul>
+                      {issue.affectedPageUrls.length > MAX_VISIBLE_AFFECTED_PAGES && (
+                        <p className="mt-1 text-xs text-gray-400">
+                          + {issue.affectedPageUrls.length - MAX_VISIBLE_AFFECTED_PAGES} more
+                        </p>
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>
