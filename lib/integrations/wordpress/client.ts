@@ -136,13 +136,25 @@ export type VerifyWordPressResult =
   | { ok: true; user: WordPressUserInfo }
   | { ok: false; reason: VerifyWordPressReason }
 
-function parseErrorCode(body: string): string {
+/** Parses a WordPress REST API error body for its `code` field (e.g. "incorrect_password"). */
+export function parseErrorCode(body: string): string {
   try {
     const parsed = JSON.parse(body) as { code?: unknown }
     return typeof parsed.code === 'string' ? parsed.code : ''
   } catch {
     return ''
   }
+}
+
+/**
+ * The single endpoint used for both connection verification and capability
+ * inspection — the minimal read-only request that confirms credentials work
+ * and returns the authenticated user's own profile (including, with
+ * context=edit, their capabilities map), without touching any
+ * content-editing or privileged endpoint.
+ */
+export function usersMeEndpoint(websiteUrl: string): string {
+  return `${new URL(websiteUrl).origin}/wp-json/wp/v2/users/me?context=edit`
 }
 
 /**
@@ -156,10 +168,7 @@ export async function verifyWordPressCredentials(
   username: string,
   applicationPassword: string
 ): Promise<VerifyWordPressResult> {
-  const origin = new URL(websiteUrl).origin
-  const endpoint = `${origin}/wp-json/wp/v2/users/me?context=edit`
-
-  const result = await fetchWordPressApi(endpoint, username, applicationPassword)
+  const result = await fetchWordPressApi(usersMeEndpoint(websiteUrl), username, applicationPassword)
 
   if (!result.ok) {
     switch (result.reason) {

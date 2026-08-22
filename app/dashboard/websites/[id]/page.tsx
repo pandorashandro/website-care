@@ -5,6 +5,8 @@ import ScanWebsiteButton from '@/app/dashboard/scan-website-button'
 import { aggregateIssues, type RawIssueRow } from '@/lib/scanner/aggregate-issues'
 import { calculateHealthScore, type Category } from '@/lib/scanner/calculate-health-score'
 import { detectWordPress } from '@/lib/integrations/wordpress/detect-wordpress'
+import type { CapabilityValue, WordPressCapabilities } from '@/lib/integrations/wordpress/capabilities'
+import { getWordPressConnectionSummary } from './wordpress-capabilities'
 import ConnectWordPressButton from './connect-wordpress-button'
 import DisconnectWordPressButton from './disconnect-wordpress-button'
 
@@ -24,9 +26,23 @@ type Scan = {
 
 type Issue = RawIssueRow & { id: string }
 
-type WordPressConnection = {
-  status: string | null
-  wp_display_name: string | null
+const PERMISSION_ROWS: { key: keyof WordPressCapabilities; label: string }[] = [
+  { key: 'canEditPages', label: 'Edit pages' },
+  { key: 'canEditPosts', label: 'Edit posts' },
+  { key: 'canPublishPosts', label: 'Publish content' },
+  { key: 'canUploadMedia', label: 'Upload media' },
+]
+
+const CAPABILITY_LABELS: Record<CapabilityValue, string> = {
+  available: 'Available',
+  unavailable: 'Unavailable',
+  unknown: 'Unknown',
+}
+
+const CAPABILITY_TEXT_CLASS: Record<CapabilityValue, string> = {
+  available: 'font-medium text-green-700',
+  unavailable: 'font-medium text-gray-400',
+  unknown: 'font-medium text-gray-400',
 }
 
 const SEVERITY_DISPLAY_ORDER = ['critical', 'high', 'medium', 'low'] as const
@@ -146,11 +162,13 @@ export default async function WebsiteReportPage(props: PageProps<'/dashboard/web
     notFound()
   }
 
-  // Kicked off early so it runs concurrently with the Supabase queries below
-  // rather than adding its ~2-request network latency on top of them. Not
-  // persisted anywhere (no schema change this phase) — recomputed live on
-  // every report render.
+  // Both kicked off early so they run concurrently with the Supabase queries
+  // below rather than adding their network latency on top of them. Neither
+  // is persisted (no schema change) — both are recomputed live on every
+  // report render. getWordPressConnectionSummary independently re-verifies
+  // session + ownership itself; it does not trust this page's earlier check.
   const wordpressPromise = detectWordPress(website.url)
+  const wordpressConnectionPromise = getWordPressConnectionSummary(website.id)
 
   const { data: latestScan } = await supabase
     .from('scans')
@@ -172,16 +190,6 @@ export default async function WebsiteReportPage(props: PageProps<'/dashboard/web
 
     issues = issueRows ?? []
   }
-
-  // Explicit safe column list — never select encrypted_app_password here.
-  const { data: wordpressConnection } = await supabase
-    .from('wordpress_connections')
-    .select('status, wp_display_name')
-    .eq('website_id', website.id)
-    .maybeSingle()
-    .returns<WordPressConnection>()
-
-  const isWordPressConnected = wordpressConnection?.status === 'connected'
 
   const severityCounts: Record<string, number> = {}
   for (const issue of issues) {
@@ -206,6 +214,7 @@ export default async function WebsiteReportPage(props: PageProps<'/dashboard/web
     latestScan?.status === 'completed' ? calculateHealthScore(issues, website.url) : null
 
   const wordpress = await wordpressPromise
+  const wordpressConnection = await wordpressConnectionPromise
 
   return (
     <div className="mx-auto max-w-3xl px-6 py-10">
@@ -334,19 +343,56 @@ export default async function WebsiteReportPage(props: PageProps<'/dashboard/web
               </div>
               <div className="flex items-center justify-between">
                 <dt className="text-gray-500">Connection</dt>
-                <dd className="font-medium text-gray-900">
-                  {isWordPressConnected ? 'Connected ✓' : 'Not connected'}
+                <dd
+                  className={`font-medium ${
+                    wordpressConnection.connected && !wordpressConnection.connectionValid
+                      ? 'text-yellow-700'
+                      : 'text-gray-900'
+                  }`}
+                >
+                  {!wordpressConnection.connected
+                    ? 'Not connected'
+                    : wordpressConnection.connectionValid
+                      ? 'Connected ✓'
+                      : 'Needs attention'}
                 </dd>
               </div>
-              {isWordPressConnected && wordpressConnection?.wp_display_name && (
-                <div className="flex items-center justify-between">
-                  <dt className="text-gray-500">Connected as</dt>
-                  <dd className="font-medium text-gray-900">{wordpressConnection.wp_display_name}</dd>
-                </div>
-              )}
+              {wordpressConnection.connected &&
+                wordpressConnection.connectionValid &&
+                wordpressConnection.displayName && (
+                  <div className="flex items-center justify-between">
+                    <dt className="text-gray-500">Connected as</dt>
+                    <dd className="font-medium text-gray-900">{wordpressConnection.displayName}</dd>
+                  </div>
+                )}
             </dl>
 
-            {isWordPressConnected ? (
+            {wordpressConnection.connected && !wordpressConnection.connectionValid && (
+              <p className="mt-2 text-sm text-gray-500">
+                Website Care could not verify this WordPress connection. It may need to be
+                reconnected.
+              </p>
+            )}
+
+            {wordpressConnection.connected && wordpressConnection.connectionValid && (
+              <div className="mt-4">
+                <p className="text-xs font-medium uppercase tracking-wide text-gray-400">
+                  Permissions
+                </p>
+                <dl className="mt-2 space-y-1.5 text-sm">
+                  {PERMISSION_ROWS.map(({ key, label }) => (
+                    <div key={key} className="flex items-center justify-between">
+                      <dt className="text-gray-600">{label}</dt>
+                      <dd className={CAPABILITY_TEXT_CLASS[wordpressConnection.capabilities[key]]}>
+                        {CAPABILITY_LABELS[wordpressConnection.capabilities[key]]}
+                      </dd>
+                    </div>
+                  ))}
+                </dl>
+              </div>
+            )}
+
+            {wordpressConnection.connected ? (
               <DisconnectWordPressButton websiteId={website.id} />
             ) : (
               <ConnectWordPressButton websiteId={website.id} />
