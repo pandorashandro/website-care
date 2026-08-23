@@ -62,6 +62,9 @@ export type FixHistoryRecord = {
 
 const RECENT_FIXES_LIMIT = 10
 
+const FIX_HISTORY_COLUMNS =
+  'id, issue_title, page_url, platform, resource_type, resource_id, field, previous_value, applied_value, verification_status, created_at'
+
 /**
  * Read-only, for display in the report's "Recent Fixes" section. Selects an
  * explicit column list (never `select('*')`) and relies on the same
@@ -73,9 +76,7 @@ export async function getRecentFixHistory(websiteId: string): Promise<FixHistory
 
   const { data, error } = await supabase
     .from('fix_history')
-    .select(
-      'id, issue_title, page_url, platform, resource_type, resource_id, field, previous_value, applied_value, verification_status, created_at'
-    )
+    .select(FIX_HISTORY_COLUMNS)
     .eq('website_id', websiteId)
     .order('created_at', { ascending: false })
     .limit(RECENT_FIXES_LIMIT)
@@ -83,4 +84,52 @@ export async function getRecentFixHistory(websiteId: string): Promise<FixHistory
 
   if (error || !data) return []
   return data
+}
+
+/**
+ * Loads exactly one fix_history row, scoped to BOTH its id and the given
+ * (already ownership-verified) website — a row belonging to a different
+ * website can never be returned, regardless of what id is requested. Used as
+ * the trusted source of truth for rollback: the browser may only ever
+ * reference a history row by opaque id, never supply the restore value,
+ * resource id, or resource type directly.
+ */
+export async function getFixHistoryRowForRollback(
+  websiteId: string,
+  fixHistoryId: string
+): Promise<FixHistoryRecord | null> {
+  const supabase = await createClient()
+
+  const { data, error } = await supabase
+    .from('fix_history')
+    .select(FIX_HISTORY_COLUMNS)
+    .eq('id', fixHistoryId)
+    .eq('website_id', websiteId)
+    .maybeSingle()
+    .returns<FixHistoryRecord>()
+
+  if (error || !data) return null
+  return data
+}
+
+/**
+ * Shape-only rollback eligibility, independent of current WordPress state.
+ * This is the single source of truth for "can this row even be considered
+ * for rollback" — used both to decide whether the UI shows an Undo button
+ * and, authoritatively, as the server-side gate before any rollback write is
+ * attempted, so the two can never drift apart. A null previous_value is
+ * deliberately treated as ineligible: it is ambiguous whether it represents
+ * a genuinely empty title (safe to restore) or a title that simply couldn't
+ * be read from WordPress at fix time (unsafe to guess), so it is left
+ * unsupported rather than guessed at.
+ */
+export function isRollbackEligibleByShape(
+  row: Pick<FixHistoryRecord, 'platform' | 'field' | 'resource_type' | 'resource_id' | 'previous_value'>
+): boolean {
+  if (row.platform !== 'wordpress') return false
+  if (row.field !== 'title') return false
+  if (row.resource_type !== 'page' && row.resource_type !== 'post') return false
+  if (typeof row.resource_id !== 'number') return false
+  if (row.previous_value === null) return false
+  return true
 }
