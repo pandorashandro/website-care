@@ -14,7 +14,7 @@ export type TitleProposalOutcome = { ok: true; proposedValue: string } | { ok: f
 const MIN_TARGET_LENGTH = 30
 const MAX_LENGTH = 60
 
-function stripToPlainText(value: string): string {
+export function stripToPlainText(value: string): string {
   return value
     .replace(/<[^>]*>/g, ' ')
     .replace(/\s+/g, ' ')

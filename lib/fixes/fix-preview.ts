@@ -51,6 +51,17 @@ export function classifyIssueForFixPreview(issueTitle: string): FixSupport {
   return 'unsupported'
 }
 
+/**
+ * Resolves an issue title to its specific title-fix kind for the write
+ * path (applyFix), so the apply action never has to re-derive or duplicate
+ * this mapping itself. Returns null for anything outside the three
+ * supported title issues — the only fixes this application is ever allowed
+ * to write to WordPress.
+ */
+export function getTitleIssueKind(issueTitle: string): TitleIssueKind | null {
+  return TITLE_ISSUE_KIND[issueTitle] ?? null
+}
+
 function buildTitleFixPreview(
   issueTitle: string,
   content: Extract<WordPressEditableContentResult, { status: 'loaded' }>,

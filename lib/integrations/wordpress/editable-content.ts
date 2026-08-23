@@ -34,7 +34,7 @@ function mappingFailureToContentResult(
  * editable text from rendered HTML — if `.raw` is missing or not a string,
  * the field is reported as unavailable (null) rather than guessed.
  */
-function extractRaw(field: unknown): string | null {
+export function extractRaw(field: unknown): string | null {
   if (!field || typeof field !== 'object') return null
   const raw = (field as Record<string, unknown>).raw
   return typeof raw === 'string' ? raw : null

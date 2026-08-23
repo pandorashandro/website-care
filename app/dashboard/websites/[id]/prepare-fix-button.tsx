@@ -1,9 +1,10 @@
 'use client'
 
 import { useActionState, useState } from 'react'
-import { prepareFix, type PrepareFixState } from './wordpress-fix-actions'
+import { prepareFix, applyFix, type PrepareFixState, type ApplyFixState } from './wordpress-fix-actions'
 
-const initialState: PrepareFixState = null
+const initialPrepareState: PrepareFixState = null
+const initialApplyState: ApplyFixState = null
 
 export default function PrepareFixButton({
   websiteId,
@@ -16,16 +17,26 @@ export default function PrepareFixButton({
   pageLabel: string
   issueTitle: string
 }) {
-  const [state, formAction, pending] = useActionState(prepareFix, initialState)
+  const [state, formAction, pending] = useActionState(prepareFix, initialPrepareState)
+  const [applyState, applyFormAction, applyPending] = useActionState(applyFix, initialApplyState)
   const [dismissed, setDismissed] = useState(false)
   const [handledState, setHandledState] = useState(state)
+  const [applyStateVisible, setApplyStateVisible] = useState(false)
+  const [handledApplyState, setHandledApplyState] = useState(applyState)
 
   if (state !== handledState) {
     setHandledState(state)
     setDismissed(false) // a fresh result should always be shown, even if a previous one was dismissed
+    setApplyStateVisible(false) // a fresh prepare result hides any stale apply outcome from a previous attempt
+  }
+
+  if (applyState !== handledApplyState) {
+    setHandledApplyState(applyState)
+    setApplyStateVisible(true) // a fresh apply result is always shown
   }
 
   const visibleState = dismissed ? null : state
+  const visibleApplyState = applyStateVisible ? applyState : null
 
   return (
     <div className="mt-3">
@@ -73,15 +84,33 @@ export default function PrepareFixButton({
               >
                 Cancel
               </button>
-              <button
-                type="button"
-                disabled
-                title="Applying fixes is coming in a future phase."
-                className="cursor-not-allowed rounded-md border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-400"
-              >
-                Apply Fix — coming next
-              </button>
+              <form action={applyFormAction}>
+                <input type="hidden" name="websiteId" value={websiteId} />
+                <input type="hidden" name="pageUrl" value={pageUrl} />
+                <input type="hidden" name="issueTitle" value={issueTitle} />
+                <input type="hidden" name="expectedCurrentValue" value={visibleState.currentValue ?? ''} />
+                <input type="hidden" name="expectedProposedValue" value={visibleState.proposedValue} />
+                <button
+                  type="submit"
+                  disabled={applyPending}
+                  className="rounded-md border border-blue-300 bg-blue-50 px-3 py-1.5 text-xs font-medium text-blue-700 hover:bg-blue-100 disabled:opacity-50"
+                >
+                  {applyPending ? 'Applying…' : 'Apply Fix'}
+                </button>
+              </form>
             </div>
+
+            {visibleApplyState && (
+              <p
+                className={`mt-3 text-xs ${
+                  visibleApplyState.status === 'success' ? 'text-green-700' : 'text-red-600'
+                }`}
+              >
+                {visibleApplyState.status === 'success'
+                  ? `Fix applied successfully ✓ WordPress title updated to: “${visibleApplyState.title}”`
+                  : visibleApplyState.reason}
+              </p>
+            )}
           </div>
         ) : (
           <p className="mt-2 text-xs text-gray-600">{visibleState.reason}</p>

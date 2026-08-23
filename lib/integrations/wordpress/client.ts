@@ -11,6 +11,7 @@ export type WordPressApiFailureReason =
   | 'cross_host_redirect'
   | 'too_many_redirects'
   | 'https_required'
+  | 'redirect_not_allowed'
 
 export type WordPressApiResult =
   | { ok: true; status: number; body: string }
@@ -29,8 +30,11 @@ export type WordPressApiResult =
 export async function fetchWordPressApi(
   url: string,
   username: string,
-  applicationPassword: string
+  applicationPassword: string,
+  options?: { method?: 'GET' | 'POST'; body?: string }
 ): Promise<WordPressApiResult> {
+  const method = options?.method ?? 'GET'
+
   let parsed: URL
   try {
     parsed = new URL(url)
@@ -68,17 +72,27 @@ export async function fetchWordPressApi(
       seenUrls.add(normalizedCurrent)
 
       const response = await fetch(normalizedCurrent, {
-        method: 'GET',
+        method,
         redirect: 'manual',
         signal: controller.signal,
         headers: {
           Authorization: authorizationHeader,
           Accept: 'application/json',
+          ...(method === 'POST' ? { 'Content-Type': 'application/json' } : {}),
           'User-Agent': 'Mozilla/5.0 (compatible; WebsiteCareBot/1.0)',
         },
+        ...(method === 'POST' && options?.body !== undefined ? { body: options.body } : {}),
       })
 
       if (response.status >= 300 && response.status < 400) {
+        // Never follow a redirect for a write request — re-sending
+        // credentials and a payload to a different location on trust is
+        // unsafe, and a well-formed REST update endpoint shouldn't redirect
+        // in the first place. Only GET requests may follow redirects.
+        if (method !== 'GET') {
+          return { ok: false, reason: 'redirect_not_allowed' }
+        }
+
         const location = response.headers.get('location')
         if (!location) return { ok: false, reason: 'network' }
 
