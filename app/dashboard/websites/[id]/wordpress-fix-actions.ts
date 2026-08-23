@@ -5,6 +5,8 @@ import { loadWordPressEditableContent } from '@/lib/integrations/wordpress/edita
 import { checkWordPressCapabilities } from '@/lib/integrations/wordpress/capabilities'
 import { updateWordPressTitle } from '@/lib/integrations/wordpress/write-title'
 import { verifyTitleFix, type TitleFixVerification } from '@/lib/fixes/verify-title-fix'
+import { signPreviewToken, verifyPreviewToken } from '@/lib/fixes/preview-token'
+import { generateTitleRecommendation } from '@/lib/ai/title-recommendation'
 import { getConnectedWordPressCredentials } from './wordpress-credentials'
 import { recordFixHistory } from './fix-history'
 import {
@@ -12,8 +14,8 @@ import {
   classifyIssueForFixPreview,
   getTitleIssueKind,
   type FixPreview,
+  type ResolvedTitleProposal,
 } from '@/lib/fixes/fix-preview'
-import { generateTitleProposal } from '@/lib/fixes/title-preview'
 
 export type PrepareFixState = FixPreview | null
 
@@ -22,9 +24,18 @@ export type PrepareFixState = FixPreview | null
  * 'unsupported' immediately — no credentials touched, no WordPress request
  * made. For supported (title / meta-description) issues, maps the scanned
  * page URL fresh, loads the exact editable resource, and — only for title
- * issues — generates a deterministic Current -> Proposed preview. Never
- * writes to WordPress or the database. Triggered only when the user
- * explicitly requests it for one page at a time.
+ * issues — attempts an AI-assisted title recommendation (falling back to
+ * the existing deterministic proposal on any AI failure or invalid output)
+ * before composing the Current -> Proposed preview. Never writes to
+ * WordPress or the database. Triggered only when the user explicitly
+ * requests it for one page at a time — at most one AI request per click.
+ *
+ * A 'ready' result carries a server-signed previewToken (see
+ * lib/fixes/preview-token.ts) that tamper-evidently records exactly what
+ * was previewed — website, page, issue, current value, and the approved
+ * proposed value. Apply Fix trusts only this token, never a plain
+ * client-submitted proposed value, which is what makes it safe to offer a
+ * non-reproducible AI-generated proposal at all.
  */
 export async function prepareFix(
   _prevState: PrepareFixState,
@@ -60,7 +71,70 @@ export async function prepareFix(
     credentials.applicationPassword
   )
 
-  return buildFixPreview(issueTitle, content, credentials.websiteName)
+  let resolvedProposal: ResolvedTitleProposal | undefined
+
+  if (content.status === 'loaded' && classifyIssueForFixPreview(issueTitle) === 'title') {
+    const issueKind = getTitleIssueKind(issueTitle)
+
+    if (issueKind) {
+      let pagePath = content.permalink
+      try {
+        pagePath = new URL(content.permalink).pathname
+      } catch {
+        // Keep the permalink itself if it's somehow unparsable — still safe, just less minimal.
+      }
+
+      // The only AI call in the codebase. Only page content/identity is
+      // sent — never credentials, never unrelated account data. Falls back
+      // internally (never throws) on any provider failure or invalid output.
+      const recommendation = await generateTitleRecommendation({
+        currentTitle: content.title,
+        slug: content.slug,
+        pagePath,
+        websiteName: credentials.websiteName,
+        resourceType: content.resourceType,
+        issueKind,
+        rawContent: content.content,
+      })
+
+      if (recommendation.status === 'generated') {
+        resolvedProposal = {
+          proposedValue: recommendation.proposedTitle,
+          explanation: recommendation.explanation,
+          source: 'ai',
+        }
+      }
+      // On 'fallback', resolvedProposal stays undefined — buildFixPreview's
+      // own existing deterministic path below runs exactly as before.
+    }
+  }
+
+  const preview = buildFixPreview(issueTitle, content, credentials.websiteName, resolvedProposal)
+
+  if (preview.status !== 'ready') {
+    return preview
+  }
+
+  let previewToken: string
+  try {
+    previewToken = signPreviewToken({
+      websiteId,
+      pageUrl,
+      issueTitle,
+      expectedCurrentValue: preview.currentValue ?? '',
+      proposedValue: preview.proposedValue,
+    })
+  } catch {
+    // FIX_PREVIEW_SIGNING_KEY missing/malformed — without it Apply Fix
+    // cannot be trusted, so no preview is offered rather than risk one that
+    // can't later be safely approved.
+    return {
+      status: 'unavailable',
+      reason: 'Website Care could not prepare this fix right now. Please try again shortly.',
+    }
+  }
+
+  return { ...preview, previewToken }
 }
 
 export type ApplyFixState =
@@ -75,14 +149,13 @@ export type ApplyFixState =
 
 /**
  * Applies a previously-previewed title fix to WordPress. This is the only
- * write path in the codebase. Nothing the browser submits is trusted as the
- * value or location to write to — `resourceId`, the REST base, and the
- * proposed title are all re-derived server-side from scratch, exactly as if
- * Prepare Fix had never run. `expectedCurrentValue`/`expectedProposedValue`
- * are used ONLY as staleness checks against what is freshly reloaded here;
- * if either has drifted since the preview was shown, the write is aborted
- * and the user is asked to prepare the fix again rather than risk writing
- * something the user never actually saw confirmed.
+ * write path in the codebase. The browser submits ONLY the opaque
+ * previewToken — website, page, issue, expected current value, and the
+ * exact approved proposed value are all extracted from the verified,
+ * signed token, never trusted as separate plain form fields. A tampered or
+ * expired token is rejected outright before any WordPress or database
+ * access. Ownership is still re-verified fresh on every request regardless
+ * of what the token claims.
  *
  * After a successful write, a separate targeted PUBLIC-page verification
  * runs (see verifyTitleFix) to check whether the fix actually took effect on
@@ -91,31 +164,36 @@ export type ApplyFixState =
  * reported as two independent facts.
  */
 export async function applyFix(_prevState: ApplyFixState, formData: FormData): Promise<ApplyFixState> {
-  const websiteId = formData.get('websiteId') as string | null
-  const pageUrl = formData.get('pageUrl') as string | null
-  const issueTitle = formData.get('issueTitle') as string | null
-  const expectedCurrentValue = formData.get('expectedCurrentValue')
-  const expectedProposedValue = formData.get('expectedProposedValue')
+  const previewToken = formData.get('previewToken') as string | null
 
-  if (
-    !websiteId ||
-    !pageUrl ||
-    !issueTitle ||
-    typeof expectedCurrentValue !== 'string' ||
-    typeof expectedProposedValue !== 'string'
-  ) {
+  if (!previewToken) {
     return { writeStatus: 'failed', reason: 'Missing information for this request.' }
   }
 
+  const verified = verifyPreviewToken(previewToken)
+
+  if (!verified.ok) {
+    return {
+      writeStatus: 'failed',
+      reason:
+        verified.reason === 'expired'
+          ? 'This fix preview has expired. Please prepare the fix again.'
+          : 'This fix preview could not be verified. Please prepare the fix again.',
+    }
+  }
+
+  const { websiteId, pageUrl, issueTitle, expectedCurrentValue, proposedValue } = verified.payload
+
   // Only the three supported title issues may ever reach a write. This is
-  // re-checked independently of whatever the Prepare Fix step showed.
+  // re-checked independently of whatever the signed token claims.
   const issueKind = getTitleIssueKind(issueTitle)
   if (!issueKind) {
     return { writeStatus: 'failed', reason: 'This fix type is not supported.' }
   }
 
   // Re-verifies Website Care session + website ownership internally before
-  // ever touching wordpress_connections — never trusts the form's websiteId alone.
+  // ever touching wordpress_connections — never trusts the token's
+  // websiteId as proof the current session may act on it.
   const credentials = await getConnectedWordPressCredentials(websiteId)
 
   if (!credentials.ok) {
@@ -162,36 +240,13 @@ export async function applyFix(_prevState: ApplyFixState, formData: FormData): P
     }
   }
 
-  // Stale-preview protection (1/2): compare the freshly-reloaded current
-  // title against what the client last saw. A missing/null title is
+  // Stale-preview protection: compare the freshly-reloaded current title
+  // against the token's expected current value. A missing/null title is
   // represented as '' on both sides so the comparison stays deterministic.
   if ((content.title ?? '') !== expectedCurrentValue) {
     return {
       writeStatus: 'failed',
       reason: 'This page has changed in WordPress since the fix was prepared. Please prepare the fix again.',
-    }
-  }
-
-  // The proposal is regenerated from scratch here — the client's proposed
-  // value is never trusted as the value to write.
-  const proposal = generateTitleProposal(issueKind, {
-    currentTitle: content.title,
-    slug: content.slug,
-    websiteName: credentials.websiteName,
-  })
-
-  if (!proposal.ok) {
-    return { writeStatus: 'failed', reason: proposal.reason }
-  }
-
-  // Stale-preview protection (2/2): if the freshly-regenerated proposal no
-  // longer matches what the client last saw (e.g. the website's own name
-  // changed), treat it as stale too rather than silently writing something
-  // different from what was confirmed on screen.
-  if (proposal.proposedValue !== expectedProposedValue) {
-    return {
-      writeStatus: 'failed',
-      reason: 'The proposed fix has changed since it was prepared. Please prepare the fix again.',
     }
   }
 
@@ -202,7 +257,7 @@ export async function applyFix(_prevState: ApplyFixState, formData: FormData): P
     restBase,
     content.resourceId,
     content.permalink,
-    proposal.proposedValue,
+    proposedValue,
     credentials.username,
     credentials.applicationPassword
   )

@@ -13,6 +13,10 @@ export type FixPreview =
       currentValue: string | null
       proposedValue: string
       explanation: string
+      /** 'ai' when an AI-generated title passed validation; 'deterministic' for the existing rule-based proposal (including whenever AI was unavailable/invalid). */
+      source: 'ai' | 'deterministic'
+      /** Opaque, server-signed record of exactly this proposal — see lib/fixes/preview-token.ts. Required to Apply; never parsed or trusted client-side. */
+      previewToken: string
     }
   | { status: 'unsupported'; reason: string }
   | { status: 'unavailable'; reason: string }
@@ -62,21 +66,36 @@ export function getTitleIssueKind(issueTitle: string): TitleIssueKind | null {
   return TITLE_ISSUE_KIND[issueTitle] ?? null
 }
 
+/** A proposal already resolved by the caller (e.g. an AI recommendation, or the deterministic engine run ahead of time) — see prepareFix. */
+export type ResolvedTitleProposal = {
+  proposedValue: string
+  explanation: string
+  source: 'ai' | 'deterministic'
+}
+
 function buildTitleFixPreview(
   issueTitle: string,
   content: Extract<WordPressEditableContentResult, { status: 'loaded' }>,
-  websiteName: string | null
+  websiteName: string | null,
+  resolvedProposal?: ResolvedTitleProposal
 ): FixPreview {
-  const issueKind = TITLE_ISSUE_KIND[issueTitle]
+  let resolved: ResolvedTitleProposal
 
-  const proposal = generateTitleProposal(issueKind, {
-    currentTitle: content.title,
-    slug: content.slug,
-    websiteName,
-  })
+  if (resolvedProposal) {
+    resolved = resolvedProposal
+  } else {
+    const issueKind = TITLE_ISSUE_KIND[issueTitle]
+    const proposal = generateTitleProposal(issueKind, {
+      currentTitle: content.title,
+      slug: content.slug,
+      websiteName,
+    })
 
-  if (!proposal.ok) {
-    return { status: 'unavailable', reason: proposal.reason }
+    if (!proposal.ok) {
+      return { status: 'unavailable', reason: proposal.reason }
+    }
+
+    resolved = { proposedValue: proposal.proposedValue, explanation: TITLE_EXPLANATION, source: 'deterministic' }
   }
 
   return {
@@ -87,21 +106,29 @@ function buildTitleFixPreview(
     permalink: content.permalink,
     field: 'title',
     currentValue: content.title,
-    proposedValue: proposal.proposedValue,
-    explanation: TITLE_EXPLANATION,
+    proposedValue: resolved.proposedValue,
+    explanation: resolved.explanation,
+    source: resolved.source,
+    // Attached by the caller (prepareFix) once the final proposal is known —
+    // signing requires the server-only preview-token module, which this
+    // otherwise-pure composition module deliberately does not depend on.
+    previewToken: '',
   }
 }
 
 /**
  * Composes the final Current -> Proposed preview (or a safe unsupported /
  * unavailable explanation) from already-loaded editable WordPress content.
- * Pure and network-free itself — all WordPress I/O happens before this is
- * called, via the existing (unmodified) mapping/content-loading flow.
+ * Pure and network-free itself — all WordPress I/O (and any AI call) happens
+ * before this is called. Callers that already resolved a title proposal
+ * (e.g. prepareFix, after trying AI) pass it via `resolvedProposal`;
+ * omitting it preserves the original deterministic-only behavior.
  */
 export function buildFixPreview(
   issueTitle: string,
   content: WordPressEditableContentResult,
-  websiteName: string | null
+  websiteName: string | null,
+  resolvedProposal?: ResolvedTitleProposal
 ): FixPreview {
   if (content.status !== 'loaded') {
     return { status: 'unavailable', reason: content.reason }
@@ -117,5 +144,5 @@ export function buildFixPreview(
     return { status: 'unsupported', reason: GENERIC_UNSUPPORTED_REASON }
   }
 
-  return buildTitleFixPreview(issueTitle, content, websiteName)
+  return buildTitleFixPreview(issueTitle, content, websiteName, resolvedProposal)
 }

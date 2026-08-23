@@ -128,7 +128,12 @@ export default function PrepareFixButton({
               )}
             </p>
 
-            <p className="mt-2 text-xs font-medium text-gray-500">Proposed</p>
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <p className="text-xs font-medium text-gray-500">Suggested</p>
+              <span className="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-medium text-gray-500">
+                {visibleState.source === 'ai' ? 'AI-assisted suggestion' : 'Standard suggestion'}
+              </span>
+            </div>
             <p className="text-sm text-gray-900">{`“${visibleState.proposedValue}”`}</p>
 
             <p className="mt-2 text-xs text-gray-500">{visibleState.explanation}</p>
@@ -142,11 +147,7 @@ export default function PrepareFixButton({
                 Cancel
               </button>
               <form action={applyFormAction}>
-                <input type="hidden" name="websiteId" value={websiteId} />
-                <input type="hidden" name="pageUrl" value={pageUrl} />
-                <input type="hidden" name="issueTitle" value={issueTitle} />
-                <input type="hidden" name="expectedCurrentValue" value={visibleState.currentValue ?? ''} />
-                <input type="hidden" name="expectedProposedValue" value={visibleState.proposedValue} />
+                <input type="hidden" name="previewToken" value={visibleState.previewToken} />
                 <button
                   type="submit"
                   disabled={applyPending}
