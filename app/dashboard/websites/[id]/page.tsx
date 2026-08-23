@@ -11,6 +11,7 @@ import { evaluateFixability, type FixabilityLevel } from '@/lib/fixes/fixability
 import ConnectWordPressButton from './connect-wordpress-button'
 import DisconnectWordPressButton from './disconnect-wordpress-button'
 import PrepareFixButton from './prepare-fix-button'
+import RecentFixes from './recent-fixes'
 
 type Website = {
   id: string
@@ -430,6 +431,8 @@ export default async function WebsiteReportPage(props: PageProps<'/dashboard/web
           </>
         )}
       </div>
+
+      <RecentFixes websiteId={website.id} />
 
       {latestScan?.status === 'completed' && (
         <div className="mt-8">

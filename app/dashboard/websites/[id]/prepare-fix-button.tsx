@@ -169,6 +169,12 @@ export default function PrepareFixButton({
                     Verification
                   </p>
                   <VerificationResult verification={visibleApplyState.verification} />
+
+                  {visibleApplyState.historyStatus === 'failed' && (
+                    <p className="mt-3 text-xs text-amber-700">
+                      Fix applied, but Website Care could not save the audit record.
+                    </p>
+                  )}
                 </div>
               ) : (
                 <p className="mt-3 text-xs text-red-600">{visibleApplyState.reason}</p>

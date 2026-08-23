@@ -6,6 +6,7 @@ import { checkWordPressCapabilities } from '@/lib/integrations/wordpress/capabil
 import { updateWordPressTitle } from '@/lib/integrations/wordpress/write-title'
 import { verifyTitleFix, type TitleFixVerification } from '@/lib/fixes/verify-title-fix'
 import { getConnectedWordPressCredentials } from './wordpress-credentials'
+import { recordFixHistory } from './fix-history'
 import {
   buildFixPreview,
   classifyIssueForFixPreview,
@@ -63,7 +64,12 @@ export async function prepareFix(
 }
 
 export type ApplyFixState =
-  | { writeStatus: 'success'; appliedTitle: string; verification: TitleFixVerification }
+  | {
+      writeStatus: 'success'
+      appliedTitle: string
+      verification: TitleFixVerification
+      historyStatus: 'saved' | 'failed'
+    }
   | { writeStatus: 'failed'; reason: string }
   | null
 
@@ -216,7 +222,22 @@ export async function applyFix(_prevState: ApplyFixState, formData: FormData): P
     previousValue: content.title,
   })
 
+  // Recorded regardless of verification outcome — even 'unavailable' is a
+  // real applied change and must be auditable. websiteId is already
+  // ownership-verified (getConnectedWordPressCredentials succeeded above),
+  // and every other value here is server-derived, never taken from the form.
+  const historyStatus = await recordFixHistory({
+    websiteId,
+    issueTitle,
+    pageUrl: content.permalink,
+    resourceType: content.resourceType,
+    resourceId: content.resourceId,
+    previousValue: content.title,
+    appliedValue: updateResult.title,
+    verificationStatus: verification.status,
+  })
+
   revalidatePath(`/dashboard/websites/${websiteId}`)
 
-  return { writeStatus: 'success', appliedTitle: updateResult.title, verification }
+  return { writeStatus: 'success', appliedTitle: updateResult.title, verification, historyStatus }
 }
