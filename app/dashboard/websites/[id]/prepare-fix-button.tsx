@@ -2,9 +2,66 @@
 
 import { useActionState, useState } from 'react'
 import { prepareFix, applyFix, type PrepareFixState, type ApplyFixState } from './wordpress-fix-actions'
+import type { TitleFixVerification } from '@/lib/fixes/verify-title-fix'
 
 const initialPrepareState: PrepareFixState = null
 const initialApplyState: ApplyFixState = null
+
+/**
+ * A successful WordPress write and a verified public fix are separate
+ * facts — this only ever labels the verification outcome, and never claims
+ * "Issue resolved" unless status is exactly 'verified'.
+ */
+function VerificationResult({ verification }: { verification: TitleFixVerification }) {
+  if (verification.status === 'verified') {
+    return (
+      <div className="mt-1">
+        <p className="text-xs font-medium text-green-700">Verified ✓</p>
+        <p className="mt-1 text-xs text-gray-600">The public page now reflects the fix.</p>
+      </div>
+    )
+  }
+
+  if (verification.status === 'pending') {
+    return (
+      <div className="mt-1">
+        <p className="text-xs font-medium text-amber-700">Pending</p>
+        <p className="mt-1 text-xs text-gray-600">
+          The public page is still serving the previous title. This may be caused by caching.
+        </p>
+      </div>
+    )
+  }
+
+  if (verification.status === 'mismatch') {
+    return (
+      <div className="mt-1">
+        <p className="text-xs font-medium text-amber-700">Needs attention</p>
+        <p className="mt-1 text-xs text-gray-600">
+          WordPress accepted the title update, but the public page is displaying a different title.
+        </p>
+      </div>
+    )
+  }
+
+  if (verification.status === 'still_detected') {
+    return (
+      <div className="mt-1">
+        <p className="text-xs font-medium text-amber-700">Needs attention</p>
+        <p className="mt-1 text-xs text-gray-600">
+          The public page does not yet reflect a title that resolves the original issue.
+        </p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="mt-1">
+      <p className="text-xs font-medium text-gray-500">Could not verify</p>
+      <p className="mt-1 text-xs text-gray-600">Website Care could not safely check the public page right now.</p>
+    </div>
+  )
+}
 
 export default function PrepareFixButton({
   websiteId,
@@ -100,17 +157,22 @@ export default function PrepareFixButton({
               </form>
             </div>
 
-            {visibleApplyState && (
-              <p
-                className={`mt-3 text-xs ${
-                  visibleApplyState.status === 'success' ? 'text-green-700' : 'text-red-600'
-                }`}
-              >
-                {visibleApplyState.status === 'success'
-                  ? `Fix applied successfully ✓ WordPress title updated to: “${visibleApplyState.title}”`
-                  : visibleApplyState.reason}
-              </p>
-            )}
+            {visibleApplyState &&
+              (visibleApplyState.writeStatus === 'success' ? (
+                <div className="mt-3 border-t border-gray-200 pt-3">
+                  <p className="text-xs font-medium text-green-700">Fix applied successfully ✓</p>
+                  <p className="mt-1 text-xs text-gray-600">
+                    {`WordPress title updated to: “${visibleApplyState.appliedTitle}”`}
+                  </p>
+
+                  <p className="mt-3 text-xs font-semibold uppercase tracking-wide text-gray-400">
+                    Verification
+                  </p>
+                  <VerificationResult verification={visibleApplyState.verification} />
+                </div>
+              ) : (
+                <p className="mt-3 text-xs text-red-600">{visibleApplyState.reason}</p>
+              ))}
           </div>
         ) : (
           <p className="mt-2 text-xs text-gray-600">{visibleState.reason}</p>

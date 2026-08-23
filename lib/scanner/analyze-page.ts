@@ -18,6 +18,7 @@ import {
 } from './checks'
 import { buildIssue, type ScanIssue } from './issue-definitions'
 import { normalizeUrl } from './url-utils'
+import { classifyTitleLength } from './title-rules'
 
 export type PageScanResult = {
   /** The queued/normalized URL — used to identify this page (e.g. as issues.page_url). */
@@ -69,8 +70,6 @@ const DEDUCTIONS = {
   invalidCanonical: 8,
 } as const
 
-const TITLE_MIN_LENGTH = 30
-const TITLE_MAX_LENGTH = 60
 const META_DESCRIPTION_MIN_LENGTH = 70
 const META_DESCRIPTION_MAX_LENGTH = 160
 const SLOW_RESPONSE_MS = 3000
@@ -234,22 +233,23 @@ export async function analyzePage(url: string): Promise<PageScanResult> {
   }
 
   const titleText = getTitleText(html)
-  if (!titleText) {
+  const titleLengthStatus = classifyTitleLength(titleText)
+  if (titleLengthStatus === 'missing') {
     issues.push(buildIssue('missing_title', 'This page is missing a page title.'))
     score -= DEDUCTIONS.missingTitle
-  } else if (titleText.length < TITLE_MIN_LENGTH) {
+  } else if (titleLengthStatus === 'too_short') {
     issues.push(
       buildIssue(
         'title_too_short',
-        `The page title is only ${titleText.length} characters, which is too short to describe the page well.`
+        `The page title is only ${titleText!.length} characters, which is too short to describe the page well.`
       )
     )
     score -= DEDUCTIONS.titleTooShort
-  } else if (titleText.length > TITLE_MAX_LENGTH) {
+  } else if (titleLengthStatus === 'too_long') {
     issues.push(
       buildIssue(
         'title_too_long',
-        `The page title is ${titleText.length} characters, which may get cut off in search results.`
+        `The page title is ${titleText!.length} characters, which may get cut off in search results.`
       )
     )
     score -= DEDUCTIONS.titleTooLong

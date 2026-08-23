@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { loadWordPressEditableContent } from '@/lib/integrations/wordpress/editable-content'
 import { checkWordPressCapabilities } from '@/lib/integrations/wordpress/capabilities'
 import { updateWordPressTitle } from '@/lib/integrations/wordpress/write-title'
+import { verifyTitleFix, type TitleFixVerification } from '@/lib/fixes/verify-title-fix'
 import { getConnectedWordPressCredentials } from './wordpress-credentials'
 import {
   buildFixPreview,
@@ -62,8 +63,8 @@ export async function prepareFix(
 }
 
 export type ApplyFixState =
-  | { status: 'success'; title: string }
-  | { status: 'failed'; reason: string }
+  | { writeStatus: 'success'; appliedTitle: string; verification: TitleFixVerification }
+  | { writeStatus: 'failed'; reason: string }
   | null
 
 /**
@@ -76,6 +77,12 @@ export type ApplyFixState =
  * if either has drifted since the preview was shown, the write is aborted
  * and the user is asked to prepare the fix again rather than risk writing
  * something the user never actually saw confirmed.
+ *
+ * After a successful write, a separate targeted PUBLIC-page verification
+ * runs (see verifyTitleFix) to check whether the fix actually took effect on
+ * the live site. A verification outcome other than 'verified' never means
+ * the WordPress write itself failed — writeStatus and verification are
+ * reported as two independent facts.
  */
 export async function applyFix(_prevState: ApplyFixState, formData: FormData): Promise<ApplyFixState> {
   const websiteId = formData.get('websiteId') as string | null
@@ -91,14 +98,14 @@ export async function applyFix(_prevState: ApplyFixState, formData: FormData): P
     typeof expectedCurrentValue !== 'string' ||
     typeof expectedProposedValue !== 'string'
   ) {
-    return { status: 'failed', reason: 'Missing information for this request.' }
+    return { writeStatus: 'failed', reason: 'Missing information for this request.' }
   }
 
   // Only the three supported title issues may ever reach a write. This is
   // re-checked independently of whatever the Prepare Fix step showed.
   const issueKind = getTitleIssueKind(issueTitle)
   if (!issueKind) {
-    return { status: 'failed', reason: 'This fix type is not supported.' }
+    return { writeStatus: 'failed', reason: 'This fix type is not supported.' }
   }
 
   // Re-verifies Website Care session + website ownership internally before
@@ -107,7 +114,7 @@ export async function applyFix(_prevState: ApplyFixState, formData: FormData): P
 
   if (!credentials.ok) {
     return {
-      status: 'failed',
+      writeStatus: 'failed',
       reason: 'WordPress is not connected (or the connection needs attention) for this website.',
     }
   }
@@ -123,7 +130,7 @@ export async function applyFix(_prevState: ApplyFixState, formData: FormData): P
   )
 
   if (content.status !== 'loaded') {
-    return { status: 'failed', reason: content.reason }
+    return { writeStatus: 'failed', reason: content.reason }
   }
 
   // Capability gating is resource-type-specific now that the exact resource
@@ -136,7 +143,7 @@ export async function applyFix(_prevState: ApplyFixState, formData: FormData): P
   )
 
   if (!capabilityResult.connectionValid) {
-    return { status: 'failed', reason: 'WordPress access has been revoked for this connection.' }
+    return { writeStatus: 'failed', reason: 'WordPress access has been revoked for this connection.' }
   }
 
   const requiredCapability =
@@ -144,7 +151,7 @@ export async function applyFix(_prevState: ApplyFixState, formData: FormData): P
 
   if (requiredCapability !== 'available') {
     return {
-      status: 'failed',
+      writeStatus: 'failed',
       reason: 'The connected WordPress account does not have permission to edit this content.',
     }
   }
@@ -154,7 +161,7 @@ export async function applyFix(_prevState: ApplyFixState, formData: FormData): P
   // represented as '' on both sides so the comparison stays deterministic.
   if ((content.title ?? '') !== expectedCurrentValue) {
     return {
-      status: 'failed',
+      writeStatus: 'failed',
       reason: 'This page has changed in WordPress since the fix was prepared. Please prepare the fix again.',
     }
   }
@@ -168,7 +175,7 @@ export async function applyFix(_prevState: ApplyFixState, formData: FormData): P
   })
 
   if (!proposal.ok) {
-    return { status: 'failed', reason: proposal.reason }
+    return { writeStatus: 'failed', reason: proposal.reason }
   }
 
   // Stale-preview protection (2/2): if the freshly-regenerated proposal no
@@ -177,7 +184,7 @@ export async function applyFix(_prevState: ApplyFixState, formData: FormData): P
   // different from what was confirmed on screen.
   if (proposal.proposedValue !== expectedProposedValue) {
     return {
-      status: 'failed',
+      writeStatus: 'failed',
       reason: 'The proposed fix has changed since it was prepared. Please prepare the fix again.',
     }
   }
@@ -195,10 +202,21 @@ export async function applyFix(_prevState: ApplyFixState, formData: FormData): P
   )
 
   if (updateResult.status !== 'success') {
-    return { status: 'failed', reason: updateResult.reason }
+    return { writeStatus: 'failed', reason: updateResult.reason }
   }
+
+  // Exactly one targeted public verification attempt — no retries, no
+  // polling. Runs only after the WordPress write is already confirmed
+  // successful, and fetches the PUBLIC page (never the authenticated
+  // WordPress REST API), so it never carries any WordPress credential.
+  const verification = await verifyTitleFix({
+    pageUrl: content.permalink,
+    originalIssueKind: issueKind,
+    expectedAppliedTitle: updateResult.title,
+    previousValue: content.title,
+  })
 
   revalidatePath(`/dashboard/websites/${websiteId}`)
 
-  return { status: 'success', title: updateResult.title }
+  return { writeStatus: 'success', appliedTitle: updateResult.title, verification }
 }
