@@ -2,6 +2,7 @@ import { ISSUE_DEFINITIONS } from '@/lib/scanner/issue-definitions'
 import type { WordPressEditableContentResult } from '@/lib/integrations/wordpress/editable-content'
 import type { SeoMetadataProviderResult } from '@/lib/integrations/wordpress/seo-provider'
 import { generateTitleProposal, type TitleIssueKind } from './title-preview'
+import type { MetaDescriptionIssueKind } from '@/lib/ai/meta-description-recommendation'
 
 export type FixPreview =
   | {
@@ -19,6 +20,28 @@ export type FixPreview =
       /** Opaque, server-signed record of exactly this proposal — see lib/fixes/preview-token.ts. Required to Apply; never parsed or trusted client-side. */
       previewToken: string
     }
+  /**
+   * Read-only preview for a meta-description recommendation (Phase 15.2B).
+   * Always AI-sourced — there is no deterministic fallback engine for meta
+   * descriptions. Deliberately has NO Apply capability yet: previewToken is
+   * still issued (see lib/fixes/preview-token.ts's meta-description token)
+   * so Phase 15.2C's Apply flow can start consuming it without prepareFix
+   * changing again, but nothing in this phase reads or trusts it for a write.
+   */
+  | {
+      status: 'ready'
+      issueTitle: string
+      resourceType: 'page' | 'post'
+      resourceId: number
+      permalink: string
+      field: 'meta_description'
+      provider: 'yoast' | 'rank_math'
+      currentValue: string | null
+      proposedValue: string
+      explanation: string
+      source: 'ai'
+      previewToken: string
+    }
   /** Read-only SEO-provider diagnostic for meta-description issues — never writable yet, so there is deliberately no proposedValue/previewToken here. */
   | { status: 'diagnostic'; field: 'meta_description'; provider: SeoMetadataProviderResult }
   | { status: 'unsupported'; reason: string }
@@ -33,11 +56,14 @@ const TITLE_ISSUE_KIND: Record<string, TitleIssueKind> = {
   [ISSUE_DEFINITIONS.title_too_long.title]: 'too_long',
 }
 
-const META_DESCRIPTION_ISSUE_TITLES = new Set<string>([
-  ISSUE_DEFINITIONS.missing_meta_description.title,
-  ISSUE_DEFINITIONS.meta_description_too_short.title,
-  ISSUE_DEFINITIONS.meta_description_too_long.title,
-])
+/** References the scanner's own fixed meta-description strings rather than re-hardcoding them — mirrors TITLE_ISSUE_KIND above. */
+const META_DESCRIPTION_ISSUE_KIND: Record<string, MetaDescriptionIssueKind> = {
+  [ISSUE_DEFINITIONS.missing_meta_description.title]: 'missing',
+  [ISSUE_DEFINITIONS.meta_description_too_short.title]: 'too_short',
+  [ISSUE_DEFINITIONS.meta_description_too_long.title]: 'too_long',
+}
+
+const META_DESCRIPTION_ISSUE_TITLES = new Set<string>(Object.keys(META_DESCRIPTION_ISSUE_KIND))
 
 const GENERIC_UNSUPPORTED_REASON = 'Preview not available yet for this fix type.'
 
@@ -67,6 +93,11 @@ export function classifyIssueForFixPreview(issueTitle: string): FixSupport {
  */
 export function getTitleIssueKind(issueTitle: string): TitleIssueKind | null {
   return TITLE_ISSUE_KIND[issueTitle] ?? null
+}
+
+/** Resolves an issue title to its specific meta-description-fix kind, mirroring getTitleIssueKind. Returns null for anything outside the three supported meta-description issues. */
+export function getMetaDescriptionIssueKind(issueTitle: string): MetaDescriptionIssueKind | null {
+  return META_DESCRIPTION_ISSUE_KIND[issueTitle] ?? null
 }
 
 /** A proposal already resolved by the caller (e.g. an AI recommendation, or the deterministic engine run ahead of time) — see prepareFix. */
@@ -127,6 +158,37 @@ function buildTitleFixPreview(
  */
 export function buildMetaDescriptionDiagnostic(provider: SeoMetadataProviderResult): FixPreview {
   return { status: 'diagnostic', field: 'meta_description', provider }
+}
+
+/**
+ * Assembles a ready-to-show (but not-yet-writable) meta-description
+ * preview from an already-resolved AI recommendation and an already
+ * confirmed writable provider mapping. Pure — the AI call and provider
+ * detection both happen in the caller (prepareFix).
+ */
+export function buildMetaDescriptionReadyPreview(params: {
+  issueTitle: string
+  content: Extract<WordPressEditableContentResult, { status: 'loaded' }>
+  provider: 'yoast' | 'rank_math'
+  currentValue: string | null
+  proposedValue: string
+  explanation: string
+  previewToken: string
+}): FixPreview {
+  return {
+    status: 'ready',
+    issueTitle: params.issueTitle,
+    resourceType: params.content.resourceType,
+    resourceId: params.content.resourceId,
+    permalink: params.content.permalink,
+    field: 'meta_description',
+    provider: params.provider,
+    currentValue: params.currentValue,
+    proposedValue: params.proposedValue,
+    explanation: params.explanation,
+    source: 'ai',
+    previewToken: params.previewToken,
+  }
 }
 
 /**

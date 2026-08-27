@@ -135,3 +135,128 @@ export function verifyPreviewToken(token: string): VerifiedPreviewToken {
     payload: { websiteId, pageUrl, issueTitle, expectedCurrentValue, proposedValue, expiresAt },
   }
 }
+
+// ---------------------------------------------------------------------------
+// Meta-description preview tokens (Phase 15.2B)
+//
+// A deliberately separate token "kind" rather than a change to the title
+// token above: same signing key, same HMAC-SHA256 primitive, same TTL — but
+// its own version tag (META_TOKEN_VERSION) baked into the signed string, so
+// a meta-description token can never be parsed as, or confused with, a
+// title token (or vice versa), and nothing about the existing title
+// sign/verify functions changes. No Apply action consumes this token yet
+// (Phase 15.2B is read-only) — it exists so Phase 15.2C's Apply flow can
+// start consuming it without prepareFix needing to change again.
+// ---------------------------------------------------------------------------
+
+const META_TOKEN_VERSION = 'meta-v1'
+
+export type MetaDescriptionPreviewTokenPayload = {
+  websiteId: string
+  pageUrl: string
+  issueTitle: string
+  field: 'meta_description'
+  provider: 'yoast' | 'rank_math'
+  /** The exact provider-registered field this would write to in a future phase — never chosen by the client or the AI. */
+  writeField: string
+  /** '' represents a missing/empty current meta description, matching the title token's convention. */
+  expectedCurrentValue: string
+  proposedValue: string
+  expiresAt: number
+}
+
+function canonicalMetaBody(payload: MetaDescriptionPreviewTokenPayload): string {
+  return JSON.stringify([
+    META_TOKEN_VERSION,
+    payload.websiteId,
+    payload.pageUrl,
+    payload.issueTitle,
+    payload.field,
+    payload.provider,
+    payload.writeField,
+    payload.expectedCurrentValue,
+    payload.proposedValue,
+    payload.expiresAt,
+  ])
+}
+
+export function signMetaDescriptionPreviewToken(
+  payload: Omit<MetaDescriptionPreviewTokenPayload, 'expiresAt'>
+): string {
+  const full: MetaDescriptionPreviewTokenPayload = { ...payload, expiresAt: Date.now() + TOKEN_TTL_MS }
+  const body = Buffer.from(canonicalMetaBody(full), 'utf8').toString('base64url')
+  const signature = createHmac('sha256', getSigningKey()).update(body).digest('base64url')
+  return `${META_TOKEN_VERSION}.${body}.${signature}`
+}
+
+export type VerifiedMetaDescriptionPreviewToken =
+  | { ok: true; payload: MetaDescriptionPreviewTokenPayload }
+  | { ok: false; reason: 'malformed' | 'invalid_signature' | 'expired' }
+
+export function verifyMetaDescriptionPreviewToken(token: string): VerifiedMetaDescriptionPreviewToken {
+  const parts = token.split('.')
+
+  if (parts.length !== 3 || parts[0] !== META_TOKEN_VERSION) {
+    return { ok: false, reason: 'malformed' }
+  }
+
+  const [, body, signature] = parts
+
+  let expectedSignature: string
+  try {
+    expectedSignature = createHmac('sha256', getSigningKey()).update(body).digest('base64url')
+  } catch {
+    return { ok: false, reason: 'malformed' }
+  }
+
+  let signatureBuf: Buffer
+  let expectedBuf: Buffer
+  try {
+    signatureBuf = Buffer.from(signature, 'base64url')
+    expectedBuf = Buffer.from(expectedSignature, 'base64url')
+  } catch {
+    return { ok: false, reason: 'malformed' }
+  }
+
+  if (signatureBuf.length !== expectedBuf.length || !timingSafeEqual(signatureBuf, expectedBuf)) {
+    return { ok: false, reason: 'invalid_signature' }
+  }
+
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(Buffer.from(body, 'base64url').toString('utf8'))
+  } catch {
+    return { ok: false, reason: 'malformed' }
+  }
+
+  if (!Array.isArray(parsed) || parsed.length !== 10) {
+    return { ok: false, reason: 'malformed' }
+  }
+
+  const [version, websiteId, pageUrl, issueTitle, field, provider, writeField, expectedCurrentValue, proposedValue, expiresAt] =
+    parsed
+
+  if (
+    version !== META_TOKEN_VERSION ||
+    typeof websiteId !== 'string' ||
+    typeof pageUrl !== 'string' ||
+    typeof issueTitle !== 'string' ||
+    field !== 'meta_description' ||
+    (provider !== 'yoast' && provider !== 'rank_math') ||
+    typeof writeField !== 'string' ||
+    typeof expectedCurrentValue !== 'string' ||
+    typeof proposedValue !== 'string' ||
+    typeof expiresAt !== 'number'
+  ) {
+    return { ok: false, reason: 'malformed' }
+  }
+
+  if (Date.now() > expiresAt) {
+    return { ok: false, reason: 'expired' }
+  }
+
+  return {
+    ok: true,
+    payload: { websiteId, pageUrl, issueTitle, field, provider, writeField, expectedCurrentValue, proposedValue, expiresAt },
+  }
+}

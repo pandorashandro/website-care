@@ -19,6 +19,7 @@ import {
 import { buildIssue, type ScanIssue } from './issue-definitions'
 import { normalizeUrl } from './url-utils'
 import { classifyTitleLength } from './title-rules'
+import { classifyMetaDescriptionLength } from './meta-description-rules'
 
 export type PageScanResult = {
   /** The queued/normalized URL — used to identify this page (e.g. as issues.page_url). */
@@ -70,8 +71,6 @@ const DEDUCTIONS = {
   invalidCanonical: 8,
 } as const
 
-const META_DESCRIPTION_MIN_LENGTH = 70
-const META_DESCRIPTION_MAX_LENGTH = 160
 const SLOW_RESPONSE_MS = 3000
 const MAX_HTML_BYTES = 1_048_576 // 1 MiB
 const MIN_VISIBLE_TEXT_LENGTH = 300
@@ -256,24 +255,25 @@ export async function analyzePage(url: string): Promise<PageScanResult> {
   }
 
   const metaDescription = getMetaDescriptionContent(html)
-  if (!metaDescription) {
+  const metaDescriptionLengthStatus = classifyMetaDescriptionLength(metaDescription)
+  if (metaDescriptionLengthStatus === 'missing') {
     issues.push(
       buildIssue('missing_meta_description', 'This page is missing a meta description.')
     )
     score -= DEDUCTIONS.missingMetaDescription
-  } else if (metaDescription.length < META_DESCRIPTION_MIN_LENGTH) {
+  } else if (metaDescriptionLengthStatus === 'too_short') {
     issues.push(
       buildIssue(
         'meta_description_too_short',
-        `The meta description is only ${metaDescription.length} characters, which is too brief for search results.`
+        `The meta description is only ${metaDescription!.length} characters, which is too brief for search results.`
       )
     )
     score -= DEDUCTIONS.metaDescriptionTooShort
-  } else if (metaDescription.length > META_DESCRIPTION_MAX_LENGTH) {
+  } else if (metaDescriptionLengthStatus === 'too_long') {
     issues.push(
       buildIssue(
         'meta_description_too_long',
-        `The meta description is ${metaDescription.length} characters, which may get cut off in search results.`
+        `The meta description is ${metaDescription!.length} characters, which may get cut off in search results.`
       )
     )
     score -= DEDUCTIONS.metaDescriptionTooLong

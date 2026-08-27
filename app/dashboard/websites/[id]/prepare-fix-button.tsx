@@ -2,7 +2,9 @@
 
 import { useActionState, useState } from 'react'
 import { prepareFix, applyFix, type PrepareFixState, type ApplyFixState } from './wordpress-fix-actions'
+import { applyMetaDescriptionFix, type ApplyMetaDescriptionFixState } from './wordpress-meta-fix-actions'
 import type { TitleFixVerification } from '@/lib/fixes/verify-title-fix'
+import type { MetaDescriptionFixVerification } from '@/lib/fixes/verify-meta-description-fix'
 import type { SeoMetadataProviderResult } from '@/lib/integrations/wordpress/seo-provider'
 
 const SEO_PROVIDER_LABELS: Record<string, string> = {
@@ -37,7 +39,7 @@ function SeoProviderDiagnostic({ provider }: { provider: SeoMetadataProviderResu
     <div className="mt-2 max-w-sm rounded-md border border-gray-200 bg-gray-50 p-3">
       <p className="text-xs font-medium text-gray-500">SEO provider</p>
       <p className="text-sm text-gray-900">Not confirmed</p>
-      <p className="mt-2 text-xs text-gray-500">Website Care cannot safely map this meta description yet.</p>
+      <p className="mt-2 text-xs text-gray-500">{provider.reason}</p>
     </div>
   )
 }
@@ -101,6 +103,60 @@ function VerificationResult({ verification }: { verification: TitleFixVerificati
   )
 }
 
+/** Same labeling philosophy as VerificationResult, for meta descriptions. */
+function MetaDescriptionVerificationResult({ verification }: { verification: MetaDescriptionFixVerification }) {
+  if (verification.status === 'verified') {
+    return (
+      <div className="mt-1">
+        <p className="text-xs font-medium text-green-700">Verified ✓</p>
+        <p className="mt-1 text-xs text-gray-600">The public page now reflects the fix.</p>
+      </div>
+    )
+  }
+
+  if (verification.status === 'pending') {
+    return (
+      <div className="mt-1">
+        <p className="text-xs font-medium text-amber-700">Pending</p>
+        <p className="mt-1 text-xs text-gray-600">
+          The public page is still serving the previous meta description. This may be caused by caching.
+        </p>
+      </div>
+    )
+  }
+
+  if (verification.status === 'mismatch') {
+    return (
+      <div className="mt-1">
+        <p className="text-xs font-medium text-amber-700">Needs attention</p>
+        <p className="mt-1 text-xs text-gray-600">
+          WordPress accepted the update, but the public page is displaying a different meta description.
+        </p>
+      </div>
+    )
+  }
+
+  if (verification.status === 'still_detected') {
+    return (
+      <div className="mt-1">
+        <p className="text-xs font-medium text-amber-700">Needs attention</p>
+        <p className="mt-1 text-xs text-gray-600">
+          The public page does not yet reflect a meta description that resolves the original issue.
+        </p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="mt-1">
+      <p className="text-xs font-medium text-gray-500">Could not verify</p>
+      <p className="mt-1 text-xs text-gray-600">Website Care could not safely check the public page right now.</p>
+    </div>
+  )
+}
+
+const initialApplyMetaDescriptionState: ApplyMetaDescriptionFixState = null
+
 export default function PrepareFixButton({
   websiteId,
   pageUrl,
@@ -114,15 +170,22 @@ export default function PrepareFixButton({
 }) {
   const [state, formAction, pending] = useActionState(prepareFix, initialPrepareState)
   const [applyState, applyFormAction, applyPending] = useActionState(applyFix, initialApplyState)
+  const [applyMetaState, applyMetaFormAction, applyMetaPending] = useActionState(
+    applyMetaDescriptionFix,
+    initialApplyMetaDescriptionState
+  )
   const [dismissed, setDismissed] = useState(false)
   const [handledState, setHandledState] = useState(state)
   const [applyStateVisible, setApplyStateVisible] = useState(false)
   const [handledApplyState, setHandledApplyState] = useState(applyState)
+  const [applyMetaStateVisible, setApplyMetaStateVisible] = useState(false)
+  const [handledApplyMetaState, setHandledApplyMetaState] = useState(applyMetaState)
 
   if (state !== handledState) {
     setHandledState(state)
     setDismissed(false) // a fresh result should always be shown, even if a previous one was dismissed
     setApplyStateVisible(false) // a fresh prepare result hides any stale apply outcome from a previous attempt
+    setApplyMetaStateVisible(false)
   }
 
   if (applyState !== handledApplyState) {
@@ -130,8 +193,14 @@ export default function PrepareFixButton({
     setApplyStateVisible(true) // a fresh apply result is always shown
   }
 
+  if (applyMetaState !== handledApplyMetaState) {
+    setHandledApplyMetaState(applyMetaState)
+    setApplyMetaStateVisible(true)
+  }
+
   const visibleState = dismissed ? null : state
   const visibleApplyState = applyStateVisible ? applyState : null
+  const visibleApplyMetaState = applyMetaStateVisible ? applyMetaState : null
 
   return (
     <div className="mt-3">
@@ -153,6 +222,13 @@ export default function PrepareFixButton({
         (visibleState.status === 'ready' ? (
           <div className="mt-2 max-w-sm rounded-md border border-gray-200 bg-gray-50 p-3">
             <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">Fix Preview</p>
+
+            {visibleState.field === 'meta_description' && (
+              <>
+                <p className="mt-2 text-xs font-medium text-gray-500">SEO provider</p>
+                <p className="text-sm text-gray-900">{SEO_PROVIDER_LABELS[visibleState.provider] ?? visibleState.provider}</p>
+              </>
+            )}
 
             <p className="mt-2 text-xs font-medium text-gray-500">Current</p>
             {/* Plain JSX text interpolation only — React escapes this by
@@ -176,48 +252,97 @@ export default function PrepareFixButton({
 
             <p className="mt-2 text-xs text-gray-500">{visibleState.explanation}</p>
 
-            <div className="mt-3 flex gap-2">
-              <button
-                type="button"
-                onClick={() => setDismissed(true)}
-                className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50"
-              >
-                Cancel
-              </button>
-              <form action={applyFormAction}>
-                <input type="hidden" name="previewToken" value={visibleState.previewToken} />
-                <button
-                  type="submit"
-                  disabled={applyPending}
-                  className="rounded-md border border-blue-300 bg-blue-50 px-3 py-1.5 text-xs font-medium text-blue-700 hover:bg-blue-100 disabled:opacity-50"
-                >
-                  {applyPending ? 'Applying…' : 'Apply Fix'}
-                </button>
-              </form>
-            </div>
-
-            {visibleApplyState &&
-              (visibleApplyState.writeStatus === 'success' ? (
-                <div className="mt-3 border-t border-gray-200 pt-3">
-                  <p className="text-xs font-medium text-green-700">Fix applied successfully ✓</p>
-                  <p className="mt-1 text-xs text-gray-600">
-                    {`WordPress title updated to: “${visibleApplyState.appliedTitle}”`}
-                  </p>
-
-                  <p className="mt-3 text-xs font-semibold uppercase tracking-wide text-gray-400">
-                    Verification
-                  </p>
-                  <VerificationResult verification={visibleApplyState.verification} />
-
-                  {visibleApplyState.historyStatus === 'failed' && (
-                    <p className="mt-3 text-xs text-amber-700">
-                      Fix applied, but Website Care could not save the audit record.
-                    </p>
-                  )}
+            {visibleState.field === 'title' ? (
+              <>
+                <div className="mt-3 flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setDismissed(true)}
+                    className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50"
+                  >
+                    Cancel
+                  </button>
+                  <form action={applyFormAction}>
+                    <input type="hidden" name="previewToken" value={visibleState.previewToken} />
+                    <button
+                      type="submit"
+                      disabled={applyPending}
+                      className="rounded-md border border-blue-300 bg-blue-50 px-3 py-1.5 text-xs font-medium text-blue-700 hover:bg-blue-100 disabled:opacity-50"
+                    >
+                      {applyPending ? 'Applying…' : 'Apply Fix'}
+                    </button>
+                  </form>
                 </div>
-              ) : (
-                <p className="mt-3 text-xs text-red-600">{visibleApplyState.reason}</p>
-              ))}
+
+                {visibleApplyState &&
+                  (visibleApplyState.writeStatus === 'success' ? (
+                    <div className="mt-3 border-t border-gray-200 pt-3">
+                      <p className="text-xs font-medium text-green-700">Fix applied successfully ✓</p>
+                      <p className="mt-1 text-xs text-gray-600">
+                        {`WordPress title updated to: “${visibleApplyState.appliedTitle}”`}
+                      </p>
+
+                      <p className="mt-3 text-xs font-semibold uppercase tracking-wide text-gray-400">
+                        Verification
+                      </p>
+                      <VerificationResult verification={visibleApplyState.verification} />
+
+                      {visibleApplyState.historyStatus === 'failed' && (
+                        <p className="mt-3 text-xs text-amber-700">
+                          Fix applied, but Website Care could not save the audit record.
+                        </p>
+                      )}
+                    </div>
+                  ) : (
+                    <p className="mt-3 text-xs text-red-600">{visibleApplyState.reason}</p>
+                  ))}
+              </>
+            ) : (
+              <>
+                <div className="mt-3 flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setDismissed(true)}
+                    className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50"
+                  >
+                    Cancel
+                  </button>
+                  <form action={applyMetaFormAction}>
+                    <input type="hidden" name="previewToken" value={visibleState.previewToken} />
+                    <button
+                      type="submit"
+                      disabled={applyMetaPending}
+                      className="rounded-md border border-blue-300 bg-blue-50 px-3 py-1.5 text-xs font-medium text-blue-700 hover:bg-blue-100 disabled:opacity-50"
+                    >
+                      {applyMetaPending ? 'Applying…' : 'Apply Fix'}
+                    </button>
+                  </form>
+                </div>
+
+                {visibleApplyMetaState &&
+                  (visibleApplyMetaState.writeStatus === 'success' ? (
+                    <div className="mt-3 border-t border-gray-200 pt-3">
+                      <p className="text-xs font-medium text-green-700">Fix applied successfully ✓</p>
+                      <p className="mt-1 text-xs text-gray-600">
+                        {`Meta description updated to: “${visibleApplyMetaState.appliedMetaDescription}”`}
+                      </p>
+
+                      <p className="mt-3 text-xs font-semibold uppercase tracking-wide text-gray-400">
+                        Verification
+                      </p>
+                      <MetaDescriptionVerificationResult verification={visibleApplyMetaState.verification} />
+
+                      {visibleApplyMetaState.historyStatus === 'failed' && (
+                        <p className="mt-3 text-xs text-amber-700">
+                          Fix applied, but Website Care could not save the audit record.
+                        </p>
+                      )}
+                    </div>
+                  ) : (
+                    <p className="mt-3 text-xs text-red-600">{visibleApplyMetaState.reason}</p>
+                  ))}
+              </>
+            )}
           </div>
         ) : visibleState.status === 'diagnostic' ? (
           <SeoProviderDiagnostic provider={visibleState.provider} />

@@ -1,5 +1,6 @@
 import { getRecentFixHistory, isRollbackEligibleByShape } from './fix-history'
 import UndoFixButton from './undo-fix-button'
+import UndoMetaFixButton from './undo-meta-fix-button'
 
 const VERIFICATION_LABELS: Record<string, string> = {
   verified: 'Verified',
@@ -82,8 +83,17 @@ export default async function RecentFixes({ websiteId }: { websiteId: string }) 
 
             <p className="mt-2 text-xs text-gray-400">{formatDateTime(fix.created_at)}</p>
 
-            {isRollbackEligibleByShape(fix) && (
+            {isRollbackEligibleByShape(fix) && fix.field === 'title' && (
               <UndoFixButton
+                websiteId={websiteId}
+                fixHistoryId={fix.id}
+                previousValue={fix.previous_value ?? ''}
+                appliedValue={fix.applied_value}
+              />
+            )}
+
+            {isRollbackEligibleByShape(fix) && fix.field === 'meta_description' && (
+              <UndoMetaFixButton
                 websiteId={websiteId}
                 fixHistoryId={fix.id}
                 previousValue={fix.previous_value ?? ''}

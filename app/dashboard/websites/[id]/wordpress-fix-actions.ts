@@ -5,15 +5,18 @@ import { loadWordPressEditableContent } from '@/lib/integrations/wordpress/edita
 import { checkWordPressCapabilities } from '@/lib/integrations/wordpress/capabilities'
 import { updateWordPressTitle } from '@/lib/integrations/wordpress/write-title'
 import { verifyTitleFix, type TitleFixVerification } from '@/lib/fixes/verify-title-fix'
-import { signPreviewToken, verifyPreviewToken } from '@/lib/fixes/preview-token'
+import { signPreviewToken, verifyPreviewToken, signMetaDescriptionPreviewToken } from '@/lib/fixes/preview-token'
 import { generateTitleRecommendation } from '@/lib/ai/title-recommendation'
+import { generateMetaDescriptionRecommendation } from '@/lib/ai/meta-description-recommendation'
 import { detectSeoMetadataProvider } from '@/lib/integrations/wordpress/seo-provider'
 import { getConnectedWordPressCredentials } from './wordpress-credentials'
 import { recordFixHistory } from './fix-history'
 import {
   buildFixPreview,
   buildMetaDescriptionDiagnostic,
+  buildMetaDescriptionReadyPreview,
   classifyIssueForFixPreview,
+  getMetaDescriptionIssueKind,
   getTitleIssueKind,
   type FixPreview,
   type ResolvedTitleProposal,
@@ -82,7 +85,7 @@ export async function prepareFix(
 
     // Read-only SEO-provider diagnostic: at most one extra GET request
     // (namespace discovery) beyond the resource load above — see
-    // seo-provider.ts. Never writable yet; no previewToken is issued.
+    // seo-provider.ts.
     const providerResult = await detectSeoMetadataProvider(
       credentials.websiteUrl,
       content,
@@ -90,7 +93,82 @@ export async function prepareFix(
       credentials.applicationPassword
     )
 
-    return buildMetaDescriptionDiagnostic(providerResult)
+    // AI is only ever attempted when provider detection confirms a
+    // writable, resource-tied field on a supported provider (Yoast or Rank
+    // Math). AIOSEO, unknown, none, and detected-but-unwritable all stop
+    // here with a customer-safe diagnostic — no AI call, no previewToken.
+    if (
+      providerResult.status !== 'detected' ||
+      !providerResult.writable ||
+      !providerResult.writeStrategy ||
+      (providerResult.provider !== 'yoast' && providerResult.provider !== 'rank_math')
+    ) {
+      return buildMetaDescriptionDiagnostic(providerResult)
+    }
+
+    const issueKind = getMetaDescriptionIssueKind(issueTitle)
+    if (!issueKind) {
+      return { status: 'unsupported', reason: 'Preview not available yet for this fix type.' }
+    }
+
+    let pagePath = content.permalink
+    try {
+      pagePath = new URL(content.permalink).pathname
+    } catch {
+      // Keep the permalink itself if it's somehow unparsable.
+    }
+
+    // The only AI call for meta descriptions, and at most one per Prepare
+    // Fix click. Only page content/identity is sent — no credentials, no
+    // resource id, no unrelated account data.
+    const recommendation = await generateMetaDescriptionRecommendation({
+      currentMetaDescription: providerResult.currentMetaDescription,
+      currentTitle: content.title,
+      slug: content.slug,
+      pagePath,
+      websiteName: credentials.websiteName,
+      issueKind,
+      rawContent: content.content,
+    })
+
+    if (recommendation.status !== 'generated') {
+      // Intentionally more conservative than title fallback: there is no
+      // deterministic meta-description generator to fall back to, so an AI
+      // failure here means no usable preview at all — never fabricated.
+      return {
+        status: 'unavailable',
+        reason: recommendation.explanation,
+      }
+    }
+
+    let metaPreviewToken: string
+    try {
+      metaPreviewToken = signMetaDescriptionPreviewToken({
+        websiteId,
+        pageUrl,
+        issueTitle,
+        field: 'meta_description',
+        provider: providerResult.provider,
+        writeField: providerResult.writeStrategy.type === 'resource_meta' ? providerResult.writeStrategy.field : '',
+        expectedCurrentValue: providerResult.currentMetaDescription ?? '',
+        proposedValue: recommendation.proposedMetaDescription,
+      })
+    } catch {
+      return {
+        status: 'unavailable',
+        reason: 'Website Care could not prepare this fix right now. Please try again shortly.',
+      }
+    }
+
+    return buildMetaDescriptionReadyPreview({
+      issueTitle,
+      content,
+      provider: providerResult.provider,
+      currentValue: providerResult.currentMetaDescription,
+      proposedValue: recommendation.proposedMetaDescription,
+      explanation: recommendation.explanation,
+      previewToken: metaPreviewToken,
+    })
   }
 
   let resolvedProposal: ResolvedTitleProposal | undefined
@@ -309,6 +387,7 @@ export async function applyFix(_prevState: ApplyFixState, formData: FormData): P
     pageUrl: content.permalink,
     resourceType: content.resourceType,
     resourceId: content.resourceId,
+    field: 'title',
     previousValue: content.title,
     appliedValue: updateResult.title,
     verificationStatus: verification.status,

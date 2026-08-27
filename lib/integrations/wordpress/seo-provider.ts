@@ -19,8 +19,9 @@ export type SeoMetadataProviderResult =
   | { status: 'unknown'; provider: 'unknown'; reason: string }
   | { status: 'connection_error'; reason: string }
 
-const YOAST_META_FIELD = '_yoast_wpseo_metadesc'
-const RANK_MATH_META_FIELD = 'rank_math_description'
+/** The only two provider-registered meta keys Website Care will ever read or write. Exported so write-meta-description.ts derives the field purely from `provider`, never from arbitrary input. */
+export const YOAST_META_FIELD = '_yoast_wpseo_metadesc'
+export const RANK_MATH_META_FIELD = 'rank_math_description'
 
 /**
  * Fetches WordPress's REST API index (GET /wp-json/) and returns its

@@ -7,6 +7,7 @@ export type FixHistoryInsertInput = {
   pageUrl: string
   resourceType: 'page' | 'post'
   resourceId: number
+  field: 'title' | 'meta_description'
   previousValue: string | null
   appliedValue: string
   verificationStatus: string
@@ -34,7 +35,7 @@ export async function recordFixHistory(input: FixHistoryInsertInput): Promise<Fi
       platform: 'wordpress',
       resource_type: input.resourceType,
       resource_id: input.resourceId,
-      field: 'title',
+      field: input.field,
       previous_value: input.previousValue,
       applied_value: input.appliedValue,
       verification_status: input.verificationStatus,
@@ -118,16 +119,19 @@ export async function getFixHistoryRowForRollback(
  * for rollback" — used both to decide whether the UI shows an Undo button
  * and, authoritatively, as the server-side gate before any rollback write is
  * attempted, so the two can never drift apart. A null previous_value is
- * deliberately treated as ineligible: it is ambiguous whether it represents
- * a genuinely empty title (safe to restore) or a title that simply couldn't
- * be read from WordPress at fix time (unsafe to guess), so it is left
- * unsupported rather than guessed at.
+ * deliberately treated as ineligible for either field: it is ambiguous
+ * whether it represents a genuinely empty title/meta description (safe to
+ * restore) or a value that simply couldn't be read from WordPress at fix
+ * time (unsafe to guess), so it is left unsupported rather than guessed at.
+ * meta_description rollback additionally re-detects its provider fresh at
+ * rollback time (see wordpress-meta-rollback-actions.ts) rather than
+ * needing it stored here — fix_history has no provider column.
  */
 export function isRollbackEligibleByShape(
   row: Pick<FixHistoryRecord, 'platform' | 'field' | 'resource_type' | 'resource_id' | 'previous_value'>
 ): boolean {
   if (row.platform !== 'wordpress') return false
-  if (row.field !== 'title') return false
+  if (row.field !== 'title' && row.field !== 'meta_description') return false
   if (row.resource_type !== 'page' && row.resource_type !== 'post') return false
   if (typeof row.resource_id !== 'number') return false
   if (row.previous_value === null) return false
