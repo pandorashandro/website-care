@@ -9,6 +9,7 @@ import type { MetaDescriptionFixVerification } from '@/lib/fixes/verify-meta-des
 import type { H1FixVerification } from '@/lib/fixes/verify-h1-fix'
 import type { SeoMetadataProviderResult } from '@/lib/integrations/wordpress/seo-provider'
 import type { H1SourceDetectionResult } from '@/lib/fixes/h1-source-detection'
+import type { ImageAltSourceDetectionResult } from '@/lib/fixes/image-alt-source-detection'
 
 const SEO_PROVIDER_LABELS: Record<string, string> = {
   yoast: 'Yoast SEO',
@@ -92,6 +93,56 @@ function H1SourceDiagnostic({ result }: { result: H1SourceDetectionResult }) {
     <div className="mt-2 max-w-sm rounded-md border border-gray-200 bg-gray-50 p-3">
       <p className="text-xs font-medium text-gray-500">H1 source</p>
       <p className="text-sm text-gray-900">Not safely identified</p>
+      <p className="mt-2 text-xs text-gray-500">{result.reason}</p>
+    </div>
+  )
+}
+
+const IMAGE_ALT_SOURCE_LABELS: Record<string, string> = {
+  media_library: 'WordPress Media Library',
+  gutenberg_content: 'WordPress page content — Gutenberg',
+  classic_html: 'WordPress page content — Classic HTML',
+}
+
+/**
+ * Read-only diagnostic — deliberately shows no Apply Fix button and no AI
+ * suggestion. Phase 15.4A only determines whether a missing-alt image can be
+ * confidently traced to an editable WordPress source; it never reads/writes
+ * alt text itself yet.
+ */
+function ImageAltSourceDiagnostic({ result }: { result: ImageAltSourceDetectionResult }) {
+  if (result.status === 'supported') {
+    return (
+      <div className="mt-2 max-w-sm rounded-md border border-gray-200 bg-gray-50 p-3">
+        <p className="text-xs font-medium text-gray-500">Image</p>
+        <p className="truncate font-mono text-xs text-gray-900">{result.imageUrl}</p>
+
+        <p className="mt-2 text-xs font-medium text-gray-500">Alt source</p>
+        <p className="text-sm text-gray-900">{IMAGE_ALT_SOURCE_LABELS[result.source] ?? result.source}</p>
+
+        <p className="mt-2 text-xs font-medium text-gray-500">Current alt</p>
+        <p className="text-sm text-gray-900">
+          {result.currentAlt ? `“${result.currentAlt}”` : <span className="text-gray-400">Missing</span>}
+        </p>
+
+        <p className="mt-2 text-xs font-medium text-gray-500">Status</p>
+        <p className="text-sm text-gray-900">Editable source identified</p>
+      </div>
+    )
+  }
+
+  const imageUrl = result.status !== 'connection_error' ? result.imageUrl : null
+
+  return (
+    <div className="mt-2 max-w-sm rounded-md border border-gray-200 bg-gray-50 p-3">
+      {imageUrl && (
+        <>
+          <p className="text-xs font-medium text-gray-500">Image</p>
+          <p className="truncate font-mono text-xs text-gray-900">{imageUrl}</p>
+        </>
+      )}
+      <p className="mt-2 text-xs font-medium text-gray-500">Status</p>
+      <p className="text-sm text-gray-900">Not safely editable</p>
       <p className="mt-2 text-xs text-gray-500">{result.reason}</p>
     </div>
   )
@@ -257,11 +308,14 @@ export default function PrepareFixButton({
   pageUrl,
   pageLabel,
   issueTitle,
+  imageUrl,
 }: {
   websiteId: string
   pageUrl: string
   pageLabel: string
   issueTitle: string
+  /** Only meaningful for missing_image_alt issues — binds this exact Prepare Fix to one specific image, never "the first image on the page." */
+  imageUrl?: string
 }) {
   const [state, formAction, pending] = useActionState(prepareFix, initialPrepareState)
   const [applyState, applyFormAction, applyPending] = useActionState(applyFix, initialApplyState)
@@ -313,6 +367,7 @@ export default function PrepareFixButton({
         <input type="hidden" name="websiteId" value={websiteId} />
         <input type="hidden" name="pageUrl" value={pageUrl} />
         <input type="hidden" name="issueTitle" value={issueTitle} />
+        {imageUrl && <input type="hidden" name="imageUrl" value={imageUrl} />}
         <button
           type="submit"
           disabled={pending}
@@ -508,8 +563,10 @@ export default function PrepareFixButton({
         ) : visibleState.status === 'diagnostic' ? (
           visibleState.field === 'meta_description' ? (
             <SeoProviderDiagnostic provider={visibleState.provider} />
-          ) : (
+          ) : visibleState.field === 'h1' ? (
             <H1SourceDiagnostic result={visibleState.result} />
+          ) : (
+            <ImageAltSourceDiagnostic result={visibleState.result} />
           )
         ) : (
           <p className="mt-2 text-xs text-gray-600">{visibleState.reason}</p>

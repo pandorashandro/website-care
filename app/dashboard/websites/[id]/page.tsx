@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import ScanWebsiteButton from '@/app/dashboard/scan-website-button'
 import { aggregateIssues, type RawIssueRow } from '@/lib/scanner/aggregate-issues'
 import { calculateHealthScore, type Category } from '@/lib/scanner/calculate-health-score'
+import { ISSUE_DEFINITIONS } from '@/lib/scanner/issue-definitions'
 import { detectWordPress } from '@/lib/integrations/wordpress/detect-wordpress'
 import type { CapabilityValue, WordPressCapabilities } from '@/lib/integrations/wordpress/capabilities'
 import { getWordPressConnectionSummary } from './wordpress-capabilities'
@@ -199,7 +200,7 @@ export default async function WebsiteReportPage(props: PageProps<'/dashboard/web
   if (latestScan && latestScan.status === 'completed') {
     const { data: issueRows } = await supabase
       .from('issues')
-      .select('id, page_url, type, severity, title, description, recommendation')
+      .select('id, page_url, type, severity, title, description, recommendation, image_url')
       .eq('scan_id', latestScan.id)
       .returns<Issue[]>()
 
@@ -220,6 +221,25 @@ export default async function WebsiteReportPage(props: PageProps<'/dashboard/web
 
   const aggregatedIssues = aggregateIssues(issues, website.url)
   const topIssues = aggregatedIssues.slice(0, TOP_ISSUE_COUNT)
+
+  // aggregateIssues collapses every missing_image_alt row into one summary
+  // group (by title/type/severity), which is exactly right for scoring but
+  // loses per-image identity — so for THIS one issue type, derive the exact
+  // (page, image) pairs directly from the raw rows instead of ever picking
+  // "the first affected page" the way every other issue type does. Legacy
+  // rows from before image_url existed (image_url === null) are excluded
+  // rather than guessed at — they simply won't offer a per-image Prepare Fix
+  // until the site is scanned again.
+  const missingImageAltInstances = Array.from(
+    new Map(
+      issues
+        .filter((issue) => issue.title === ISSUE_DEFINITIONS.missing_image_alt.title && issue.image_url)
+        .map((issue) => [
+          `${issue.page_url ?? website.url}|${issue.image_url}`,
+          { pageUrl: issue.page_url ?? website.url, imageUrl: issue.image_url as string },
+        ])
+    ).values()
+  )
 
   // Always computed live from the latest scan's issues (never read from the
   // stored scans.score) so legacy scans — created before this scoring model
@@ -562,13 +582,38 @@ export default async function WebsiteReportPage(props: PageProps<'/dashboard/web
                       {issue.recommendation}
                     </p>
 
-                    {fixability.level === 'assisted' && issue.affectedPageUrls[0] && (
-                      <PrepareFixButton
-                        websiteId={website.id}
-                        pageUrl={issue.affectedPageUrls[0]}
-                        pageLabel={formatPageLabel(issue.affectedPageUrls[0])}
-                        issueTitle={issue.title}
-                      />
+                    {fixability.level === 'assisted' && issue.title === ISSUE_DEFINITIONS.missing_image_alt.title ? (
+                      missingImageAltInstances.length > 0 && (
+                        <div className="mt-3 space-y-2">
+                          <p className="text-xs font-medium uppercase tracking-wide text-gray-400">
+                            Images missing alt text
+                          </p>
+                          {missingImageAltInstances.map((instance, index) => (
+                            <div key={`${instance.pageUrl}|${instance.imageUrl}`} className="rounded-md border border-gray-100 bg-gray-50 p-2">
+                              <p className="truncate font-mono text-xs text-gray-600">
+                                {index + 1}. {instance.imageUrl}
+                              </p>
+                              <PrepareFixButton
+                                websiteId={website.id}
+                                pageUrl={instance.pageUrl}
+                                pageLabel={formatPageLabel(instance.pageUrl)}
+                                issueTitle={issue.title}
+                                imageUrl={instance.imageUrl}
+                              />
+                            </div>
+                          ))}
+                        </div>
+                      )
+                    ) : (
+                      fixability.level === 'assisted' &&
+                      issue.affectedPageUrls[0] && (
+                        <PrepareFixButton
+                          websiteId={website.id}
+                          pageUrl={issue.affectedPageUrls[0]}
+                          pageLabel={formatPageLabel(issue.affectedPageUrls[0])}
+                          issueTitle={issue.title}
+                        />
+                      )
                     )}
 
                     <div className="mt-3">

@@ -7,6 +7,8 @@ export type RawIssueRow = {
   title: string
   description: string
   recommendation: string
+  /** Only ever set for missing_image_alt rows — ignored by aggregation/scoring, used by the report page to render one Prepare Fix per exact affected image. */
+  image_url?: string | null
 }
 
 export type PriorityLabel = 'Urgent' | 'High Priority' | 'Medium Priority' | 'Low Priority'

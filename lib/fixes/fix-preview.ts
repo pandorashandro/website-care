@@ -4,6 +4,7 @@ import type { SeoMetadataProviderResult } from '@/lib/integrations/wordpress/seo
 import { generateTitleProposal, type TitleIssueKind } from './title-preview'
 import type { MetaDescriptionIssueKind } from '@/lib/ai/meta-description-recommendation'
 import type { H1SourceDetectionResult } from './h1-source-detection'
+import type { ImageAltSourceDetectionResult } from './image-alt-source-detection'
 
 export type FixPreview =
   | {
@@ -69,10 +70,12 @@ export type FixPreview =
   | { status: 'diagnostic'; field: 'meta_description'; provider: SeoMetadataProviderResult }
   /** Read-only H1-source diagnostic (Phase 15.3A) — never writable yet; no H1 write path exists. Also used for multiple_h1's guided-only result even when source detection is 'supported', since no destructive fix is decided automatically. */
   | { status: 'diagnostic'; field: 'h1'; result: H1SourceDetectionResult }
+  /** Read-only image-alt source diagnostic (Phase 15.4A) — never writable yet; no image-alt write path exists. */
+  | { status: 'diagnostic'; field: 'image_alt'; result: ImageAltSourceDetectionResult }
   | { status: 'unsupported'; reason: string }
   | { status: 'unavailable'; reason: string }
 
-export type FixSupport = 'title' | 'meta_description' | 'h1' | 'unsupported'
+export type FixSupport = 'title' | 'meta_description' | 'h1' | 'image_alt' | 'unsupported'
 
 /** References the scanner's own fixed title strings rather than re-hardcoding them. */
 const TITLE_ISSUE_KIND: Record<string, TitleIssueKind> = {
@@ -117,6 +120,7 @@ export function classifyIssueForFixPreview(issueTitle: string): FixSupport {
   if (issueTitle in TITLE_ISSUE_KIND) return 'title'
   if (META_DESCRIPTION_ISSUE_TITLES.has(issueTitle)) return 'meta_description'
   if (H1_ISSUE_TITLES.has(issueTitle)) return 'h1'
+  if (issueTitle === ISSUE_DEFINITIONS.missing_image_alt.title) return 'image_alt'
   return 'unsupported'
 }
 
@@ -212,6 +216,16 @@ export function buildH1Diagnostic(result: H1SourceDetectionResult): FixPreview {
 }
 
 /**
+ * Wraps an already-computed image-alt source-detection result (see
+ * lib/fixes/image-alt-source-detection.ts) into a diagnostic-only
+ * FixPreview. Pure — the detection itself (which may issue WordPress
+ * requests) happens in the caller (prepareFix), not here.
+ */
+export function buildImageAltDiagnostic(result: ImageAltSourceDetectionResult): FixPreview {
+  return { status: 'diagnostic', field: 'image_alt', result }
+}
+
+/**
  * Assembles a ready-to-show (but not-yet-writable) missing-H1 AI preview.
  * Pure — the AI call and source detection both happen in the caller
  * (prepareFix).
@@ -296,6 +310,10 @@ export function buildFixPreview(
   }
 
   if (support === 'h1') {
+    return { status: 'unsupported', reason: GENERIC_UNSUPPORTED_REASON }
+  }
+
+  if (support === 'image_alt') {
     return { status: 'unsupported', reason: GENERIC_UNSUPPORTED_REASON }
   }
 

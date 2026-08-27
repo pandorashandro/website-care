@@ -11,6 +11,7 @@ import { generateMetaDescriptionRecommendation } from '@/lib/ai/meta-description
 import { generateH1Recommendation } from '@/lib/ai/h1-recommendation'
 import { detectSeoMetadataProvider } from '@/lib/integrations/wordpress/seo-provider'
 import { detectH1Source } from '@/lib/fixes/h1-source-detection'
+import { detectImageAltSource } from '@/lib/fixes/image-alt-source-detection'
 import { getConnectedWordPressCredentials } from './wordpress-credentials'
 import { recordFixHistory } from './fix-history'
 import {
@@ -19,6 +20,7 @@ import {
   buildMetaDescriptionReadyPreview,
   buildH1Diagnostic,
   buildH1ReadyPreview,
+  buildImageAltDiagnostic,
   classifyIssueForFixPreview,
   getMetaDescriptionIssueKind,
   getH1IssueKind,
@@ -249,6 +251,31 @@ export async function prepareFix(
       explanation: recommendation.explanation,
       previewToken: h1PreviewToken,
     })
+  }
+
+  if (support === 'image_alt') {
+    if (content.status !== 'loaded') {
+      return { status: 'unavailable', reason: content.reason }
+    }
+
+    const imageUrl = formData.get('imageUrl') as string | null
+    if (!imageUrl) {
+      return { status: 'unavailable', reason: 'Missing information for this request.' }
+    }
+
+    // Read-only image-alt source diagnostic: content-level matches cost
+    // zero extra WordPress requests; a Media Library resolution costs at
+    // most a search + a detail GET — see image-alt-source-detection.ts.
+    // No AI call, no write, no previewToken (nothing to Apply yet).
+    const result = await detectImageAltSource({
+      websiteUrl: credentials.websiteUrl,
+      imageUrl,
+      content,
+      username: credentials.username,
+      applicationPassword: credentials.applicationPassword,
+    })
+
+    return buildImageAltDiagnostic(result)
   }
 
   let resolvedProposal: ResolvedTitleProposal | undefined
