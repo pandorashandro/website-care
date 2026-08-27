@@ -5,14 +5,23 @@ import { loadWordPressEditableContent } from '@/lib/integrations/wordpress/edita
 import { checkWordPressCapabilities } from '@/lib/integrations/wordpress/capabilities'
 import { updateWordPressTitle } from '@/lib/integrations/wordpress/write-title'
 import { verifyTitleFix, type TitleFixVerification } from '@/lib/fixes/verify-title-fix'
-import { signPreviewToken, verifyPreviewToken, signMetaDescriptionPreviewToken, signH1PreviewToken, hashContent } from '@/lib/fixes/preview-token'
+import {
+  signPreviewToken,
+  verifyPreviewToken,
+  signMetaDescriptionPreviewToken,
+  signH1PreviewToken,
+  signImageAltPreviewToken,
+  hashContent,
+} from '@/lib/fixes/preview-token'
 import { generateTitleRecommendation } from '@/lib/ai/title-recommendation'
 import { generateMetaDescriptionRecommendation } from '@/lib/ai/meta-description-recommendation'
 import { generateH1Recommendation } from '@/lib/ai/h1-recommendation'
+import { generateImageAltRecommendation } from '@/lib/ai/image-alt-recommendation'
 import { detectSeoMetadataProvider } from '@/lib/integrations/wordpress/seo-provider'
 import { detectH1Source } from '@/lib/fixes/h1-source-detection'
 import { detectImageAltSource } from '@/lib/fixes/image-alt-source-detection'
 import { getConnectedWordPressCredentials } from './wordpress-credentials'
+import { getTrustedMissingImageAltIssue } from './image-alt-issue'
 import { recordFixHistory } from './fix-history'
 import {
   buildFixPreview,
@@ -21,6 +30,7 @@ import {
   buildH1Diagnostic,
   buildH1ReadyPreview,
   buildImageAltDiagnostic,
+  buildImageAltReadyPreview,
   classifyIssueForFixPreview,
   getMetaDescriptionIssueKind,
   getH1IssueKind,
@@ -54,14 +64,15 @@ export async function prepareFix(
   formData: FormData
 ): Promise<PrepareFixState> {
   const websiteId = formData.get('websiteId') as string | null
-  const pageUrl = formData.get('pageUrl') as string | null
   const issueTitle = formData.get('issueTitle') as string | null
 
-  if (!websiteId || !pageUrl || !issueTitle) {
+  if (!websiteId || !issueTitle) {
     return { status: 'unavailable', reason: 'Missing information for this request.' }
   }
 
-  if (classifyIssueForFixPreview(issueTitle) === 'unsupported') {
+  const support = classifyIssueForFixPreview(issueTitle)
+
+  if (support === 'unsupported') {
     return { status: 'unsupported', reason: 'Preview not available yet for this fix type.' }
   }
 
@@ -76,14 +87,129 @@ export async function prepareFix(
     }
   }
 
+  if (support === 'image_alt') {
+    const issueId = formData.get('issueId') as string | null
+    if (!issueId) {
+      return { status: 'unavailable', reason: 'Missing information for this request.' }
+    }
+
+    // The browser identifies the fix ONLY by an opaque issue id — pageUrl
+    // and imageUrl are never accepted from form fields for this issue type.
+    // This re-authenticates the session and walks the full ownership chain
+    // (issue -> scan -> website -> user) itself; RLS is a second layer, not
+    // the only check.
+    const trustedIssue = await getTrustedMissingImageAltIssue(websiteId, issueId)
+
+    if (!trustedIssue.ok) {
+      return { status: 'unavailable', reason: trustedIssue.reason }
+    }
+
+    const trustedPageUrl = trustedIssue.issue.pageUrl
+    const trustedImageUrl = trustedIssue.issue.imageUrl
+
+    const content = await loadWordPressEditableContent(
+      credentials.websiteUrl,
+      trustedPageUrl,
+      credentials.username,
+      credentials.applicationPassword
+    )
+
+    if (content.status !== 'loaded') {
+      return { status: 'unavailable', reason: content.reason }
+    }
+
+    // Read-only image-alt source detection: content-level matches cost zero
+    // extra WordPress requests; a Media Library resolution costs at most a
+    // search + a detail GET — see image-alt-source-detection.ts.
+    const result = await detectImageAltSource({
+      websiteUrl: credentials.websiteUrl,
+      imageUrl: trustedImageUrl,
+      content,
+      username: credentials.username,
+      applicationPassword: credentials.applicationPassword,
+    })
+
+    // AI is only ever attempted when detection confirms a supported,
+    // unambiguous source. ambiguous/unsupported/connection_error never
+    // reach AI — zero Anthropic calls in those cases.
+    if (result.status !== 'supported') {
+      return buildImageAltDiagnostic(result)
+    }
+
+    let pagePath = content.permalink
+    try {
+      pagePath = new URL(content.permalink).pathname
+    } catch {
+      // Keep the permalink itself if it's somehow unparsable.
+    }
+
+    // The only AI call for image alt text, and at most one per Prepare Fix
+    // click. The image itself is never sent — only trusted textual context,
+    // all ultimately derived from the trusted DB row, never the browser.
+    const recommendation = await generateImageAltRecommendation({
+      currentTitle: content.title,
+      pagePath,
+      websiteName: credentials.websiteName,
+      imageUrl: result.imageUrl,
+      currentAlt: result.currentAlt,
+      source: result.source,
+      nearbyContext: result.nearbyContext,
+      rawContent: content.content,
+    })
+
+    if (recommendation.status !== 'generated') {
+      // Intentionally conservative, same as meta descriptions/H1: there is
+      // no deterministic alt-text generator to fall back to.
+      return { status: 'unavailable', reason: recommendation.explanation }
+    }
+
+    let imageAltPreviewToken: string
+    try {
+      imageAltPreviewToken = signImageAltPreviewToken({
+        issueId,
+        websiteId,
+        pageUrl: trustedPageUrl,
+        issueTitle,
+        field: 'image_alt',
+        imageUrl: result.imageUrl,
+        source: result.source,
+        writeStrategy: result.writeStrategy,
+        mediaId: result.mediaId,
+        expectedCurrentAlt: result.currentAlt,
+        expectedContentHash: hashContent(content.content ?? ''),
+        proposedValue: recommendation.proposedAlt,
+      })
+    } catch {
+      return {
+        status: 'unavailable',
+        reason: 'Website Care could not prepare this fix right now. Please try again shortly.',
+      }
+    }
+
+    return buildImageAltReadyPreview({
+      issueTitle,
+      content,
+      imageUrl: result.imageUrl,
+      altSource: result.source,
+      currentAlt: result.currentAlt,
+      proposedValue: recommendation.proposedAlt,
+      explanation: recommendation.explanation,
+      previewToken: imageAltPreviewToken,
+    })
+  }
+
+  const pageUrl = formData.get('pageUrl') as string | null
+
+  if (!pageUrl) {
+    return { status: 'unavailable', reason: 'Missing information for this request.' }
+  }
+
   const content = await loadWordPressEditableContent(
     credentials.websiteUrl,
     pageUrl,
     credentials.username,
     credentials.applicationPassword
   )
-
-  const support = classifyIssueForFixPreview(issueTitle)
 
   if (support === 'meta_description') {
     if (content.status !== 'loaded') {
@@ -251,31 +377,6 @@ export async function prepareFix(
       explanation: recommendation.explanation,
       previewToken: h1PreviewToken,
     })
-  }
-
-  if (support === 'image_alt') {
-    if (content.status !== 'loaded') {
-      return { status: 'unavailable', reason: content.reason }
-    }
-
-    const imageUrl = formData.get('imageUrl') as string | null
-    if (!imageUrl) {
-      return { status: 'unavailable', reason: 'Missing information for this request.' }
-    }
-
-    // Read-only image-alt source diagnostic: content-level matches cost
-    // zero extra WordPress requests; a Media Library resolution costs at
-    // most a search + a detail GET — see image-alt-source-detection.ts.
-    // No AI call, no write, no previewToken (nothing to Apply yet).
-    const result = await detectImageAltSource({
-      websiteUrl: credentials.websiteUrl,
-      imageUrl,
-      content,
-      username: credentials.username,
-      applicationPassword: credentials.applicationPassword,
-    })
-
-    return buildImageAltDiagnostic(result)
   }
 
   let resolvedProposal: ResolvedTitleProposal | undefined

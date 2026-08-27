@@ -308,14 +308,20 @@ export default function PrepareFixButton({
   pageUrl,
   pageLabel,
   issueTitle,
-  imageUrl,
+  issueId,
 }: {
   websiteId: string
   pageUrl: string
   pageLabel: string
   issueTitle: string
-  /** Only meaningful for missing_image_alt issues — binds this exact Prepare Fix to one specific image, never "the first image on the page." */
-  imageUrl?: string
+  /**
+   * Only meaningful (and only ever submitted) for missing_image_alt issues.
+   * The browser identifies the fix ONLY by this opaque, trusted issue row
+   * id — pageUrl/imageUrl are never trusted as authoritative for this issue
+   * type; the server re-derives both from the owned DB row itself. `pageUrl`
+   * above is still used for the visible page label only.
+   */
+  issueId?: string
 }) {
   const [state, formAction, pending] = useActionState(prepareFix, initialPrepareState)
   const [applyState, applyFormAction, applyPending] = useActionState(applyFix, initialApplyState)
@@ -365,9 +371,12 @@ export default function PrepareFixButton({
     <div className="mt-3">
       <form action={formAction} className="flex flex-wrap items-center gap-2">
         <input type="hidden" name="websiteId" value={websiteId} />
-        <input type="hidden" name="pageUrl" value={pageUrl} />
         <input type="hidden" name="issueTitle" value={issueTitle} />
-        {imageUrl && <input type="hidden" name="imageUrl" value={imageUrl} />}
+        {issueId ? (
+          <input type="hidden" name="issueId" value={issueId} />
+        ) : (
+          <input type="hidden" name="pageUrl" value={pageUrl} />
+        )}
         <button
           type="submit"
           disabled={pending}
@@ -399,6 +408,17 @@ export default function PrepareFixButton({
               </>
             )}
 
+            {visibleState.field === 'image_alt' && (
+              <>
+                <p className="mt-2 text-xs font-medium text-gray-500">Image</p>
+                <p className="truncate font-mono text-xs text-gray-900">{visibleState.imageUrl}</p>
+                <p className="mt-2 text-xs font-medium text-gray-500">Alt source</p>
+                <p className="text-sm text-gray-900">
+                  {IMAGE_ALT_SOURCE_LABELS[visibleState.altSource] ?? visibleState.altSource}
+                </p>
+              </>
+            )}
+
             <p className="mt-2 text-xs font-medium text-gray-500">Current</p>
             {/* Plain JSX text interpolation only — React escapes this by
                 default. WordPress content is never rendered via
@@ -406,6 +426,8 @@ export default function PrepareFixButton({
             <p className="text-sm text-gray-900">
               {visibleState.field === 'h1' ? (
                 <span className="text-gray-400">No H1 found</span>
+              ) : visibleState.field === 'image_alt' && !visibleState.currentValue ? (
+                <span className="text-gray-400">Missing</span>
               ) : visibleState.currentValue ? (
                 `“${visibleState.currentValue}”`
               ) : (
@@ -513,7 +535,7 @@ export default function PrepareFixButton({
                     <p className="mt-3 text-xs text-red-600">{visibleApplyMetaState.reason}</p>
                   ))}
               </>
-            ) : (
+            ) : visibleState.field === 'h1' ? (
               <>
                 <div className="mt-3 flex gap-2">
                   <button
@@ -558,6 +580,18 @@ export default function PrepareFixButton({
                     <p className="mt-3 text-xs text-red-600">{visibleApplyH1State.reason}</p>
                   ))}
               </>
+            ) : (
+              // Image-alt preview (Phase 15.4B): read-only by design. No
+              // Apply Fix button — no image-alt write path exists yet.
+              <div className="mt-3 border-t border-gray-200 pt-3">
+                <button
+                  type="button"
+                  onClick={() => setDismissed(true)}
+                  className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50"
+                >
+                  Dismiss
+                </button>
+              </div>
             )}
           </div>
         ) : visibleState.status === 'diagnostic' ? (

@@ -230,13 +230,20 @@ export default async function WebsiteReportPage(props: PageProps<'/dashboard/web
   // rows from before image_url existed (image_url === null) are excluded
   // rather than guessed at — they simply won't offer a per-image Prepare Fix
   // until the site is scanned again.
+  //
+  // The browser is never given a pageUrl/imageUrl to submit for this issue
+  // type — only the underlying issue row's own id. The server re-derives
+  // pageUrl/imageUrl from that trusted row itself (see
+  // getTrustedMissingImageAltIssue), so this map exists purely to pick ONE
+  // deterministic issue id (first-encountered) per unique (page, image) pair
+  // for display/dedup — it is never used to synthesize an image identity.
   const missingImageAltInstances = Array.from(
     new Map(
       issues
         .filter((issue) => issue.title === ISSUE_DEFINITIONS.missing_image_alt.title && issue.image_url)
         .map((issue) => [
           `${issue.page_url ?? website.url}|${issue.image_url}`,
-          { pageUrl: issue.page_url ?? website.url, imageUrl: issue.image_url as string },
+          { issueId: issue.id, pageUrl: issue.page_url ?? website.url, imageUrl: issue.image_url as string },
         ])
     ).values()
   )
@@ -589,7 +596,7 @@ export default async function WebsiteReportPage(props: PageProps<'/dashboard/web
                             Images missing alt text
                           </p>
                           {missingImageAltInstances.map((instance, index) => (
-                            <div key={`${instance.pageUrl}|${instance.imageUrl}`} className="rounded-md border border-gray-100 bg-gray-50 p-2">
+                            <div key={instance.issueId} className="rounded-md border border-gray-100 bg-gray-50 p-2">
                               <p className="truncate font-mono text-xs text-gray-600">
                                 {index + 1}. {instance.imageUrl}
                               </p>
@@ -598,7 +605,7 @@ export default async function WebsiteReportPage(props: PageProps<'/dashboard/web
                                 pageUrl={instance.pageUrl}
                                 pageLabel={formatPageLabel(instance.pageUrl)}
                                 issueTitle={issue.title}
-                                imageUrl={instance.imageUrl}
+                                issueId={instance.issueId}
                               />
                             </div>
                           ))}

@@ -16,6 +16,8 @@ export type ImageAltSourceDetectionResult =
       mediaId: number | null
       currentAlt: string
       writeStrategy: ImageAltWriteStrategy
+      /** Bounded, deterministically-extracted text surrounding the exact <img> occurrence in content.raw — only ever populated for content-level sources (never media_library, since there's no content occurrence to extract around). */
+      nearbyContext: string | null
       futureWritePossible: true
       reason: string
     }
@@ -38,7 +40,33 @@ export type ImageAltSourceDetectionResult =
       reason: string
     }
 
-type ContentImageOccurrence = { hasAltAttribute: boolean; altValue: string | null }
+type ContentImageOccurrence = { hasAltAttribute: boolean; altValue: string | null; matchedTag: string }
+
+const NEARBY_CONTEXT_WINDOW_CHARS = 400
+const NEARBY_CONTEXT_MAX_CHARS = 500
+
+/**
+ * Bounded, deterministic extraction of the text immediately surrounding one
+ * exact <img> occurrence in rawContent — a fixed character window before and
+ * after the matched tag, tags stripped, whitespace collapsed. No DOM
+ * building, no reserialization, no heuristic "find the nearest heading"
+ * logic. Returns null if the tag can't be located (shouldn't happen, since
+ * matchedTag always comes from a regex match against this same rawContent).
+ */
+function extractNearbyContext(rawContent: string, matchedTag: string): string | null {
+  const index = rawContent.indexOf(matchedTag)
+  if (index === -1) return null
+
+  const before = rawContent.slice(Math.max(0, index - NEARBY_CONTEXT_WINDOW_CHARS), index)
+  const after = rawContent.slice(index + matchedTag.length, index + matchedTag.length + NEARBY_CONTEXT_WINDOW_CHARS)
+
+  const context = `${before} ${after}`
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+
+  return context.length > 0 ? context.slice(0, NEARBY_CONTEXT_MAX_CHARS) : null
+}
 
 const AMBIGUOUS_REASON =
   'Website Care found conflicting or inconclusive information about which WordPress field controls this image’s alt text, so automatic editing is disabled.'
@@ -180,7 +208,7 @@ function findContentImageOccurrences(
     if (!srcMatches && !classMatches) continue
 
     const altMatch = tag.match(/\balt\s*=\s*["']([^"']*)["']/i)
-    occurrences.push({ hasAltAttribute: !!altMatch, altValue: altMatch ? altMatch[1] : null })
+    occurrences.push({ hasAltAttribute: !!altMatch, altValue: altMatch ? altMatch[1] : null, matchedTag: tag })
   }
 
   return occurrences
@@ -271,6 +299,7 @@ export async function detectImageAltSource(input: {
       mediaId: null,
       currentAlt: occurrence.altValue ?? '',
       writeStrategy: writeStrategyFor(source),
+      nearbyContext: extractNearbyContext(rawContent, occurrence.matchedTag),
       futureWritePossible: true,
       reason: SUPPORTED_REASON,
     }
@@ -345,6 +374,7 @@ export async function detectImageAltSource(input: {
       mediaId,
       currentAlt: occurrence.altValue ?? '',
       writeStrategy: writeStrategyFor(source),
+      nearbyContext: extractNearbyContext(rawContent, occurrence.matchedTag),
       futureWritePossible: true,
       reason: SUPPORTED_REASON,
     }
@@ -352,7 +382,7 @@ export async function detectImageAltSource(input: {
 
   // Not embedded in content.raw at all (e.g. featured image, widget,
   // template-rendered image) — Media Library alt_text is the plausible
-  // editable source.
+  // editable source. No content occurrence exists to extract context from.
   const mediaDetail = await fetchMediaAltText(websiteUrl, mediaId, username, applicationPassword)
   if (mediaDetail.status === 'failed') {
     return { status: 'connection_error', reason: 'WordPress could not be reached to load this image’s details.' }
@@ -365,6 +395,7 @@ export async function detectImageAltSource(input: {
     mediaId,
     currentAlt: mediaDetail.altText,
     writeStrategy: 'media_alt_text',
+    nearbyContext: null,
     futureWritePossible: true,
     reason: SUPPORTED_REASON,
   }

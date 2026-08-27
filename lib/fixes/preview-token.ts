@@ -407,3 +407,164 @@ export function verifyH1PreviewToken(token: string): VerifiedH1PreviewToken {
     payload: { websiteId, pageUrl, issueTitle, field, expectedSource, expectedH1Count, expectedContentHash, proposedValue, expiresAt },
   }
 }
+
+// ---------------------------------------------------------------------------
+// Image-alt preview tokens (Phase 15.4B)
+//
+// A fourth, deliberately separate token "kind" — same signing key, same
+// HMAC-SHA256 primitive, same TTL, but its own version tag
+// (IMAGE_ALT_TOKEN_VERSION) baked into the signed string, so it can never be
+// parsed as, or confused with, a title/meta/H1 token (or vice versa).
+// Nothing about those three sign/verify functions changes.
+// ---------------------------------------------------------------------------
+
+const IMAGE_ALT_TOKEN_VERSION = 'image-alt-v1'
+
+export type ImageAltPreviewTokenPayload = {
+  /** The trusted issues.id row this preview was derived from — re-fetched and re-validated (never trusted alone) by a future Apply, per getTrustedMissingImageAltIssue. */
+  issueId: string
+  websiteId: string
+  pageUrl: string
+  issueTitle: string
+  field: 'image_alt'
+  imageUrl: string
+  source: 'media_library' | 'gutenberg_content' | 'classic_html'
+  writeStrategy: 'media_alt_text' | 'gutenberg_content_alt' | 'classic_html_alt'
+  /** A hint only, never trusted blindly — a future Apply must freshly re-map/re-confirm the media attachment rather than trusting this. */
+  mediaId: number | null
+  expectedCurrentAlt: string
+  /** SHA-256 hex digest of content.raw at preview time (see hashContent) — primary staleness signal for content-level strategies, secondary corroboration for media_library. */
+  expectedContentHash: string
+  proposedValue: string
+  expiresAt: number
+}
+
+function canonicalImageAltBody(payload: ImageAltPreviewTokenPayload): string {
+  return JSON.stringify([
+    IMAGE_ALT_TOKEN_VERSION,
+    payload.issueId,
+    payload.websiteId,
+    payload.pageUrl,
+    payload.issueTitle,
+    payload.field,
+    payload.imageUrl,
+    payload.source,
+    payload.writeStrategy,
+    payload.mediaId,
+    payload.expectedCurrentAlt,
+    payload.expectedContentHash,
+    payload.proposedValue,
+    payload.expiresAt,
+  ])
+}
+
+export function signImageAltPreviewToken(payload: Omit<ImageAltPreviewTokenPayload, 'expiresAt'>): string {
+  const full: ImageAltPreviewTokenPayload = { ...payload, expiresAt: Date.now() + TOKEN_TTL_MS }
+  const body = Buffer.from(canonicalImageAltBody(full), 'utf8').toString('base64url')
+  const signature = createHmac('sha256', getSigningKey()).update(body).digest('base64url')
+  return `${IMAGE_ALT_TOKEN_VERSION}.${body}.${signature}`
+}
+
+export type VerifiedImageAltPreviewToken =
+  | { ok: true; payload: ImageAltPreviewTokenPayload }
+  | { ok: false; reason: 'malformed' | 'invalid_signature' | 'expired' }
+
+export function verifyImageAltPreviewToken(token: string): VerifiedImageAltPreviewToken {
+  const parts = token.split('.')
+
+  if (parts.length !== 3 || parts[0] !== IMAGE_ALT_TOKEN_VERSION) {
+    return { ok: false, reason: 'malformed' }
+  }
+
+  const [, body, signature] = parts
+
+  let expectedSignature: string
+  try {
+    expectedSignature = createHmac('sha256', getSigningKey()).update(body).digest('base64url')
+  } catch {
+    return { ok: false, reason: 'malformed' }
+  }
+
+  let signatureBuf: Buffer
+  let expectedBuf: Buffer
+  try {
+    signatureBuf = Buffer.from(signature, 'base64url')
+    expectedBuf = Buffer.from(expectedSignature, 'base64url')
+  } catch {
+    return { ok: false, reason: 'malformed' }
+  }
+
+  if (signatureBuf.length !== expectedBuf.length || !timingSafeEqual(signatureBuf, expectedBuf)) {
+    return { ok: false, reason: 'invalid_signature' }
+  }
+
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(Buffer.from(body, 'base64url').toString('utf8'))
+  } catch {
+    return { ok: false, reason: 'malformed' }
+  }
+
+  if (!Array.isArray(parsed) || parsed.length !== 14) {
+    return { ok: false, reason: 'malformed' }
+  }
+
+  const [
+    version,
+    issueId,
+    websiteId,
+    pageUrl,
+    issueTitle,
+    field,
+    imageUrl,
+    source,
+    writeStrategy,
+    mediaId,
+    expectedCurrentAlt,
+    expectedContentHash,
+    proposedValue,
+    expiresAt,
+  ] = parsed
+
+  if (
+    version !== IMAGE_ALT_TOKEN_VERSION ||
+    typeof issueId !== 'string' ||
+    typeof websiteId !== 'string' ||
+    typeof pageUrl !== 'string' ||
+    typeof issueTitle !== 'string' ||
+    field !== 'image_alt' ||
+    typeof imageUrl !== 'string' ||
+    (source !== 'media_library' && source !== 'gutenberg_content' && source !== 'classic_html') ||
+    (writeStrategy !== 'media_alt_text' && writeStrategy !== 'gutenberg_content_alt' && writeStrategy !== 'classic_html_alt') ||
+    (mediaId !== null && typeof mediaId !== 'number') ||
+    typeof expectedCurrentAlt !== 'string' ||
+    typeof expectedContentHash !== 'string' ||
+    typeof proposedValue !== 'string' ||
+    typeof expiresAt !== 'number'
+  ) {
+    return { ok: false, reason: 'malformed' }
+  }
+
+  if (Date.now() > expiresAt) {
+    return { ok: false, reason: 'expired' }
+  }
+
+  return {
+    ok: true,
+    payload: {
+      issueId,
+      websiteId,
+      pageUrl,
+      issueTitle,
+      field,
+      imageUrl,
+      source,
+      writeStrategy,
+      mediaId,
+      expectedCurrentAlt,
+      expectedContentHash,
+      proposedValue,
+      expiresAt,
+    },
+  }
+}
