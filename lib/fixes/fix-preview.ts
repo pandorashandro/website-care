@@ -1,5 +1,6 @@
 import { ISSUE_DEFINITIONS } from '@/lib/scanner/issue-definitions'
 import type { WordPressEditableContentResult } from '@/lib/integrations/wordpress/editable-content'
+import type { SeoMetadataProviderResult } from '@/lib/integrations/wordpress/seo-provider'
 import { generateTitleProposal, type TitleIssueKind } from './title-preview'
 
 export type FixPreview =
@@ -18,6 +19,8 @@ export type FixPreview =
       /** Opaque, server-signed record of exactly this proposal — see lib/fixes/preview-token.ts. Required to Apply; never parsed or trusted client-side. */
       previewToken: string
     }
+  /** Read-only SEO-provider diagnostic for meta-description issues — never writable yet, so there is deliberately no proposedValue/previewToken here. */
+  | { status: 'diagnostic'; field: 'meta_description'; provider: SeoMetadataProviderResult }
   | { status: 'unsupported'; reason: string }
   | { status: 'unavailable'; reason: string }
 
@@ -114,6 +117,16 @@ function buildTitleFixPreview(
     // otherwise-pure composition module deliberately does not depend on.
     previewToken: '',
   }
+}
+
+/**
+ * Wraps an already-computed SEO-provider detection result (see
+ * lib/integrations/wordpress/seo-provider.ts) into a diagnostic-only
+ * FixPreview. Pure — the provider detection itself (which requires a
+ * network call) happens in the caller (prepareFix), not here.
+ */
+export function buildMetaDescriptionDiagnostic(provider: SeoMetadataProviderResult): FixPreview {
+  return { status: 'diagnostic', field: 'meta_description', provider }
 }
 
 /**

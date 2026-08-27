@@ -7,10 +7,12 @@ import { updateWordPressTitle } from '@/lib/integrations/wordpress/write-title'
 import { verifyTitleFix, type TitleFixVerification } from '@/lib/fixes/verify-title-fix'
 import { signPreviewToken, verifyPreviewToken } from '@/lib/fixes/preview-token'
 import { generateTitleRecommendation } from '@/lib/ai/title-recommendation'
+import { detectSeoMetadataProvider } from '@/lib/integrations/wordpress/seo-provider'
 import { getConnectedWordPressCredentials } from './wordpress-credentials'
 import { recordFixHistory } from './fix-history'
 import {
   buildFixPreview,
+  buildMetaDescriptionDiagnostic,
   classifyIssueForFixPreview,
   getTitleIssueKind,
   type FixPreview,
@@ -71,9 +73,29 @@ export async function prepareFix(
     credentials.applicationPassword
   )
 
+  const support = classifyIssueForFixPreview(issueTitle)
+
+  if (support === 'meta_description') {
+    if (content.status !== 'loaded') {
+      return { status: 'unavailable', reason: content.reason }
+    }
+
+    // Read-only SEO-provider diagnostic: at most one extra GET request
+    // (namespace discovery) beyond the resource load above — see
+    // seo-provider.ts. Never writable yet; no previewToken is issued.
+    const providerResult = await detectSeoMetadataProvider(
+      credentials.websiteUrl,
+      content,
+      credentials.username,
+      credentials.applicationPassword
+    )
+
+    return buildMetaDescriptionDiagnostic(providerResult)
+  }
+
   let resolvedProposal: ResolvedTitleProposal | undefined
 
-  if (content.status === 'loaded' && classifyIssueForFixPreview(issueTitle) === 'title') {
+  if (content.status === 'loaded' && support === 'title') {
     const issueKind = getTitleIssueKind(issueTitle)
 
     if (issueKind) {

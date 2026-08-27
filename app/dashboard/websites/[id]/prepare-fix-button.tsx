@@ -3,6 +3,44 @@
 import { useActionState, useState } from 'react'
 import { prepareFix, applyFix, type PrepareFixState, type ApplyFixState } from './wordpress-fix-actions'
 import type { TitleFixVerification } from '@/lib/fixes/verify-title-fix'
+import type { SeoMetadataProviderResult } from '@/lib/integrations/wordpress/seo-provider'
+
+const SEO_PROVIDER_LABELS: Record<string, string> = {
+  yoast: 'Yoast SEO',
+  rank_math: 'Rank Math',
+  aioseo: 'AIOSEO',
+}
+
+/**
+ * Read-only diagnostic — deliberately shows no Apply Fix button. Phase
+ * 15.2A only detects/maps which SEO plugin (if any) controls this page's
+ * metadata; it never reads/writes a meta description itself yet.
+ */
+function SeoProviderDiagnostic({ provider }: { provider: SeoMetadataProviderResult }) {
+  if (provider.status === 'detected') {
+    return (
+      <div className="mt-2 max-w-sm rounded-md border border-gray-200 bg-gray-50 p-3">
+        <p className="text-xs font-medium text-gray-500">SEO provider</p>
+        <p className="text-sm text-gray-900">{SEO_PROVIDER_LABELS[provider.provider] ?? provider.provider}</p>
+
+        <p className="mt-2 text-xs font-medium text-gray-500">
+          {provider.writable ? 'Meta description' : 'Editable metadata'}
+        </p>
+        <p className="text-sm text-gray-900">
+          {provider.writable ? 'Available' : 'Not exposed through supported REST API'}
+        </p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="mt-2 max-w-sm rounded-md border border-gray-200 bg-gray-50 p-3">
+      <p className="text-xs font-medium text-gray-500">SEO provider</p>
+      <p className="text-sm text-gray-900">Not confirmed</p>
+      <p className="mt-2 text-xs text-gray-500">Website Care cannot safely map this meta description yet.</p>
+    </div>
+  )
+}
 
 const initialPrepareState: PrepareFixState = null
 const initialApplyState: ApplyFixState = null
@@ -181,6 +219,8 @@ export default function PrepareFixButton({
                 <p className="mt-3 text-xs text-red-600">{visibleApplyState.reason}</p>
               ))}
           </div>
+        ) : visibleState.status === 'diagnostic' ? (
+          <SeoProviderDiagnostic provider={visibleState.provider} />
         ) : (
           <p className="mt-2 text-xs text-gray-600">{visibleState.reason}</p>
         ))}

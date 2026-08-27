@@ -14,6 +14,10 @@ export type WordPressEditableContentResult =
       title: string | null
       content: string | null
       excerpt: string | null
+      /** The context=edit response's registered `meta` object, if present as an object — used only for SEO-provider metadata mapping (see seo-provider.ts). Never assumed to contain any particular key. */
+      metaFields: Record<string, unknown> | null
+      /** Whether the response included a `yoast_head_json` field — a detection signal only. Its (rendered/computed) contents are never read or exposed as an editable value. */
+      hasYoastHeadJson: boolean
     }
   | { status: 'unavailable'; reason: string }
   | { status: 'stale_mapping'; reason: string }
@@ -94,6 +98,11 @@ async function loadMappedResource(
     }
   }
 
+  const metaFields =
+    obj.meta && typeof obj.meta === 'object' && !Array.isArray(obj.meta)
+      ? (obj.meta as Record<string, unknown>)
+      : null
+
   return {
     status: 'loaded',
     resourceType: mapping.resourceType,
@@ -104,6 +113,8 @@ async function loadMappedResource(
     title: extractRaw(obj.title),
     content: extractRaw(obj.content),
     excerpt: extractRaw(obj.excerpt),
+    metaFields,
+    hasYoastHeadJson: !!obj.yoast_head_json && typeof obj.yoast_head_json === 'object',
   }
 }
 
