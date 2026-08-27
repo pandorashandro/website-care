@@ -142,6 +142,9 @@ export async function scanWebsite(
       title: row.issue.title,
       description: row.issue.description,
       recommendation: row.issue.recommendation,
+      // Only ever set for missing_image_alt rows (one row per affected
+      // image) — null for every other issue type.
+      image_url: row.issue.imageUrl ?? null,
     }))
 
     if (issueRows.length > 0) {

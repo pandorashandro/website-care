@@ -204,13 +204,40 @@ export function countH1(html: string): number {
   return getH1Texts(html).length
 }
 
-export function hasImageMissingAlt(html: string): boolean {
-  const imgTags = html.match(/<img\b[^>]*>/gi) ?? []
+export type ExtractedImage = {
+  src: string
+  /** null = the alt attribute is absent entirely; '' = present but empty. Both count as "missing" for scoring, but the distinction is preserved here since callers may care. */
+  alt: string | null
+}
 
-  return imgTags.some((tag) => {
-    const alt = tag.match(/alt\s*=\s*["']([^"']*)["']/i)
-    return !alt || alt[1].trim().length === 0
-  })
+/**
+ * Extracts `{src, alt}` for every `<img>` element that has a non-empty
+ * `src`. An `<img>` without a usable `src` isn't a reliable image identity
+ * (nothing to match against a WordPress Media Library URL later), so it's
+ * skipped entirely rather than included with a guessed/empty src.
+ */
+export function getImages(html: string): ExtractedImage[] {
+  const imgTags = html.match(/<img\b[^>]*>/gi) ?? []
+  const images: ExtractedImage[] = []
+
+  for (const tag of imgTags) {
+    const srcMatch = tag.match(/\bsrc\s*=\s*["']([^"']*)["']/i)
+    if (!srcMatch || !srcMatch[1].trim()) continue
+
+    const altMatch = tag.match(/\balt\s*=\s*["']([^"']*)["']/i)
+    images.push({ src: srcMatch[1].trim(), alt: altMatch ? altMatch[1] : null })
+  }
+
+  return images
+}
+
+/** Every image (with a usable src) whose alt attribute is absent or empty. */
+export function getImagesMissingAlt(html: string): ExtractedImage[] {
+  return getImages(html).filter((image) => !image.alt || image.alt.trim().length === 0)
+}
+
+export function hasImageMissingAlt(html: string): boolean {
+  return getImagesMissingAlt(html).length > 0
 }
 
 /** Returns the raw href of the <link rel="canonical"> tag, or null if absent/empty. */

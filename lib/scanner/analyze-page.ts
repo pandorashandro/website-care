@@ -7,7 +7,7 @@ import {
   getVisibleTextLength,
   hasEmptyButtons,
   hasEmptyLinks,
-  hasImageMissingAlt,
+  getImagesMissingAlt,
   hasLangAttribute,
   hasNoindexMetaRobots,
   hasNoindexXRobotsTag,
@@ -293,8 +293,17 @@ export async function analyzePage(url: string): Promise<PageScanResult> {
     score -= DEDUCTIONS.multipleH1
   }
 
-  if (hasImageMissingAlt(html)) {
-    issues.push(buildIssue('missing_image_alt', 'One or more images are missing alt text.'))
+  // One issue row per affected image, each carrying its exact src — never
+  // collapsed into a single generic "some image" issue, so a future fix
+  // flow can identify precisely which image is affected. The page-level
+  // score deduction is still applied only once regardless of how many
+  // images are missing alt text, matching the previous (pre-per-image)
+  // scoring behavior exactly.
+  const missingAltImages = getImagesMissingAlt(html)
+  if (missingAltImages.length > 0) {
+    for (const image of missingAltImages) {
+      issues.push(buildIssue('missing_image_alt', `This image is missing alt text: ${image.src}`, image.src))
+    }
     score -= DEDUCTIONS.missingImageAlt
   }
 

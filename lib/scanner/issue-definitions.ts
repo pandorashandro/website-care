@@ -6,9 +6,11 @@ export type ScanIssue = {
   title: string
   description: string
   recommendation: string
+  /** The exact affected image's public src — set only for missing_image_alt issues, one row per image. Never guessed from filename/index/fuzzy matching. */
+  imageUrl?: string
 }
 
-type IssueDefinition = Omit<ScanIssue, 'description'>
+type IssueDefinition = Omit<ScanIssue, 'description' | 'imageUrl'>
 
 export const ISSUE_DEFINITIONS = {
   unreachable: {
@@ -273,7 +275,8 @@ export const ISSUE_DEFINITIONS = {
 
 export function buildIssue(
   key: keyof typeof ISSUE_DEFINITIONS,
-  description: string
+  description: string,
+  imageUrl?: string
 ): ScanIssue {
-  return { ...ISSUE_DEFINITIONS[key], description }
+  return { ...ISSUE_DEFINITIONS[key], description, ...(imageUrl !== undefined ? { imageUrl } : {}) }
 }
