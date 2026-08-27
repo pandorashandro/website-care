@@ -1,5 +1,5 @@
 import 'server-only'
-import { createHmac, timingSafeEqual } from 'node:crypto'
+import { createHash, createHmac, timingSafeEqual } from 'node:crypto'
 
 const TOKEN_VERSION = 'v1'
 const TOKEN_TTL_MS = 10 * 60 * 1000 // 10 minutes — long enough to review a preview, short enough to bound staleness exposure
@@ -262,15 +262,19 @@ export function verifyMetaDescriptionPreviewToken(token: string): VerifiedMetaDe
 }
 
 // ---------------------------------------------------------------------------
-// H1 preview tokens (Phase 15.3B)
+// H1 preview tokens (Phase 15.3B, extended in 15.3C)
 //
 // A third, deliberately separate token "kind" — same signing key, same
 // HMAC-SHA256 primitive, same TTL, but its own version tag (H1_TOKEN_VERSION)
 // baked into the signed string, so an H1 token can never be parsed as, or
 // confused with, a title or meta-description token (or vice versa). Nothing
-// about the existing title/meta sign/verify functions changes. No Apply
-// action consumes this token yet — Phase 15.3B is read-only; it exists so a
-// future write phase can start consuming it without prepareFix changing again.
+// about the existing title/meta sign/verify functions changes.
+//
+// Phase 15.3C added `expectedContentHash` directly to this h1-v1 payload
+// rather than bumping to h1-v2: h1-v1 was created in 15.3B specifically to
+// prepare for this phase's Apply action, and nothing has ever consumed it
+// before now (no H1 Apply action existed until 15.3C) — there is no
+// deployed/relied-upon h1-v1 consumer whose behavior this would break.
 // ---------------------------------------------------------------------------
 
 const H1_TOKEN_VERSION = 'h1-v1'
@@ -283,8 +287,21 @@ export type H1PreviewTokenPayload = {
   expectedSource: 'gutenberg' | 'classic_html'
   /** The H1 count Prepare Fix observed on both the public page and editable content at preview time (0 for missing_h1). */
   expectedH1Count: number
+  /**
+   * SHA-256 hex digest of the exact content.raw Prepare Fix loaded — never
+   * the content itself. Lets Apply detect "public/editable H1 count is
+   * still 0, but the page body changed in some other way since the
+   * preview" (e.g. another editor rewrote the body), which count alone
+   * cannot catch.
+   */
+  expectedContentHash: string
   proposedValue: string
   expiresAt: number
+}
+
+/** Shared by prepareFix (signing) and applyH1Fix (re-verifying) so both hash content.raw identically. */
+export function hashContent(value: string): string {
+  return createHash('sha256').update(value, 'utf8').digest('hex')
 }
 
 function canonicalH1Body(payload: H1PreviewTokenPayload): string {
@@ -296,6 +313,7 @@ function canonicalH1Body(payload: H1PreviewTokenPayload): string {
     payload.field,
     payload.expectedSource,
     payload.expectedH1Count,
+    payload.expectedContentHash,
     payload.proposedValue,
     payload.expiresAt,
   ])
@@ -348,11 +366,22 @@ export function verifyH1PreviewToken(token: string): VerifiedH1PreviewToken {
     return { ok: false, reason: 'malformed' }
   }
 
-  if (!Array.isArray(parsed) || parsed.length !== 9) {
+  if (!Array.isArray(parsed) || parsed.length !== 10) {
     return { ok: false, reason: 'malformed' }
   }
 
-  const [version, websiteId, pageUrl, issueTitle, field, expectedSource, expectedH1Count, proposedValue, expiresAt] = parsed
+  const [
+    version,
+    websiteId,
+    pageUrl,
+    issueTitle,
+    field,
+    expectedSource,
+    expectedH1Count,
+    expectedContentHash,
+    proposedValue,
+    expiresAt,
+  ] = parsed
 
   if (
     version !== H1_TOKEN_VERSION ||
@@ -362,6 +391,7 @@ export function verifyH1PreviewToken(token: string): VerifiedH1PreviewToken {
     field !== 'h1' ||
     (expectedSource !== 'gutenberg' && expectedSource !== 'classic_html') ||
     typeof expectedH1Count !== 'number' ||
+    typeof expectedContentHash !== 'string' ||
     typeof proposedValue !== 'string' ||
     typeof expiresAt !== 'number'
   ) {
@@ -374,6 +404,6 @@ export function verifyH1PreviewToken(token: string): VerifiedH1PreviewToken {
 
   return {
     ok: true,
-    payload: { websiteId, pageUrl, issueTitle, field, expectedSource, expectedH1Count, proposedValue, expiresAt },
+    payload: { websiteId, pageUrl, issueTitle, field, expectedSource, expectedH1Count, expectedContentHash, proposedValue, expiresAt },
   }
 }

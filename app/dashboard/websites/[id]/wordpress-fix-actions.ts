@@ -5,7 +5,7 @@ import { loadWordPressEditableContent } from '@/lib/integrations/wordpress/edita
 import { checkWordPressCapabilities } from '@/lib/integrations/wordpress/capabilities'
 import { updateWordPressTitle } from '@/lib/integrations/wordpress/write-title'
 import { verifyTitleFix, type TitleFixVerification } from '@/lib/fixes/verify-title-fix'
-import { signPreviewToken, verifyPreviewToken, signMetaDescriptionPreviewToken, signH1PreviewToken } from '@/lib/fixes/preview-token'
+import { signPreviewToken, verifyPreviewToken, signMetaDescriptionPreviewToken, signH1PreviewToken, hashContent } from '@/lib/fixes/preview-token'
 import { generateTitleRecommendation } from '@/lib/ai/title-recommendation'
 import { generateMetaDescriptionRecommendation } from '@/lib/ai/meta-description-recommendation'
 import { generateH1Recommendation } from '@/lib/ai/h1-recommendation'
@@ -231,6 +231,7 @@ export async function prepareFix(
         field: 'h1',
         expectedSource: result.source,
         expectedH1Count: result.editableH1s.length,
+        expectedContentHash: hashContent(content.content ?? ''),
         proposedValue: recommendation.proposedH1,
       })
     } catch {

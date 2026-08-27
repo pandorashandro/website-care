@@ -48,7 +48,8 @@ const BUILDER_MARKER_PATTERNS: RegExp[] = [
   /\bfusion-builder\b/i, // Avada / Fusion Builder
 ]
 
-function classifyH1ContentSource(rawContent: string | null): H1ContentSource {
+/** Exported for reuse by H1 rollback (see wordpress-h1-rollback-actions.ts), which needs the same conservative classification without duplicating it. */
+export function classifyH1ContentSource(rawContent: string | null): H1ContentSource {
   if (!rawContent || rawContent.trim().length === 0) return 'unknown'
 
   if (BUILDER_MARKER_PATTERNS.some((pattern) => pattern.test(rawContent))) {

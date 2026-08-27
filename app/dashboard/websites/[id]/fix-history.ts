@@ -7,7 +7,7 @@ export type FixHistoryInsertInput = {
   pageUrl: string
   resourceType: 'page' | 'post'
   resourceId: number
-  field: 'title' | 'meta_description'
+  field: 'title' | 'meta_description' | 'h1'
   previousValue: string | null
   appliedValue: string
   verificationStatus: string
@@ -125,13 +125,18 @@ export async function getFixHistoryRowForRollback(
  * time (unsafe to guess), so it is left unsupported rather than guessed at.
  * meta_description rollback additionally re-detects its provider fresh at
  * rollback time (see wordpress-meta-rollback-actions.ts) rather than
- * needing it stored here — fix_history has no provider column.
+ * needing it stored here — fix_history has no provider column. Likewise,
+ * h1 rollback re-detects the content source and reconstructs the exact
+ * expected inserted markup fresh at rollback time (see
+ * wordpress-h1-rollback-actions.ts) — this function only gates whether a
+ * row is even the *shape* of something rollback-eligible; the real proof
+ * of reversibility happens live, in the rollback action itself.
  */
 export function isRollbackEligibleByShape(
   row: Pick<FixHistoryRecord, 'platform' | 'field' | 'resource_type' | 'resource_id' | 'previous_value'>
 ): boolean {
   if (row.platform !== 'wordpress') return false
-  if (row.field !== 'title' && row.field !== 'meta_description') return false
+  if (row.field !== 'title' && row.field !== 'meta_description' && row.field !== 'h1') return false
   if (row.resource_type !== 'page' && row.resource_type !== 'post') return false
   if (typeof row.resource_id !== 'number') return false
   if (row.previous_value === null) return false

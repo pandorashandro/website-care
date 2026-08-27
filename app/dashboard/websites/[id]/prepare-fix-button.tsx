@@ -3,8 +3,10 @@
 import { useActionState, useState } from 'react'
 import { prepareFix, applyFix, type PrepareFixState, type ApplyFixState } from './wordpress-fix-actions'
 import { applyMetaDescriptionFix, type ApplyMetaDescriptionFixState } from './wordpress-meta-fix-actions'
+import { applyH1Fix, type ApplyH1FixState } from './wordpress-h1-fix-actions'
 import type { TitleFixVerification } from '@/lib/fixes/verify-title-fix'
 import type { MetaDescriptionFixVerification } from '@/lib/fixes/verify-meta-description-fix'
+import type { H1FixVerification } from '@/lib/fixes/verify-h1-fix'
 import type { SeoMetadataProviderResult } from '@/lib/integrations/wordpress/seo-provider'
 import type { H1SourceDetectionResult } from '@/lib/fixes/h1-source-detection'
 
@@ -206,7 +208,49 @@ function MetaDescriptionVerificationResult({ verification }: { verification: Met
   )
 }
 
+/** Same labeling philosophy as VerificationResult, for the missing-H1 fix. */
+function H1VerificationResult({ verification }: { verification: H1FixVerification }) {
+  if (verification.status === 'verified') {
+    return (
+      <div className="mt-1">
+        <p className="text-xs font-medium text-green-700">Verified ✓</p>
+        <p className="mt-1 text-xs text-gray-600">The public page now shows the added heading.</p>
+      </div>
+    )
+  }
+
+  if (verification.status === 'pending') {
+    return (
+      <div className="mt-1">
+        <p className="text-xs font-medium text-amber-700">Pending</p>
+        <p className="mt-1 text-xs text-gray-600">
+          The public page does not show the heading yet. This may be caused by caching.
+        </p>
+      </div>
+    )
+  }
+
+  if (verification.status === 'mismatch') {
+    return (
+      <div className="mt-1">
+        <p className="text-xs font-medium text-amber-700">Needs attention</p>
+        <p className="mt-1 text-xs text-gray-600">
+          WordPress accepted the update, but the public page is not showing the expected heading.
+        </p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="mt-1">
+      <p className="text-xs font-medium text-gray-500">Could not verify</p>
+      <p className="mt-1 text-xs text-gray-600">Website Care could not safely check the public page right now.</p>
+    </div>
+  )
+}
+
 const initialApplyMetaDescriptionState: ApplyMetaDescriptionFixState = null
+const initialApplyH1State: ApplyH1FixState = null
 
 export default function PrepareFixButton({
   websiteId,
@@ -225,18 +269,22 @@ export default function PrepareFixButton({
     applyMetaDescriptionFix,
     initialApplyMetaDescriptionState
   )
+  const [applyH1State, applyH1FormAction, applyH1Pending] = useActionState(applyH1Fix, initialApplyH1State)
   const [dismissed, setDismissed] = useState(false)
   const [handledState, setHandledState] = useState(state)
   const [applyStateVisible, setApplyStateVisible] = useState(false)
   const [handledApplyState, setHandledApplyState] = useState(applyState)
   const [applyMetaStateVisible, setApplyMetaStateVisible] = useState(false)
   const [handledApplyMetaState, setHandledApplyMetaState] = useState(applyMetaState)
+  const [applyH1StateVisible, setApplyH1StateVisible] = useState(false)
+  const [handledApplyH1State, setHandledApplyH1State] = useState(applyH1State)
 
   if (state !== handledState) {
     setHandledState(state)
     setDismissed(false) // a fresh result should always be shown, even if a previous one was dismissed
     setApplyStateVisible(false) // a fresh prepare result hides any stale apply outcome from a previous attempt
     setApplyMetaStateVisible(false)
+    setApplyH1StateVisible(false)
   }
 
   if (applyState !== handledApplyState) {
@@ -249,9 +297,15 @@ export default function PrepareFixButton({
     setApplyMetaStateVisible(true)
   }
 
+  if (applyH1State !== handledApplyH1State) {
+    setHandledApplyH1State(applyH1State)
+    setApplyH1StateVisible(true)
+  }
+
   const visibleState = dismissed ? null : state
   const visibleApplyState = applyStateVisible ? applyState : null
   const visibleApplyMetaState = applyMetaStateVisible ? applyMetaState : null
+  const visibleApplyH1State = applyH1StateVisible ? applyH1State : null
 
   return (
     <div className="mt-3">
@@ -405,17 +459,50 @@ export default function PrepareFixButton({
                   ))}
               </>
             ) : (
-              // H1 preview (Phase 15.3B): read-only by design. No Apply Fix
-              // button — no H1 write path exists yet.
-              <div className="mt-3 border-t border-gray-200 pt-3">
-                <button
-                  type="button"
-                  onClick={() => setDismissed(true)}
-                  className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50"
-                >
-                  Dismiss
-                </button>
-              </div>
+              <>
+                <div className="mt-3 flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setDismissed(true)}
+                    className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50"
+                  >
+                    Cancel
+                  </button>
+                  <form action={applyH1FormAction}>
+                    <input type="hidden" name="previewToken" value={visibleState.previewToken} />
+                    <button
+                      type="submit"
+                      disabled={applyH1Pending}
+                      className="rounded-md border border-blue-300 bg-blue-50 px-3 py-1.5 text-xs font-medium text-blue-700 hover:bg-blue-100 disabled:opacity-50"
+                    >
+                      {applyH1Pending ? 'Applying…' : 'Apply Fix'}
+                    </button>
+                  </form>
+                </div>
+
+                {visibleApplyH1State &&
+                  (visibleApplyH1State.writeStatus === 'success' ? (
+                    <div className="mt-3 border-t border-gray-200 pt-3">
+                      <p className="text-xs font-medium text-green-700">Fix applied successfully ✓</p>
+                      <p className="mt-1 text-xs text-gray-600">
+                        {`Heading added: “${visibleApplyH1State.appliedH1}”`}
+                      </p>
+
+                      <p className="mt-3 text-xs font-semibold uppercase tracking-wide text-gray-400">
+                        Verification
+                      </p>
+                      <H1VerificationResult verification={visibleApplyH1State.verification} />
+
+                      {visibleApplyH1State.historyStatus === 'failed' && (
+                        <p className="mt-3 text-xs text-amber-700">
+                          Fix applied, but Website Care could not save the audit record.
+                        </p>
+                      )}
+                    </div>
+                  ) : (
+                    <p className="mt-3 text-xs text-red-600">{visibleApplyH1State.reason}</p>
+                  ))}
+              </>
             )}
           </div>
         ) : visibleState.status === 'diagnostic' ? (

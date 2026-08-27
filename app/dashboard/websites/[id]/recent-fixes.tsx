@@ -1,6 +1,7 @@
 import { getRecentFixHistory, isRollbackEligibleByShape } from './fix-history'
 import UndoFixButton from './undo-fix-button'
 import UndoMetaFixButton from './undo-meta-fix-button'
+import UndoH1FixButton from './undo-h1-fix-button'
 
 const VERIFICATION_LABELS: Record<string, string> = {
   verified: 'Verified',
@@ -99,6 +100,10 @@ export default async function RecentFixes({ websiteId }: { websiteId: string }) 
                 previousValue={fix.previous_value ?? ''}
                 appliedValue={fix.applied_value}
               />
+            )}
+
+            {isRollbackEligibleByShape(fix) && fix.field === 'h1' && (
+              <UndoH1FixButton websiteId={websiteId} fixHistoryId={fix.id} appliedValue={fix.applied_value} />
             )}
           </div>
         ))}
