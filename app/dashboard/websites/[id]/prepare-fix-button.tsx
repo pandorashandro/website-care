@@ -57,19 +57,31 @@ const H1_SOURCE_LABELS: Record<string, string> = {
  * never reads/writes an H1 itself yet.
  */
 function H1SourceDiagnostic({ result }: { result: H1SourceDetectionResult }) {
+  // 'supported' only ever reaches this component for multiple_h1 — a
+  // supported missing_h1 result is routed to the AI 'ready' preview instead.
   if (result.status === 'supported') {
     return (
       <div className="mt-2 max-w-sm rounded-md border border-gray-200 bg-gray-50 p-3">
         <p className="text-xs font-medium text-gray-500">H1 source</p>
         <p className="text-sm text-gray-900">WordPress page content</p>
 
-        <p className="mt-2 text-xs font-medium text-gray-500">Editor</p>
-        <p className="text-sm text-gray-900">{H1_SOURCE_LABELS[result.source] ?? result.source}</p>
+        <p className="mt-2 text-xs text-gray-500">
+          Website Care identified multiple H1 headings in editable content.
+        </p>
 
-        <p className="mt-2 text-xs font-medium text-gray-500">Status</p>
-        <p className="text-sm text-gray-900">Editable source identified</p>
+        <p className="mt-2 text-xs font-medium text-gray-500">Detected</p>
+        <ul className="mt-1 space-y-0.5">
+          {result.publicH1s.map((heading, index) => (
+            <li key={index} className="text-sm text-gray-900">
+              {`— ${heading}`}
+            </li>
+          ))}
+        </ul>
 
-        <p className="mt-2 text-xs text-gray-500">{result.reason}</p>
+        <p className="mt-3 text-xs font-medium text-amber-700">Guided fix</p>
+        <p className="mt-1 text-xs text-gray-500">
+          Website Care will not automatically choose which heading to remove yet.
+        </p>
       </div>
     )
   }
@@ -269,12 +281,23 @@ export default function PrepareFixButton({
               </>
             )}
 
+            {visibleState.field === 'h1' && (
+              <>
+                <p className="mt-2 text-xs font-medium text-gray-500">H1 source</p>
+                <p className="text-sm text-gray-900">WordPress page content</p>
+                <p className="mt-2 text-xs font-medium text-gray-500">Editor</p>
+                <p className="text-sm text-gray-900">{H1_SOURCE_LABELS[visibleState.editorSource] ?? visibleState.editorSource}</p>
+              </>
+            )}
+
             <p className="mt-2 text-xs font-medium text-gray-500">Current</p>
             {/* Plain JSX text interpolation only — React escapes this by
                 default. WordPress content is never rendered via
                 dangerouslySetInnerHTML anywhere in this feature. */}
             <p className="text-sm text-gray-900">
-              {visibleState.currentValue ? (
+              {visibleState.field === 'h1' ? (
+                <span className="text-gray-400">No H1 found</span>
+              ) : visibleState.currentValue ? (
                 `“${visibleState.currentValue}”`
               ) : (
                 <span className="text-gray-400">(none)</span>
@@ -336,7 +359,7 @@ export default function PrepareFixButton({
                     <p className="mt-3 text-xs text-red-600">{visibleApplyState.reason}</p>
                   ))}
               </>
-            ) : (
+            ) : visibleState.field === 'meta_description' ? (
               <>
                 <div className="mt-3 flex gap-2">
                   <button
@@ -381,6 +404,18 @@ export default function PrepareFixButton({
                     <p className="mt-3 text-xs text-red-600">{visibleApplyMetaState.reason}</p>
                   ))}
               </>
+            ) : (
+              // H1 preview (Phase 15.3B): read-only by design. No Apply Fix
+              // button — no H1 write path exists yet.
+              <div className="mt-3 border-t border-gray-200 pt-3">
+                <button
+                  type="button"
+                  onClick={() => setDismissed(true)}
+                  className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50"
+                >
+                  Dismiss
+                </button>
+              </div>
             )}
           </div>
         ) : visibleState.status === 'diagnostic' ? (

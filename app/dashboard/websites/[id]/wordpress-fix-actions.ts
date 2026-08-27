@@ -5,9 +5,10 @@ import { loadWordPressEditableContent } from '@/lib/integrations/wordpress/edita
 import { checkWordPressCapabilities } from '@/lib/integrations/wordpress/capabilities'
 import { updateWordPressTitle } from '@/lib/integrations/wordpress/write-title'
 import { verifyTitleFix, type TitleFixVerification } from '@/lib/fixes/verify-title-fix'
-import { signPreviewToken, verifyPreviewToken, signMetaDescriptionPreviewToken } from '@/lib/fixes/preview-token'
+import { signPreviewToken, verifyPreviewToken, signMetaDescriptionPreviewToken, signH1PreviewToken } from '@/lib/fixes/preview-token'
 import { generateTitleRecommendation } from '@/lib/ai/title-recommendation'
 import { generateMetaDescriptionRecommendation } from '@/lib/ai/meta-description-recommendation'
+import { generateH1Recommendation } from '@/lib/ai/h1-recommendation'
 import { detectSeoMetadataProvider } from '@/lib/integrations/wordpress/seo-provider'
 import { detectH1Source } from '@/lib/fixes/h1-source-detection'
 import { getConnectedWordPressCredentials } from './wordpress-credentials'
@@ -17,6 +18,7 @@ import {
   buildMetaDescriptionDiagnostic,
   buildMetaDescriptionReadyPreview,
   buildH1Diagnostic,
+  buildH1ReadyPreview,
   classifyIssueForFixPreview,
   getMetaDescriptionIssueKind,
   getH1IssueKind,
@@ -186,10 +188,66 @@ export async function prepareFix(
 
     // Read-only H1 source diagnostic: exactly one extra public-page GET
     // request beyond the resource load above — see h1-source-detection.ts.
-    // No WordPress write path exists for H1 yet, so no previewToken.
     const result = await detectH1Source({ pageUrl: content.permalink, issueKind, content })
 
-    return buildH1Diagnostic(result)
+    // AI is only ever attempted for missing_h1 on a confirmed-supported
+    // source. multiple_h1 always stays diagnostic-only (Website Care will
+    // not automatically decide which heading to remove), and any
+    // unsupported/ambiguous/connection_error result never reaches AI.
+    if (result.status !== 'supported' || issueKind !== 'missing_h1') {
+      return buildH1Diagnostic(result)
+    }
+
+    let pagePath = content.permalink
+    try {
+      pagePath = new URL(content.permalink).pathname
+    } catch {
+      // Keep the permalink itself if it's somehow unparsable.
+    }
+
+    // The only AI call for H1s, and at most one per Prepare Fix click. Only
+    // page content/identity is sent — no credentials, no resource id.
+    const recommendation = await generateH1Recommendation({
+      currentTitle: content.title,
+      slug: content.slug,
+      pagePath,
+      websiteName: credentials.websiteName,
+      resourceType: content.resourceType,
+      rawContent: content.content,
+    })
+
+    if (recommendation.status !== 'generated') {
+      // Intentionally conservative, same as meta descriptions: there is no
+      // deterministic H1 generator to fall back to.
+      return { status: 'unavailable', reason: recommendation.explanation }
+    }
+
+    let h1PreviewToken: string
+    try {
+      h1PreviewToken = signH1PreviewToken({
+        websiteId,
+        pageUrl,
+        issueTitle,
+        field: 'h1',
+        expectedSource: result.source,
+        expectedH1Count: result.editableH1s.length,
+        proposedValue: recommendation.proposedH1,
+      })
+    } catch {
+      return {
+        status: 'unavailable',
+        reason: 'Website Care could not prepare this fix right now. Please try again shortly.',
+      }
+    }
+
+    return buildH1ReadyPreview({
+      issueTitle,
+      content,
+      editorSource: result.source,
+      proposedValue: recommendation.proposedH1,
+      explanation: recommendation.explanation,
+      previewToken: h1PreviewToken,
+    })
   }
 
   let resolvedProposal: ResolvedTitleProposal | undefined

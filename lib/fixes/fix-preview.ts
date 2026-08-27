@@ -43,9 +43,31 @@ export type FixPreview =
       source: 'ai'
       previewToken: string
     }
+  /**
+   * Read-only preview for a missing-H1 AI recommendation (Phase 15.3B).
+   * Only ever built for missing_h1 issues whose source detection already
+   * confirmed a supported (Gutenberg/Classic HTML) source. No deterministic
+   * fallback exists. Deliberately has NO Apply capability yet — previewToken
+   * is issued (see lib/fixes/preview-token.ts's H1 token) so a future write
+   * phase can start consuming it, but nothing here reads or trusts it.
+   */
+  | {
+      status: 'ready'
+      issueTitle: string
+      resourceType: 'page' | 'post'
+      resourceId: number
+      permalink: string
+      field: 'h1'
+      editorSource: 'gutenberg' | 'classic_html'
+      currentValue: null
+      proposedValue: string
+      explanation: string
+      source: 'ai'
+      previewToken: string
+    }
   /** Read-only SEO-provider diagnostic for meta-description issues — never writable yet, so there is deliberately no proposedValue/previewToken here. */
   | { status: 'diagnostic'; field: 'meta_description'; provider: SeoMetadataProviderResult }
-  /** Read-only H1-source diagnostic (Phase 15.3A) — never writable yet; no H1 write path exists. */
+  /** Read-only H1-source diagnostic (Phase 15.3A) — never writable yet; no H1 write path exists. Also used for multiple_h1's guided-only result even when source detection is 'supported', since no destructive fix is decided automatically. */
   | { status: 'diagnostic'; field: 'h1'; result: H1SourceDetectionResult }
   | { status: 'unsupported'; reason: string }
   | { status: 'unavailable'; reason: string }
@@ -187,6 +209,35 @@ export function buildMetaDescriptionDiagnostic(provider: SeoMetadataProviderResu
  */
 export function buildH1Diagnostic(result: H1SourceDetectionResult): FixPreview {
   return { status: 'diagnostic', field: 'h1', result }
+}
+
+/**
+ * Assembles a ready-to-show (but not-yet-writable) missing-H1 AI preview.
+ * Pure — the AI call and source detection both happen in the caller
+ * (prepareFix).
+ */
+export function buildH1ReadyPreview(params: {
+  issueTitle: string
+  content: Extract<WordPressEditableContentResult, { status: 'loaded' }>
+  editorSource: 'gutenberg' | 'classic_html'
+  proposedValue: string
+  explanation: string
+  previewToken: string
+}): FixPreview {
+  return {
+    status: 'ready',
+    issueTitle: params.issueTitle,
+    resourceType: params.content.resourceType,
+    resourceId: params.content.resourceId,
+    permalink: params.content.permalink,
+    field: 'h1',
+    editorSource: params.editorSource,
+    currentValue: null,
+    proposedValue: params.proposedValue,
+    explanation: params.explanation,
+    source: 'ai',
+    previewToken: params.previewToken,
+  }
 }
 
 /**

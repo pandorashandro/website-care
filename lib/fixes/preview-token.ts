@@ -260,3 +260,120 @@ export function verifyMetaDescriptionPreviewToken(token: string): VerifiedMetaDe
     payload: { websiteId, pageUrl, issueTitle, field, provider, writeField, expectedCurrentValue, proposedValue, expiresAt },
   }
 }
+
+// ---------------------------------------------------------------------------
+// H1 preview tokens (Phase 15.3B)
+//
+// A third, deliberately separate token "kind" — same signing key, same
+// HMAC-SHA256 primitive, same TTL, but its own version tag (H1_TOKEN_VERSION)
+// baked into the signed string, so an H1 token can never be parsed as, or
+// confused with, a title or meta-description token (or vice versa). Nothing
+// about the existing title/meta sign/verify functions changes. No Apply
+// action consumes this token yet — Phase 15.3B is read-only; it exists so a
+// future write phase can start consuming it without prepareFix changing again.
+// ---------------------------------------------------------------------------
+
+const H1_TOKEN_VERSION = 'h1-v1'
+
+export type H1PreviewTokenPayload = {
+  websiteId: string
+  pageUrl: string
+  issueTitle: string
+  field: 'h1'
+  expectedSource: 'gutenberg' | 'classic_html'
+  /** The H1 count Prepare Fix observed on both the public page and editable content at preview time (0 for missing_h1). */
+  expectedH1Count: number
+  proposedValue: string
+  expiresAt: number
+}
+
+function canonicalH1Body(payload: H1PreviewTokenPayload): string {
+  return JSON.stringify([
+    H1_TOKEN_VERSION,
+    payload.websiteId,
+    payload.pageUrl,
+    payload.issueTitle,
+    payload.field,
+    payload.expectedSource,
+    payload.expectedH1Count,
+    payload.proposedValue,
+    payload.expiresAt,
+  ])
+}
+
+export function signH1PreviewToken(payload: Omit<H1PreviewTokenPayload, 'expiresAt'>): string {
+  const full: H1PreviewTokenPayload = { ...payload, expiresAt: Date.now() + TOKEN_TTL_MS }
+  const body = Buffer.from(canonicalH1Body(full), 'utf8').toString('base64url')
+  const signature = createHmac('sha256', getSigningKey()).update(body).digest('base64url')
+  return `${H1_TOKEN_VERSION}.${body}.${signature}`
+}
+
+export type VerifiedH1PreviewToken =
+  | { ok: true; payload: H1PreviewTokenPayload }
+  | { ok: false; reason: 'malformed' | 'invalid_signature' | 'expired' }
+
+export function verifyH1PreviewToken(token: string): VerifiedH1PreviewToken {
+  const parts = token.split('.')
+
+  if (parts.length !== 3 || parts[0] !== H1_TOKEN_VERSION) {
+    return { ok: false, reason: 'malformed' }
+  }
+
+  const [, body, signature] = parts
+
+  let expectedSignature: string
+  try {
+    expectedSignature = createHmac('sha256', getSigningKey()).update(body).digest('base64url')
+  } catch {
+    return { ok: false, reason: 'malformed' }
+  }
+
+  let signatureBuf: Buffer
+  let expectedBuf: Buffer
+  try {
+    signatureBuf = Buffer.from(signature, 'base64url')
+    expectedBuf = Buffer.from(expectedSignature, 'base64url')
+  } catch {
+    return { ok: false, reason: 'malformed' }
+  }
+
+  if (signatureBuf.length !== expectedBuf.length || !timingSafeEqual(signatureBuf, expectedBuf)) {
+    return { ok: false, reason: 'invalid_signature' }
+  }
+
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(Buffer.from(body, 'base64url').toString('utf8'))
+  } catch {
+    return { ok: false, reason: 'malformed' }
+  }
+
+  if (!Array.isArray(parsed) || parsed.length !== 9) {
+    return { ok: false, reason: 'malformed' }
+  }
+
+  const [version, websiteId, pageUrl, issueTitle, field, expectedSource, expectedH1Count, proposedValue, expiresAt] = parsed
+
+  if (
+    version !== H1_TOKEN_VERSION ||
+    typeof websiteId !== 'string' ||
+    typeof pageUrl !== 'string' ||
+    typeof issueTitle !== 'string' ||
+    field !== 'h1' ||
+    (expectedSource !== 'gutenberg' && expectedSource !== 'classic_html') ||
+    typeof expectedH1Count !== 'number' ||
+    typeof proposedValue !== 'string' ||
+    typeof expiresAt !== 'number'
+  ) {
+    return { ok: false, reason: 'malformed' }
+  }
+
+  if (Date.now() > expiresAt) {
+    return { ok: false, reason: 'expired' }
+  }
+
+  return {
+    ok: true,
+    payload: { websiteId, pageUrl, issueTitle, field, expectedSource, expectedH1Count, proposedValue, expiresAt },
+  }
+}
