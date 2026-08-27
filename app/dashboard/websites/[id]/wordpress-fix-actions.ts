@@ -9,14 +9,17 @@ import { signPreviewToken, verifyPreviewToken, signMetaDescriptionPreviewToken }
 import { generateTitleRecommendation } from '@/lib/ai/title-recommendation'
 import { generateMetaDescriptionRecommendation } from '@/lib/ai/meta-description-recommendation'
 import { detectSeoMetadataProvider } from '@/lib/integrations/wordpress/seo-provider'
+import { detectH1Source } from '@/lib/fixes/h1-source-detection'
 import { getConnectedWordPressCredentials } from './wordpress-credentials'
 import { recordFixHistory } from './fix-history'
 import {
   buildFixPreview,
   buildMetaDescriptionDiagnostic,
   buildMetaDescriptionReadyPreview,
+  buildH1Diagnostic,
   classifyIssueForFixPreview,
   getMetaDescriptionIssueKind,
+  getH1IssueKind,
   getTitleIssueKind,
   type FixPreview,
   type ResolvedTitleProposal,
@@ -169,6 +172,24 @@ export async function prepareFix(
       explanation: recommendation.explanation,
       previewToken: metaPreviewToken,
     })
+  }
+
+  if (support === 'h1') {
+    if (content.status !== 'loaded') {
+      return { status: 'unavailable', reason: content.reason }
+    }
+
+    const issueKind = getH1IssueKind(issueTitle)
+    if (!issueKind) {
+      return { status: 'unsupported', reason: 'Preview not available yet for this fix type.' }
+    }
+
+    // Read-only H1 source diagnostic: exactly one extra public-page GET
+    // request beyond the resource load above — see h1-source-detection.ts.
+    // No WordPress write path exists for H1 yet, so no previewToken.
+    const result = await detectH1Source({ pageUrl: content.permalink, issueKind, content })
+
+    return buildH1Diagnostic(result)
   }
 
   let resolvedProposal: ResolvedTitleProposal | undefined

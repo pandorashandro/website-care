@@ -186,9 +186,22 @@ export function getMetaDescriptionContent(html: string): string | null {
   return null
 }
 
+/** Returns the trimmed, tag-stripped text of every <h1>...</h1> element, in document order. */
+export function getH1Texts(html: string): string[] {
+  const matches = html.match(/<h1[^>]*>[\s\S]*?<\/h1>/gi) ?? []
+
+  return matches.map((match) =>
+    match
+      .replace(/^<h1[^>]*>/i, '')
+      .replace(/<\/h1>$/i, '')
+      .replace(/<[^>]*>/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+  )
+}
+
 export function countH1(html: string): number {
-  const matches = html.match(/<h1[^>]*>[\s\S]*?<\/h1>/gi)
-  return matches ? matches.length : 0
+  return getH1Texts(html).length
 }
 
 export function hasImageMissingAlt(html: string): boolean {

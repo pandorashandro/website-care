@@ -6,6 +6,7 @@ import { applyMetaDescriptionFix, type ApplyMetaDescriptionFixState } from './wo
 import type { TitleFixVerification } from '@/lib/fixes/verify-title-fix'
 import type { MetaDescriptionFixVerification } from '@/lib/fixes/verify-meta-description-fix'
 import type { SeoMetadataProviderResult } from '@/lib/integrations/wordpress/seo-provider'
+import type { H1SourceDetectionResult } from '@/lib/fixes/h1-source-detection'
 
 const SEO_PROVIDER_LABELS: Record<string, string> = {
   yoast: 'Yoast SEO',
@@ -40,6 +41,44 @@ function SeoProviderDiagnostic({ provider }: { provider: SeoMetadataProviderResu
       <p className="text-xs font-medium text-gray-500">SEO provider</p>
       <p className="text-sm text-gray-900">Not confirmed</p>
       <p className="mt-2 text-xs text-gray-500">{provider.reason}</p>
+    </div>
+  )
+}
+
+const H1_SOURCE_LABELS: Record<string, string> = {
+  gutenberg: 'Gutenberg',
+  classic_html: 'Classic Editor / HTML',
+}
+
+/**
+ * Read-only diagnostic — deliberately shows no Apply Fix button and no AI
+ * suggestion. Phase 15.3A only determines whether an H1 issue can be
+ * confidently traced to the page's own editable WordPress content; it
+ * never reads/writes an H1 itself yet.
+ */
+function H1SourceDiagnostic({ result }: { result: H1SourceDetectionResult }) {
+  if (result.status === 'supported') {
+    return (
+      <div className="mt-2 max-w-sm rounded-md border border-gray-200 bg-gray-50 p-3">
+        <p className="text-xs font-medium text-gray-500">H1 source</p>
+        <p className="text-sm text-gray-900">WordPress page content</p>
+
+        <p className="mt-2 text-xs font-medium text-gray-500">Editor</p>
+        <p className="text-sm text-gray-900">{H1_SOURCE_LABELS[result.source] ?? result.source}</p>
+
+        <p className="mt-2 text-xs font-medium text-gray-500">Status</p>
+        <p className="text-sm text-gray-900">Editable source identified</p>
+
+        <p className="mt-2 text-xs text-gray-500">{result.reason}</p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="mt-2 max-w-sm rounded-md border border-gray-200 bg-gray-50 p-3">
+      <p className="text-xs font-medium text-gray-500">H1 source</p>
+      <p className="text-sm text-gray-900">Not safely identified</p>
+      <p className="mt-2 text-xs text-gray-500">{result.reason}</p>
     </div>
   )
 }
@@ -345,7 +384,11 @@ export default function PrepareFixButton({
             )}
           </div>
         ) : visibleState.status === 'diagnostic' ? (
-          <SeoProviderDiagnostic provider={visibleState.provider} />
+          visibleState.field === 'meta_description' ? (
+            <SeoProviderDiagnostic provider={visibleState.provider} />
+          ) : (
+            <H1SourceDiagnostic result={visibleState.result} />
+          )
         ) : (
           <p className="mt-2 text-xs text-gray-600">{visibleState.reason}</p>
         ))}

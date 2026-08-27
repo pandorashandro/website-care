@@ -97,6 +97,16 @@ const RULES = {
     requiredCapability: 'edit_content',
     reason: `${EDIT_CONTENT_REASON} Website Care will not change page layout or theme structure.`,
   },
+  // Phase 15.3A: 'assisted' here only gates whether Prepare Fix's read-only
+  // H1 source diagnostic can run — like missing_h1, there is no working H1
+  // write path yet. Restructuring/removing headings still requires a
+  // Website Care write feature that does not exist yet.
+  multiple_h1: {
+    level: 'assisted',
+    requiresWordPress: true,
+    requiredCapability: 'edit_content',
+    reason: `${EDIT_CONTENT_REASON} Website Care will not change page layout or theme structure.`,
+  },
   missing_image_alt: {
     level: 'assisted',
     requiresWordPress: true,
@@ -105,12 +115,6 @@ const RULES = {
   },
 
   // --- Always manual for now ---
-  multiple_h1: {
-    level: 'manual',
-    requiresWordPress: false,
-    requiredCapability: null,
-    reason: 'Restructuring headings requires manual review of page layout.',
-  },
   missing_canonical: {
     level: 'manual',
     requiresWordPress: false,

@@ -3,6 +3,7 @@ import type { WordPressEditableContentResult } from '@/lib/integrations/wordpres
 import type { SeoMetadataProviderResult } from '@/lib/integrations/wordpress/seo-provider'
 import { generateTitleProposal, type TitleIssueKind } from './title-preview'
 import type { MetaDescriptionIssueKind } from '@/lib/ai/meta-description-recommendation'
+import type { H1SourceDetectionResult } from './h1-source-detection'
 
 export type FixPreview =
   | {
@@ -44,10 +45,12 @@ export type FixPreview =
     }
   /** Read-only SEO-provider diagnostic for meta-description issues — never writable yet, so there is deliberately no proposedValue/previewToken here. */
   | { status: 'diagnostic'; field: 'meta_description'; provider: SeoMetadataProviderResult }
+  /** Read-only H1-source diagnostic (Phase 15.3A) — never writable yet; no H1 write path exists. */
+  | { status: 'diagnostic'; field: 'h1'; result: H1SourceDetectionResult }
   | { status: 'unsupported'; reason: string }
   | { status: 'unavailable'; reason: string }
 
-export type FixSupport = 'title' | 'meta_description' | 'unsupported'
+export type FixSupport = 'title' | 'meta_description' | 'h1' | 'unsupported'
 
 /** References the scanner's own fixed title strings rather than re-hardcoding them. */
 const TITLE_ISSUE_KIND: Record<string, TitleIssueKind> = {
@@ -65,6 +68,16 @@ const META_DESCRIPTION_ISSUE_KIND: Record<string, MetaDescriptionIssueKind> = {
 
 const META_DESCRIPTION_ISSUE_TITLES = new Set<string>(Object.keys(META_DESCRIPTION_ISSUE_KIND))
 
+export type H1IssueKind = 'missing_h1' | 'multiple_h1'
+
+/** References the scanner's own fixed H1 issue strings rather than re-hardcoding them. */
+const H1_ISSUE_KIND: Record<string, H1IssueKind> = {
+  [ISSUE_DEFINITIONS.missing_h1.title]: 'missing_h1',
+  [ISSUE_DEFINITIONS.multiple_h1.title]: 'multiple_h1',
+}
+
+const H1_ISSUE_TITLES = new Set<string>(Object.keys(H1_ISSUE_KIND))
+
 const GENERIC_UNSUPPORTED_REASON = 'Preview not available yet for this fix type.'
 
 const META_DESCRIPTION_REASON =
@@ -81,6 +94,7 @@ const TITLE_EXPLANATION = 'Website Care proposes a clearer title that stays with
 export function classifyIssueForFixPreview(issueTitle: string): FixSupport {
   if (issueTitle in TITLE_ISSUE_KIND) return 'title'
   if (META_DESCRIPTION_ISSUE_TITLES.has(issueTitle)) return 'meta_description'
+  if (H1_ISSUE_TITLES.has(issueTitle)) return 'h1'
   return 'unsupported'
 }
 
@@ -98,6 +112,11 @@ export function getTitleIssueKind(issueTitle: string): TitleIssueKind | null {
 /** Resolves an issue title to its specific meta-description-fix kind, mirroring getTitleIssueKind. Returns null for anything outside the three supported meta-description issues. */
 export function getMetaDescriptionIssueKind(issueTitle: string): MetaDescriptionIssueKind | null {
   return META_DESCRIPTION_ISSUE_KIND[issueTitle] ?? null
+}
+
+/** Resolves an issue title to its specific H1 issue kind, mirroring getTitleIssueKind. Returns null for anything outside missing_h1/multiple_h1. */
+export function getH1IssueKind(issueTitle: string): H1IssueKind | null {
+  return H1_ISSUE_KIND[issueTitle] ?? null
 }
 
 /** A proposal already resolved by the caller (e.g. an AI recommendation, or the deterministic engine run ahead of time) — see prepareFix. */
@@ -161,6 +180,16 @@ export function buildMetaDescriptionDiagnostic(provider: SeoMetadataProviderResu
 }
 
 /**
+ * Wraps an already-computed H1 source-detection result (see
+ * lib/fixes/h1-source-detection.ts) into a diagnostic-only FixPreview. Pure
+ * — the detection itself (which requires a public-page fetch) happens in
+ * the caller (prepareFix), not here.
+ */
+export function buildH1Diagnostic(result: H1SourceDetectionResult): FixPreview {
+  return { status: 'diagnostic', field: 'h1', result }
+}
+
+/**
  * Assembles a ready-to-show (but not-yet-writable) meta-description
  * preview from an already-resolved AI recommendation and an already
  * confirmed writable provider mapping. Pure — the AI call and provider
@@ -213,6 +242,10 @@ export function buildFixPreview(
 
   if (support === 'meta_description') {
     return { status: 'unsupported', reason: META_DESCRIPTION_REASON }
+  }
+
+  if (support === 'h1') {
+    return { status: 'unsupported', reason: GENERIC_UNSUPPORTED_REASON }
   }
 
   if (support === 'unsupported') {
