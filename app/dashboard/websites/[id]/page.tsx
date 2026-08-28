@@ -1,18 +1,37 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
+import { ScanSearch } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import ScanWebsiteButton from '@/app/dashboard/scan-website-button'
 import { aggregateIssues, type RawIssueRow } from '@/lib/scanner/aggregate-issues'
-import { calculateHealthScore, type Category } from '@/lib/scanner/calculate-health-score'
+import { calculateHealthScore } from '@/lib/scanner/calculate-health-score'
 import { ISSUE_DEFINITIONS } from '@/lib/scanner/issue-definitions'
 import { detectWordPress } from '@/lib/integrations/wordpress/detect-wordpress'
 import type { CapabilityValue, WordPressCapabilities } from '@/lib/integrations/wordpress/capabilities'
 import { getWordPressConnectionSummary } from './wordpress-capabilities'
-import { evaluateFixability, type FixabilityLevel } from '@/lib/fixes/fixability'
+import { evaluateFixability } from '@/lib/fixes/fixability'
 import ConnectWordPressButton from './connect-wordpress-button'
 import DisconnectWordPressButton from './disconnect-wordpress-button'
-import PrepareFixButton from './prepare-fix-button'
 import RecentFixes from './recent-fixes'
+import Container from '@/components/ui/container'
+import Card from '@/components/ui/card'
+import Badge from '@/components/ui/badge'
+import Alert from '@/components/ui/alert'
+import EmptyState from '@/components/ui/empty-state'
+import HealthOverview from '@/components/report/health-overview'
+import CategoryScoreGrid from '@/components/report/category-score-grid'
+import PriorityIssues from '@/components/report/priority-issues'
+import IssueGroup from '@/components/report/issue-group'
+import {
+  type DecoratedIssue,
+  CATEGORY_ORDER,
+  CATEGORY_LABELS,
+  formatDate,
+  isKnownCategory,
+  SEVERITY_DISPLAY_ORDER,
+  SEVERITY_LABELS,
+  severityTone,
+} from '@/components/report/report-helpers'
 
 type Website = {
   id: string
@@ -49,109 +68,7 @@ const CAPABILITY_TEXT_CLASS: Record<CapabilityValue, string> = {
   unknown: 'font-medium text-gray-400',
 }
 
-const FIXABILITY_LABELS: Record<FixabilityLevel, string> = {
-  assisted: 'Fix available',
-  manual: 'Guided fix',
-  unavailable: 'Not currently supported',
-}
-
-const FIXABILITY_BADGE_CLASS: Record<FixabilityLevel, string> = {
-  assisted: 'bg-green-50 text-green-700',
-  manual: 'bg-blue-50 text-blue-700',
-  unavailable: 'bg-gray-100 text-gray-500',
-}
-
-const SEVERITY_DISPLAY_ORDER = ['critical', 'high', 'medium', 'low'] as const
-
-const SEVERITY_LABELS: Record<string, string> = {
-  critical: 'Critical',
-  high: 'High',
-  medium: 'Medium',
-  low: 'Low',
-}
-
-const SEVERITY_BADGE_CLASS: Record<string, string> = {
-  critical: 'bg-red-100 text-red-700',
-  high: 'bg-orange-100 text-orange-700',
-  medium: 'bg-yellow-100 text-yellow-700',
-  low: 'bg-blue-100 text-blue-700',
-}
-
-const CATEGORY_LABELS: Record<string, string> = {
-  technical: 'Technical',
-  seo: 'SEO',
-  accessibility: 'Accessibility',
-  performance: 'Performance',
-  content: 'Content',
-}
-
-const CATEGORY_ORDER: Category[] = ['seo', 'technical', 'accessibility', 'performance', 'content']
-
-const PRIORITY_BADGE_CLASS: Record<string, string> = {
-  Urgent: 'bg-red-100 text-red-700',
-  'High Priority': 'bg-orange-100 text-orange-700',
-  'Medium Priority': 'bg-yellow-100 text-yellow-700',
-  'Low Priority': 'bg-gray-100 text-gray-600',
-}
-
-const PRIORITY_BORDER_CLASS: Record<string, string> = {
-  Urgent: 'border-l-red-500',
-  'High Priority': 'border-l-orange-500',
-  'Medium Priority': 'border-l-yellow-500',
-  'Low Priority': 'border-l-gray-300',
-}
-
-const MAX_VISIBLE_AFFECTED_PAGES = 5
 const TOP_ISSUE_COUNT = 3
-
-function formatDate(value: string): string {
-  return new Date(value).toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-  })
-}
-
-function healthLabel(score: number): string {
-  if (score >= 90) return 'Excellent'
-  if (score >= 75) return 'Good'
-  if (score >= 50) return 'Needs Attention'
-  return 'Poor'
-}
-
-function healthBadgeClass(score: number): string {
-  if (score >= 90) return 'bg-green-50 text-green-700'
-  if (score >= 75) return 'bg-emerald-50 text-emerald-700'
-  if (score >= 50) return 'bg-yellow-50 text-yellow-700'
-  return 'bg-red-50 text-red-700'
-}
-
-function progressBarClass(score: number): string {
-  if (score >= 90) return 'bg-green-500'
-  if (score >= 75) return 'bg-emerald-500'
-  if (score >= 50) return 'bg-yellow-500'
-  return 'bg-red-500'
-}
-
-function formatCategory(type: string): string {
-  return CATEGORY_LABELS[type] ?? type.charAt(0).toUpperCase() + type.slice(1)
-}
-
-/**
- * Older issue rows may have page_url = null (created before that column
- * existed), so this must degrade gracefully rather than throw.
- */
-function formatPageLabel(pageUrl: string | null): string {
-  if (!pageUrl) return 'Homepage'
-
-  try {
-    const { pathname, search } = new URL(pageUrl)
-    const path = `${pathname}${search}`
-    return path === '' || path === '/' ? 'Homepage' : path
-  } catch {
-    return pageUrl
-  }
-}
 
 export default async function WebsiteReportPage(props: PageProps<'/dashboard/websites/[id]'>) {
   const { id } = await props.params
@@ -214,13 +131,12 @@ export default async function WebsiteReportPage(props: PageProps<'/dashboard/web
 
   // Only pages with at least one issue can be counted this way (schema has
   // no separate "pages crawled" record), so this is a lower bound, not the
-  // exact page count — labeled accordingly below rather than as "scanned."
+  // exact page count.
   const pageUrlsWithIssues = new Set(
     issues.map((issue) => issue.page_url).filter((url): url is string => !!url)
   )
 
   const aggregatedIssues = aggregateIssues(issues, website.url)
-  const topIssues = aggregatedIssues.slice(0, TOP_ISSUE_COUNT)
 
   // aggregateIssues collapses every missing_image_alt row into one summary
   // group (by title/type/severity), which is exactly right for scoring but
@@ -230,13 +146,6 @@ export default async function WebsiteReportPage(props: PageProps<'/dashboard/web
   // rows from before image_url existed (image_url === null) are excluded
   // rather than guessed at — they simply won't offer a per-image Prepare Fix
   // until the site is scanned again.
-  //
-  // The browser is never given a pageUrl/imageUrl to submit for this issue
-  // type — only the underlying issue row's own id. The server re-derives
-  // pageUrl/imageUrl from that trusted row itself (see
-  // getTrustedMissingImageAltIssue), so this map exists purely to pick ONE
-  // deterministic issue id (first-encountered) per unique (page, image) pair
-  // for display/dedup — it is never used to synthesize an image identity.
   const missingImageAltInstances = Array.from(
     new Map(
       issues
@@ -250,17 +159,16 @@ export default async function WebsiteReportPage(props: PageProps<'/dashboard/web
 
   // Always computed live from the latest scan's issues (never read from the
   // stored scans.score) so legacy scans — created before this scoring model
-  // existed — display correctly without a database rewrite. For scans
-  // created after this change, this matches what scanWebsite stored.
+  // existed — display correctly without a database rewrite.
   const healthScore =
     latestScan?.status === 'completed' ? calculateHealthScore(issues, website.url) : null
 
   const wordpress = await wordpressPromise
   const wordpressConnection = await wordpressConnectionPromise
 
-  // Centralizes fixability evaluation for both the "Fix These First" and
-  // grouped-issue sections below — pure, deterministic, and does not affect
-  // priority ranking or health scoring, which are computed independently above.
+  // Centralizes fixability evaluation — pure, deterministic, and does not
+  // affect priority ranking or health scoring, which are computed
+  // independently above.
   function getFixability(issueTitle: string) {
     return evaluateFixability({
       issueTitle,
@@ -274,133 +182,182 @@ export default async function WebsiteReportPage(props: PageProps<'/dashboard/web
     })
   }
 
+  // Decorated once, server-side, with a stable anchor id (so "Needs your
+  // attention" can link straight to a card below) and its fixability result
+  // — neither aggregateIssues nor evaluateFixability is changed by this.
+  const decoratedIssues: DecoratedIssue[] = aggregatedIssues.map((issue, index) => ({
+    ...issue,
+    anchorId: `issue-${index}`,
+    fixability: getFixability(issue.title),
+  }))
+
+  const topIssues = decoratedIssues.slice(0, TOP_ISSUE_COUNT)
+
+  const groupedByCategory = CATEGORY_ORDER.map((category) => ({
+    category,
+    issues: decoratedIssues.filter((issue) => issue.type === category),
+  })).filter((group) => group.issues.length > 0)
+
+  // Defensive only — every current issue-definition type is one of the five
+  // known categories, so this should always be empty in practice. Exists so
+  // an issue can never silently vanish from the report if that ever changes.
+  const otherIssues = decoratedIssues.filter((issue) => !isKnownCategory(issue.type))
+
   return (
-    <div className="mx-auto max-w-3xl px-6 py-10">
-      <Link href="/dashboard" className="text-sm text-gray-500 hover:text-gray-700">
+    <Container size="md" className="py-10">
+      <Link href="/dashboard" className="text-sm text-muted hover:text-gray-700">
         ← Back to Websites
       </Link>
 
-      <div className="mt-4 flex flex-col gap-4 rounded-lg border border-gray-200 bg-white p-6 shadow-sm sm:flex-row sm:items-start sm:justify-between">
+      <Card padding="md" className="mt-4 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
-          <h1 className="truncate text-2xl font-semibold text-gray-900">{website.name}</h1>
+          <p className="text-xs font-semibold uppercase tracking-wide text-subtle">Website Overview</p>
+          <h1 className="mt-1 truncate text-2xl font-semibold text-gray-900">{website.name}</h1>
           <a
             href={website.url}
             target="_blank"
             rel="noreferrer"
-            className="mt-1 block truncate text-sm text-gray-500 hover:text-gray-700"
+            className="mt-1 block truncate text-sm text-muted hover:text-gray-700"
           >
             {website.url}
           </a>
 
-          {!latestScan ? (
-            <p className="mt-4 text-sm text-gray-500">This website hasn&apos;t been scanned yet.</p>
-          ) : latestScan.status === 'completed' && healthScore ? (
-            <div className="mt-4 flex flex-wrap items-center gap-3">
-              <span
-                className={`inline-flex items-center rounded-full px-3 py-1 text-sm font-semibold ${healthBadgeClass(healthScore.overall)}`}
-              >
-                {healthScore.overall} · {healthLabel(healthScore.overall)}
-              </span>
-              <span className="text-sm text-gray-500">
-                Scanned {formatDate(latestScan.created_at)}
-              </span>
-              <span className="text-sm text-gray-500">
-                {issues.length} issue{issues.length === 1 ? '' : 's'} found
-              </span>
-              {pageUrlsWithIssues.size > 0 && (
-                <span className="text-sm text-gray-500">
-                  {pageUrlsWithIssues.size} page{pageUrlsWithIssues.size === 1 ? '' : 's'} with
-                  issues
-                </span>
-              )}
-            </div>
-          ) : latestScan.status === 'running' ? (
-            <p className="mt-4 text-sm text-blue-600">Scan in progress…</p>
-          ) : (
-            <p className="mt-4 text-sm text-red-600">The last scan failed. Try scanning again.</p>
-          )}
+          <p className="mt-3 text-sm text-muted">
+            {!latestScan
+              ? 'Not scanned yet'
+              : latestScan.status === 'completed'
+                ? `Last scanned ${formatDate(latestScan.created_at)}`
+                : latestScan.status === 'running'
+                  ? 'Scan in progress…'
+                  : latestScan.status === 'failed'
+                    ? 'The last scan failed.'
+                    : 'Scan status unavailable.'}
+          </p>
         </div>
 
         <div className="sm:w-48 sm:shrink-0">
-          <ScanWebsiteButton
-            websiteId={website.id}
-            label={latestScan ? 'Scan Again' : 'Scan Website'}
-          />
+          <ScanWebsiteButton websiteId={website.id} label={latestScan ? 'Scan Again' : 'Run First Scan'} />
         </div>
-      </div>
+      </Card>
 
-      {healthScore && (
-        <div className="mt-6 rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
-          <h2 className="text-base font-semibold text-gray-900">Website Health</h2>
-          <div className="mt-2 flex items-baseline gap-2">
-            <span className="text-3xl font-semibold text-gray-900">{healthScore.overall}</span>
-            <span className="text-sm text-gray-500">/ 100</span>
-            <span
-              className={`ml-1 inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${healthBadgeClass(healthScore.overall)}`}
-            >
-              {healthLabel(healthScore.overall)}
-            </span>
-          </div>
+      {latestScan?.status === 'running' && (
+        <Alert tone="info" className="mt-6">
+          Scanning this website now. The health report will appear here once it completes.
+        </Alert>
+      )}
 
-          <div className="mt-5 space-y-4">
-            {CATEGORY_ORDER.map((category) => {
-              const score = healthScore.categories[category]
-              return (
-                <div key={category}>
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="font-medium text-gray-900">{CATEGORY_LABELS[category]}</span>
-                    <span className="text-gray-500">
-                      {score} / 100 · {healthLabel(score)}
-                    </span>
-                  </div>
-                  <div className="mt-1 h-2 w-full overflow-hidden rounded-full bg-gray-100">
-                    <div
-                      className={`h-full rounded-full ${progressBarClass(score)}`}
-                      style={{ width: `${score}%` }}
-                    />
-                  </div>
+      {latestScan?.status === 'failed' && (
+        <Alert tone="danger" className="mt-6">
+          The last scan for this website failed. Try scanning again above.
+        </Alert>
+      )}
+
+      {!latestScan && (
+        <EmptyState
+          icon={ScanSearch}
+          title="No health report yet"
+          description="Run the first scan to analyze this website."
+          action={<ScanWebsiteButton websiteId={website.id} label="Run First Scan" />}
+          className="mt-6"
+        />
+      )}
+
+      {latestScan?.status === 'completed' && healthScore && (
+        <div className="mt-6 space-y-6">
+          {Object.values(severityCounts).some((count) => count > 0) && (
+            <div className="flex flex-wrap items-center gap-2">
+              {SEVERITY_DISPLAY_ORDER.filter((severity) => severityCounts[severity] > 0).map((severity) => (
+                <Badge key={severity} tone={severityTone(severity)}>
+                  {severityCounts[severity]} {SEVERITY_LABELS[severity]}
+                </Badge>
+              ))}
+            </div>
+          )}
+
+          <HealthOverview overall={healthScore.overall} issueCount={issues.length} pageCount={pageUrlsWithIssues.size} />
+
+          <CategoryScoreGrid categories={healthScore.categories} />
+
+          {issues.length === 0 ? (
+            <EmptyState title="No issues found" description="This website passed every check in its latest scan." />
+          ) : (
+            <>
+              <PriorityIssues issues={topIssues} />
+
+              <div>
+                <h2 className="text-base font-semibold text-gray-900">Website Report</h2>
+                <p className="mt-1 text-sm text-muted">
+                  {issues.length} total issue{issues.length === 1 ? '' : 's'} across {aggregatedIssues.length} unique
+                  issue type{aggregatedIssues.length === 1 ? '' : 's'}
+                </p>
+
+                <div className="mt-4 space-y-8">
+                  {groupedByCategory.map((group) => (
+                    <div key={group.category}>
+                      <h3 className="text-sm font-semibold uppercase tracking-wide text-subtle">
+                        {CATEGORY_LABELS[group.category]}
+                      </h3>
+                      <div className="mt-3 space-y-3">
+                        {group.issues.map((issue) => (
+                          <IssueGroup
+                            key={issue.anchorId}
+                            issue={issue}
+                            websiteId={website.id}
+                            missingImageAltInstances={
+                              issue.title === ISSUE_DEFINITIONS.missing_image_alt.title ? missingImageAltInstances : []
+                            }
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+
+                  {otherIssues.length > 0 && (
+                    <div>
+                      <h3 className="text-sm font-semibold uppercase tracking-wide text-subtle">Other</h3>
+                      <div className="mt-3 space-y-3">
+                        {otherIssues.map((issue) => (
+                          <IssueGroup key={issue.anchorId} issue={issue} websiteId={website.id} missingImageAltInstances={[]} />
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
-              )
-            })}
-          </div>
+              </div>
+            </>
+          )}
         </div>
       )}
 
-      <div className="mt-6 rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
-        <h2 className="text-base font-semibold text-gray-900">Platform</h2>
+      <Card padding="md" className="mt-6">
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-subtle">Integration</h2>
 
         {wordpress.status === 'unknown' ? (
-          <p className="mt-2 text-sm text-gray-500">Not confirmed</p>
+          <p className="mt-2 text-sm text-muted">WordPress not confirmed for this website.</p>
         ) : (
           <>
             <div className="mt-2 flex flex-wrap items-center gap-2">
-              <span className="text-lg font-semibold text-gray-900">
+              <span className="text-base font-semibold text-gray-900">
                 {wordpress.status === 'confirmed' ? 'WordPress' : 'WordPress likely'}
               </span>
-              <span
-                className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                  wordpress.status === 'confirmed'
-                    ? 'bg-green-50 text-green-700'
-                    : 'bg-yellow-50 text-yellow-700'
-                }`}
-              >
+              <Badge tone={wordpress.status === 'confirmed' ? 'success' : 'warning'}>
                 {wordpress.status === 'confirmed' ? 'Detected' : 'Likely'}
-              </span>
+              </Badge>
             </div>
 
             {wordpress.status === 'likely' && (
-              <p className="mt-1 text-sm text-gray-500">We found several WordPress signals.</p>
+              <p className="mt-1 text-sm text-muted">We found several WordPress signals.</p>
             )}
 
             <dl className="mt-4 space-y-2 text-sm">
               <div className="flex items-center justify-between">
-                <dt className="text-gray-500">REST API</dt>
+                <dt className="text-muted">REST API</dt>
                 <dd className="font-medium text-gray-900">
                   {wordpress.restApiAvailable ? 'Available' : 'Unavailable'}
                 </dd>
               </div>
               <div className="flex items-center justify-between">
-                <dt className="text-gray-500">Connection</dt>
+                <dt className="text-muted">Connection</dt>
                 <dd
                   className={`font-medium ${
                     wordpressConnection.connected && !wordpressConnection.connectionValid
@@ -419,24 +376,21 @@ export default async function WebsiteReportPage(props: PageProps<'/dashboard/web
                 wordpressConnection.connectionValid &&
                 wordpressConnection.displayName && (
                   <div className="flex items-center justify-between">
-                    <dt className="text-gray-500">Connected as</dt>
+                    <dt className="text-muted">Connected as</dt>
                     <dd className="font-medium text-gray-900">{wordpressConnection.displayName}</dd>
                   </div>
                 )}
             </dl>
 
             {wordpressConnection.connected && !wordpressConnection.connectionValid && (
-              <p className="mt-2 text-sm text-gray-500">
-                Website Care could not verify this WordPress connection. It may need to be
-                reconnected.
+              <p className="mt-2 text-sm text-muted">
+                Website Care could not verify this WordPress connection. It may need to be reconnected.
               </p>
             )}
 
             {wordpressConnection.connected && wordpressConnection.connectionValid && (
               <div className="mt-4">
-                <p className="text-xs font-medium uppercase tracking-wide text-gray-400">
-                  Permissions
-                </p>
+                <p className="text-xs font-medium uppercase tracking-wide text-subtle">Permissions</p>
                 <dl className="mt-2 space-y-1.5 text-sm">
                   {PERMISSION_ROWS.map(({ key, label }) => (
                     <div key={key} className="flex items-center justify-between">
@@ -457,197 +411,11 @@ export default async function WebsiteReportPage(props: PageProps<'/dashboard/web
             )}
           </>
         )}
+      </Card>
+
+      <div className="mt-6">
+        <RecentFixes websiteId={website.id} />
       </div>
-
-      <RecentFixes websiteId={website.id} />
-
-      {latestScan?.status === 'completed' && (
-        <div className="mt-8">
-          {issues.length === 0 ? (
-            <div className="rounded-lg border border-dashed border-gray-300 bg-white px-6 py-12 text-center">
-              <h2 className="text-sm font-medium text-gray-900">No issues found</h2>
-              <p className="mt-1 text-sm text-gray-500">
-                This website passed every check in its latest scan.
-              </p>
-            </div>
-          ) : (
-            <>
-              <div className="flex flex-wrap items-center gap-2">
-                {SEVERITY_DISPLAY_ORDER.filter((severity) => severityCounts[severity] > 0).map(
-                  (severity) => (
-                    <span
-                      key={severity}
-                      className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-medium ${SEVERITY_BADGE_CLASS[severity]}`}
-                    >
-                      {severityCounts[severity]} {SEVERITY_LABELS[severity]}
-                    </span>
-                  )
-                )}
-              </div>
-
-              <p className="mt-2 text-sm text-gray-500">
-                {issues.length} total issue{issues.length === 1 ? '' : 's'} across{' '}
-                {aggregatedIssues.length} unique issue type{aggregatedIssues.length === 1 ? '' : 's'}
-              </p>
-
-              {topIssues.length > 0 && (
-                <div className="mt-6">
-                  <h2 className="text-base font-semibold text-gray-900">Fix These First</h2>
-                  <div className="mt-3 space-y-3">
-                    {topIssues.map((issue, index) => {
-                      const fixability = getFixability(issue.title)
-
-                      return (
-                      <div
-                        key={`${issue.title}|${issue.type}|${issue.severity}`}
-                        className={`flex gap-4 rounded-lg border border-l-4 border-gray-200 bg-white p-4 shadow-sm ${PRIORITY_BORDER_CLASS[issue.priorityLabel]}`}
-                      >
-                        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gray-900 text-xs font-semibold text-white">
-                          {index + 1}
-                        </span>
-                        <div className="min-w-0 flex-1">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <h3 className="text-sm font-semibold text-gray-900">{issue.title}</h3>
-                            <span
-                              className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${PRIORITY_BADGE_CLASS[issue.priorityLabel]}`}
-                            >
-                              {issue.priorityLabel}
-                            </span>
-                            <span
-                              title={fixability.reason}
-                              className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${FIXABILITY_BADGE_CLASS[fixability.level]}`}
-                            >
-                              {FIXABILITY_LABELS[fixability.level]}
-                            </span>
-                          </div>
-                          <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-gray-500">
-                            <span>{SEVERITY_LABELS[issue.severity] ?? issue.severity}</span>
-                            <span aria-hidden="true">·</span>
-                            <span>{formatCategory(issue.type)}</span>
-                            <span aria-hidden="true">·</span>
-                            <span>
-                              {issue.affectedPageCount} page{issue.affectedPageCount === 1 ? '' : 's'}{' '}
-                              affected
-                            </span>
-                            {issue.homepageAffected && (
-                              <>
-                                <span aria-hidden="true">·</span>
-                                <span>Includes homepage</span>
-                              </>
-                            )}
-                          </div>
-                          <p className="mt-2 text-sm text-gray-700">{issue.recommendation}</p>
-                        </div>
-                      </div>
-                      )
-                    })}
-                  </div>
-                </div>
-              )}
-
-              <div className="mt-6 space-y-3">
-                {aggregatedIssues.map((issue) => {
-                  const fixability = getFixability(issue.title)
-
-                  return (
-                  <div
-                    key={`${issue.title}|${issue.type}|${issue.severity}`}
-                    className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm"
-                  >
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span
-                        className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                          SEVERITY_BADGE_CLASS[issue.severity] ?? 'bg-gray-100 text-gray-700'
-                        }`}
-                      >
-                        {SEVERITY_LABELS[issue.severity] ?? issue.severity}
-                      </span>
-                      <span className="inline-flex items-center rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-600">
-                        {formatCategory(issue.type)}
-                      </span>
-                      <span className="inline-flex items-center rounded-full bg-gray-50 px-2.5 py-0.5 text-xs text-gray-500">
-                        {issue.affectedPageCount} page{issue.affectedPageCount === 1 ? '' : 's'} affected
-                      </span>
-                      {issue.homepageAffected && (
-                        <span className="inline-flex items-center rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-medium text-blue-600">
-                          Homepage
-                        </span>
-                      )}
-                      <span
-                        title={fixability.reason}
-                        className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${FIXABILITY_BADGE_CLASS[fixability.level]}`}
-                      >
-                        {FIXABILITY_LABELS[fixability.level]}
-                      </span>
-                    </div>
-
-                    <h3 className="mt-3 text-sm font-semibold text-gray-900">{issue.title}</h3>
-                    <p className="mt-1 text-sm text-gray-600">{issue.description}</p>
-
-                    <p className="mt-3 text-sm text-gray-700">
-                      <span className="font-medium text-gray-900">Recommended: </span>
-                      {issue.recommendation}
-                    </p>
-
-                    {fixability.level === 'assisted' && issue.title === ISSUE_DEFINITIONS.missing_image_alt.title ? (
-                      missingImageAltInstances.length > 0 && (
-                        <div className="mt-3 space-y-2">
-                          <p className="text-xs font-medium uppercase tracking-wide text-gray-400">
-                            Images missing alt text
-                          </p>
-                          {missingImageAltInstances.map((instance, index) => (
-                            <div key={instance.issueId} className="rounded-md border border-gray-100 bg-gray-50 p-2">
-                              <p className="truncate font-mono text-xs text-gray-600">
-                                {index + 1}. {instance.imageUrl}
-                              </p>
-                              <PrepareFixButton
-                                websiteId={website.id}
-                                pageUrl={instance.pageUrl}
-                                pageLabel={formatPageLabel(instance.pageUrl)}
-                                issueTitle={issue.title}
-                                issueId={instance.issueId}
-                              />
-                            </div>
-                          ))}
-                        </div>
-                      )
-                    ) : (
-                      fixability.level === 'assisted' &&
-                      issue.affectedPageUrls[0] && (
-                        <PrepareFixButton
-                          websiteId={website.id}
-                          pageUrl={issue.affectedPageUrls[0]}
-                          pageLabel={formatPageLabel(issue.affectedPageUrls[0])}
-                          issueTitle={issue.title}
-                        />
-                      )
-                    )}
-
-                    <div className="mt-3">
-                      <p className="text-xs font-medium uppercase tracking-wide text-gray-400">
-                        Affected pages
-                      </p>
-                      <ul className="mt-1 space-y-0.5">
-                        {issue.affectedPageUrls.slice(0, MAX_VISIBLE_AFFECTED_PAGES).map((pageUrl) => (
-                          <li key={pageUrl} className="truncate font-mono text-xs text-gray-500">
-                            {formatPageLabel(pageUrl)}
-                          </li>
-                        ))}
-                      </ul>
-                      {issue.affectedPageUrls.length > MAX_VISIBLE_AFFECTED_PAGES && (
-                        <p className="mt-1 text-xs text-gray-400">
-                          + {issue.affectedPageUrls.length - MAX_VISIBLE_AFFECTED_PAGES} more
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                  )
-                })}
-              </div>
-            </>
-          )}
-        </div>
-      )}
-    </div>
+    </Container>
   )
 }
