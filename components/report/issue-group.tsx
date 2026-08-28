@@ -8,6 +8,9 @@ import {
   type DecoratedIssue,
   SEVERITY_LABELS,
   severityTone,
+  FIXABILITY_LABELS,
+  fixabilityTone,
+  FIXABILITY_ICON,
   formatPageLabel,
 } from './report-helpers'
 
@@ -76,6 +79,8 @@ export default function IssueGroup({
       )
     ) : null
 
+  const ActionIcon = FIXABILITY_ICON[issue.fixability.level]
+
   return (
     <Card id={issue.anchorId} padding="md" className="scroll-mt-20">
       <h3 className="text-base font-semibold text-gray-900">{issue.title}</h3>
@@ -89,6 +94,10 @@ export default function IssueGroup({
           {issue.affectedPageCount} page{issue.affectedPageCount === 1 ? '' : 's'} affected
         </span>
         {issue.homepageAffected && <Badge tone="info">Homepage</Badge>}
+        <Badge tone={fixabilityTone(issue.fixability.level)}>
+          <ActionIcon className="mr-1 h-3 w-3" aria-hidden="true" />
+          {FIXABILITY_LABELS[issue.fixability.level]}
+        </Badge>
       </div>
 
       <div className="mt-3">

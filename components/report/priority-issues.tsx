@@ -1,4 +1,3 @@
-import { Wrench, Compass, ShieldAlert } from 'lucide-react'
 import Card from '@/components/ui/card'
 import Badge from '@/components/ui/badge'
 import {
@@ -7,14 +6,9 @@ import {
   severityTone,
   FIXABILITY_LABELS,
   fixabilityTone,
+  FIXABILITY_ICON,
   formatCategory,
 } from './report-helpers'
-
-const LEVEL_ICON = {
-  assisted: Wrench,
-  manual: Compass,
-  unavailable: ShieldAlert,
-} as const
 
 const PRIORITY_TEXT_CLASS: Record<string, string> = {
   Urgent: 'text-red-700',
@@ -40,7 +34,10 @@ export default function PriorityIssues({ issues }: { issues: DecoratedIssue[] })
       <p className="mt-1 text-sm text-muted">The findings most worth addressing first, out of everything in this report.</p>
 
       <div className="mt-4 space-y-3">
-        {issues.map((issue, index) => (
+        {issues.map((issue, index) => {
+          const ActionIcon = FIXABILITY_ICON[issue.fixability.level]
+
+          return (
           <Card key={issue.anchorId} padding="sm" className="flex gap-4">
             <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gray-900 text-xs font-semibold text-white">
               {index + 1}
@@ -67,14 +64,18 @@ export default function PriorityIssues({ issues }: { issues: DecoratedIssue[] })
               <p className="mt-2 text-sm text-gray-700">{issue.recommendation}</p>
 
               <div className="mt-2 flex items-center gap-2">
-                <Badge tone={fixabilityTone(issue.fixability.level)}>{FIXABILITY_LABELS[issue.fixability.level]}</Badge>
+                <Badge tone={fixabilityTone(issue.fixability.level)}>
+                  <ActionIcon className="mr-1 h-3 w-3" aria-hidden="true" />
+                  {FIXABILITY_LABELS[issue.fixability.level]}
+                </Badge>
                 <a href={`#${issue.anchorId}`} className="text-xs font-medium text-brand hover:text-brand-hover">
                   View details
                 </a>
               </div>
             </div>
           </Card>
-        ))}
+          )
+        })}
       </div>
     </div>
   )
