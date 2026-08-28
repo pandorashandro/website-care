@@ -430,7 +430,7 @@ export default function PrepareFixButton({
           disabled={pending}
           className="rounded-md border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
         >
-          {pending ? 'Checking…' : 'Prepare Fix'}
+          {pending ? 'Preparing fix…' : 'Prepare Fix'}
         </button>
         <span className="text-xs text-gray-400">for {pageLabel}</span>
       </form>

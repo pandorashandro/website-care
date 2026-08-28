@@ -68,7 +68,7 @@ export default function AddWebsiteButton({ label = '+ Add Website' }: { label?: 
               Cancel
             </Button>
             <Button type="submit" disabled={pending}>
-              {pending ? 'Adding…' : 'Add Website'}
+              {pending ? 'Adding Website…' : 'Add Website'}
             </Button>
           </div>
         </form>

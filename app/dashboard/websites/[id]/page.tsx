@@ -292,7 +292,10 @@ export default async function WebsiteReportPage(props: PageProps<'/dashboard/web
           <CategoryScoreGrid categories={healthScore.categories} />
 
           {issues.length === 0 ? (
-            <EmptyState title="No issues found" description="This website passed every check in its latest scan." />
+            <EmptyState
+              title="No issues found in this scan"
+              description="WEBIOOM didn't detect any of the issues covered by the current scan."
+            />
           ) : (
             <>
               <PriorityIssues issues={topIssues} />
