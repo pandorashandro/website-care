@@ -13,7 +13,10 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Website Care",
+  title: {
+    default: "Website Care",
+    template: "%s | Website Care",
+  },
   description: "Website monitoring and optimization platform",
 };
 

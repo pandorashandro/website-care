@@ -2,6 +2,7 @@
 
 import { useActionState } from 'react'
 import { scanWebsite, type ScanWebsiteState } from './actions'
+import Button from '@/components/ui/button'
 
 const initialState: ScanWebsiteState = null
 
@@ -18,13 +19,9 @@ export default function ScanWebsiteButton({
     <form action={formAction} className="mt-4">
       <input type="hidden" name="websiteId" value={websiteId} />
 
-      <button
-        type="submit"
-        disabled={pending}
-        className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
-      >
+      <Button type="submit" variant="outline" disabled={pending} className="w-full">
         {pending ? 'Scanning…' : label}
-      </button>
+      </Button>
 
       {state?.error && <p className="mt-2 text-xs text-red-600">{state.error}</p>}
     </form>

@@ -1,14 +1,20 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
+import { LayoutDashboard } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
+import Logo from '@/components/brand/logo'
+import { buttonStyles } from '@/components/ui/button'
 import { logout } from './actions'
 
-const navItems = [
-  { href: '/dashboard', label: 'Dashboard' },
-  { href: '/dashboard/websites', label: 'Websites' },
-  { href: '/dashboard/scans', label: 'Scans' },
-  { href: '/dashboard/settings', label: 'Settings' },
-]
+/**
+ * Only routes that actually exist belong here. The Phase 18.1 audit found
+ * three dead sidebar links (/dashboard/websites, /dashboard/scans,
+ * /dashboard/settings) — none of those routes exist, so rather than disable
+ * three ghost items for a nav that currently has exactly one real
+ * destination, they're removed outright. This array is the only place a
+ * future destination needs to be added.
+ */
+const navItems = [{ href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard }]
 
 export default async function DashboardLayout(props: LayoutProps<'/dashboard'>) {
   const supabase = await createClient()
@@ -23,42 +29,43 @@ export default async function DashboardLayout(props: LayoutProps<'/dashboard'>) 
 
   return (
     <div className="flex min-h-screen w-full flex-col lg:flex-row">
-      <aside className="flex flex-col border-b border-gray-200 bg-white lg:w-64 lg:shrink-0 lg:border-b-0 lg:border-r">
+      <aside className="flex flex-col border-b border-border bg-surface lg:w-64 lg:shrink-0 lg:border-b-0 lg:border-r">
         <div className="px-6 py-5">
-          <span className="text-lg font-semibold tracking-tight text-gray-900">
-            Website Care
-          </span>
+          <Link href="/dashboard" aria-label="Website Care dashboard">
+            <Logo />
+          </Link>
         </div>
 
-        <nav className="flex gap-1 overflow-x-auto px-3 pb-3 lg:flex-col lg:overflow-visible lg:px-3 lg:pb-0">
-          {navItems.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className="whitespace-nowrap rounded-md px-3 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 hover:text-gray-900 aria-[current=page]:bg-gray-900 aria-[current=page]:text-white"
-              aria-current={item.href === '/dashboard' ? 'page' : undefined}
-            >
-              {item.label}
-            </Link>
-          ))}
+        <nav className="flex gap-1 overflow-x-auto px-3 pb-3 lg:flex-col lg:overflow-visible lg:px-3 lg:pb-0" aria-label="Primary">
+          {navItems.map((item) => {
+            const Icon = item.icon
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className="flex items-center gap-2 whitespace-nowrap rounded-md px-3 py-2 text-sm font-medium text-gray-600 hover:bg-surface-muted hover:text-gray-900 aria-[current=page]:bg-gray-900 aria-[current=page]:text-white"
+                aria-current={item.href === '/dashboard' ? 'page' : undefined}
+              >
+                <Icon className="h-4 w-4" aria-hidden="true" />
+                {item.label}
+              </Link>
+            )
+          })}
         </nav>
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex items-center justify-between gap-4 border-b border-gray-200 bg-white px-6 py-4">
-          <span className="truncate text-sm text-gray-600">{user.email}</span>
+        <header className="flex items-center justify-between gap-4 border-b border-border bg-surface px-6 py-4">
+          <span className="truncate text-sm text-muted">{user.email}</span>
 
           <form action={logout}>
-            <button
-              type="submit"
-              className="rounded-md border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
-            >
+            <button type="submit" className={buttonStyles({ variant: 'outline', size: 'sm' })}>
               Log out
             </button>
           </form>
         </header>
 
-        <main className="flex-1 bg-gray-50">{props.children}</main>
+        <main className="flex-1 bg-background">{props.children}</main>
       </div>
     </div>
   )

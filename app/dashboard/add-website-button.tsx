@@ -2,6 +2,10 @@
 
 import { useActionState, useEffect, useRef, useState } from 'react'
 import { addWebsite, type AddWebsiteState } from './actions'
+import Modal from '@/components/ui/modal'
+import { Input, Label } from '@/components/ui/input'
+import Button from '@/components/ui/button'
+import Alert from '@/components/ui/alert'
 
 const initialState: AddWebsiteState = null
 
@@ -27,70 +31,41 @@ export default function AddWebsiteButton() {
 
   return (
     <>
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        className="inline-flex items-center justify-center rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-800"
-      >
+      <Button type="button" onClick={() => setOpen(true)}>
         + Add Website
-      </button>
+      </Button>
 
-      {open && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
-          <div className="w-full max-w-sm rounded-lg bg-white p-6 shadow-lg">
-            <h2 className="text-lg font-semibold text-gray-900">Add a website</h2>
-
-            <form ref={formRef} action={formAction} className="mt-4 space-y-4">
-              <div>
-                <label htmlFor="name" className="block text-sm font-medium text-gray-700">
-                  Website name
-                </label>
-                <input
-                  id="name"
-                  name="name"
-                  type="text"
-                  required
-                  className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-gray-500 focus:outline-none"
-                  placeholder="My Website"
-                />
-              </div>
-
-              <div>
-                <label htmlFor="url" className="block text-sm font-medium text-gray-700">
-                  Website URL
-                </label>
-                <input
-                  id="url"
-                  name="url"
-                  type="url"
-                  required
-                  className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-gray-500 focus:outline-none"
-                  placeholder="https://example.com"
-                />
-              </div>
-
-              {state?.error && <p className="text-sm text-red-600">{state.error}</p>}
-
-              <div className="flex justify-end gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setOpen(false)}
-                  className="rounded-md border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={pending}
-                  className="rounded-md bg-gray-900 px-3 py-2 text-sm font-medium text-white hover:bg-gray-800 disabled:opacity-50"
-                >
-                  {pending ? 'Adding…' : 'Add Website'}
-                </button>
-              </div>
-            </form>
+      <Modal open={open} onClose={() => setOpen(false)} title="Add a website">
+        <form ref={formRef} action={formAction} className="space-y-4">
+          <div>
+            <Label htmlFor="name">Website name</Label>
+            <Input id="name" name="name" type="text" required className="mt-1" placeholder="My Website" />
           </div>
-        </div>
-      )}
+
+          <div>
+            <Label htmlFor="url">Website URL</Label>
+            <Input
+              id="url"
+              name="url"
+              type="url"
+              required
+              className="mt-1"
+              placeholder="https://example.com"
+            />
+          </div>
+
+          {state?.error && <Alert tone="danger">{state.error}</Alert>}
+
+          <div className="flex justify-end gap-2 pt-2">
+            <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+              Cancel
+            </Button>
+            <Button type="submit" disabled={pending}>
+              {pending ? 'Adding…' : 'Add Website'}
+            </Button>
+          </div>
+        </form>
+      </Modal>
     </>
   )
 }
