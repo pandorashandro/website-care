@@ -24,7 +24,10 @@ const FOOTER_COLUMNS: { heading: string; items: FooterLink[] }[] = [
     heading: 'Resources',
     items: [
       { label: 'All Resources', href: '/resources' },
-      ...RESOURCES.map((resource) => ({ label: resource.title, href: `/resources/${resource.slug}` })),
+      ...RESOURCES.filter((resource) => resource.featured).map((resource) => ({
+        label: resource.title,
+        href: `/resources/${resource.slug}`,
+      })),
     ],
   },
   { heading: 'Company', items: [{ label: 'About' }, { label: 'Contact' }] },

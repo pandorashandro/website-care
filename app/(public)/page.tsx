@@ -342,7 +342,7 @@ export default function Home() {
           <SectionHeading eyebrow="Resources" title="Understand your website" />
 
           <div className="mt-10 grid grid-cols-1 gap-5 sm:grid-cols-3">
-            {RESOURCES.map((resource) => (
+            {RESOURCES.filter((resource) => resource.featured).map((resource) => (
               <Link key={resource.slug} href={`/resources/${resource.slug}`} className="group block">
                 <Card className="h-full transition-shadow group-hover:shadow-md">
                   <Badge tone="brand">{resource.category}</Badge>
