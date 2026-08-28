@@ -40,7 +40,32 @@ export type ImageAltSourceDetectionResult =
       reason: string
     }
 
-type ContentImageOccurrence = { hasAltAttribute: boolean; altValue: string | null; matchedTag: string }
+export type ContentImageOccurrence = { hasAltAttribute: boolean; altValue: string | null; matchedTag: string }
+
+/**
+ * Decodes the small set of HTML entities that can legally appear inside a
+ * double/single-quoted HTML attribute value — the exact inverse of the
+ * escapeHtml() used when writing alt text back into content (see
+ * image-alt-content-transform.ts). An attribute regex-extracted from raw
+ * markup is HTML-encoded text, not semantic text: `alt="Research &amp;
+ * Development"` must decode to `Research & Development` before it is ever
+ * compared with (or shown alongside) a plain proposedValue/expectedCurrentAlt
+ * — otherwise identical alt text would look "changed" purely because of
+ * entity encoding. Numeric character references are decoded first so a
+ * literal `&amp;` in the source is never double-unescaped by the later named
+ * replacements (e.g. `&amp;lt;` correctly decodes to the literal text
+ * `&lt;`, not further to `<`).
+ */
+function decodeHtmlEntities(value: string): string {
+  return value
+    .replace(/&#(\d+);/g, (_match, dec: string) => String.fromCodePoint(Number(dec)))
+    .replace(/&#[xX]([0-9a-fA-F]+);/g, (_match, hex: string) => String.fromCodePoint(parseInt(hex, 16)))
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;|&apos;/g, "'")
+    .replace(/&amp;/g, '&')
+}
 
 const NEARBY_CONTEXT_WINDOW_CHARS = 400
 const NEARBY_CONTEXT_MAX_CHARS = 500
@@ -185,7 +210,13 @@ async function fetchMediaAltText(
  * present at all (even empty) versus fully absent — the distinction that
  * decides whether content-level markup is the authoritative alt source.
  */
-function findContentImageOccurrences(
+/**
+ * Exported for reuse by the image-alt Apply transform (see
+ * lib/fixes/image-alt-content-transform.ts), which must locate the exact
+ * same occurrence(s) this detection already proved were safe to identify —
+ * never a second, independently-written matching rule.
+ */
+export function findContentImageOccurrences(
   rawContent: string,
   normalizedImageUrl: string,
   mediaId: number | null,
@@ -208,7 +239,11 @@ function findContentImageOccurrences(
     if (!srcMatches && !classMatches) continue
 
     const altMatch = tag.match(/\balt\s*=\s*["']([^"']*)["']/i)
-    occurrences.push({ hasAltAttribute: !!altMatch, altValue: altMatch ? altMatch[1] : null, matchedTag: tag })
+    occurrences.push({
+      hasAltAttribute: !!altMatch,
+      altValue: altMatch ? decodeHtmlEntities(altMatch[1]) : null,
+      matchedTag: tag,
+    })
   }
 
   return occurrences

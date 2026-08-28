@@ -4,6 +4,7 @@ import { useActionState, useState } from 'react'
 import { prepareFix, applyFix, type PrepareFixState, type ApplyFixState } from './wordpress-fix-actions'
 import { applyMetaDescriptionFix, type ApplyMetaDescriptionFixState } from './wordpress-meta-fix-actions'
 import { applyH1Fix, type ApplyH1FixState } from './wordpress-h1-fix-actions'
+import { applyImageAltFix, type ApplyImageAltFixState } from './wordpress-image-alt-fix-actions'
 import type { TitleFixVerification } from '@/lib/fixes/verify-title-fix'
 import type { MetaDescriptionFixVerification } from '@/lib/fixes/verify-meta-description-fix'
 import type { H1FixVerification } from '@/lib/fixes/verify-h1-fix'
@@ -302,6 +303,7 @@ function H1VerificationResult({ verification }: { verification: H1FixVerificatio
 
 const initialApplyMetaDescriptionState: ApplyMetaDescriptionFixState = null
 const initialApplyH1State: ApplyH1FixState = null
+const initialApplyImageAltState: ApplyImageAltFixState = null
 
 export default function PrepareFixButton({
   websiteId,
@@ -330,6 +332,10 @@ export default function PrepareFixButton({
     initialApplyMetaDescriptionState
   )
   const [applyH1State, applyH1FormAction, applyH1Pending] = useActionState(applyH1Fix, initialApplyH1State)
+  const [applyImageAltState, applyImageAltFormAction, applyImageAltPending] = useActionState(
+    applyImageAltFix,
+    initialApplyImageAltState
+  )
   const [dismissed, setDismissed] = useState(false)
   const [handledState, setHandledState] = useState(state)
   const [applyStateVisible, setApplyStateVisible] = useState(false)
@@ -338,6 +344,8 @@ export default function PrepareFixButton({
   const [handledApplyMetaState, setHandledApplyMetaState] = useState(applyMetaState)
   const [applyH1StateVisible, setApplyH1StateVisible] = useState(false)
   const [handledApplyH1State, setHandledApplyH1State] = useState(applyH1State)
+  const [applyImageAltStateVisible, setApplyImageAltStateVisible] = useState(false)
+  const [handledApplyImageAltState, setHandledApplyImageAltState] = useState(applyImageAltState)
 
   if (state !== handledState) {
     setHandledState(state)
@@ -345,6 +353,7 @@ export default function PrepareFixButton({
     setApplyStateVisible(false) // a fresh prepare result hides any stale apply outcome from a previous attempt
     setApplyMetaStateVisible(false)
     setApplyH1StateVisible(false)
+    setApplyImageAltStateVisible(false)
   }
 
   if (applyState !== handledApplyState) {
@@ -362,10 +371,16 @@ export default function PrepareFixButton({
     setApplyH1StateVisible(true)
   }
 
+  if (applyImageAltState !== handledApplyImageAltState) {
+    setHandledApplyImageAltState(applyImageAltState)
+    setApplyImageAltStateVisible(true)
+  }
+
   const visibleState = dismissed ? null : state
   const visibleApplyState = applyStateVisible ? applyState : null
   const visibleApplyMetaState = applyMetaStateVisible ? applyMetaState : null
   const visibleApplyH1State = applyH1StateVisible ? applyH1State : null
+  const visibleApplyImageAltState = applyImageAltStateVisible ? applyImageAltState : null
 
   return (
     <div className="mt-3">
@@ -581,17 +596,38 @@ export default function PrepareFixButton({
                   ))}
               </>
             ) : (
-              // Image-alt preview (Phase 15.4B): read-only by design. No
-              // Apply Fix button — no image-alt write path exists yet.
-              <div className="mt-3 border-t border-gray-200 pt-3">
-                <button
-                  type="button"
-                  onClick={() => setDismissed(true)}
-                  className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50"
-                >
-                  Dismiss
-                </button>
-              </div>
+              <>
+                <div className="mt-3 flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setDismissed(true)}
+                    className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50"
+                  >
+                    Cancel
+                  </button>
+                  <form action={applyImageAltFormAction}>
+                    <input type="hidden" name="previewToken" value={visibleState.previewToken} />
+                    <button
+                      type="submit"
+                      disabled={applyImageAltPending}
+                      className="rounded-md border border-blue-300 bg-blue-50 px-3 py-1.5 text-xs font-medium text-blue-700 hover:bg-blue-100 disabled:opacity-50"
+                    >
+                      {applyImageAltPending ? 'Applying…' : 'Apply Fix'}
+                    </button>
+                  </form>
+                </div>
+
+                {visibleApplyImageAltState &&
+                  (visibleApplyImageAltState.writeStatus === 'success' ? (
+                    <div className="mt-3 border-t border-gray-200 pt-3">
+                      <p className="text-xs font-medium text-green-700">Alt text updated successfully.</p>
+                      <p className="mt-2 text-xs font-medium text-gray-500">Current</p>
+                      <p className="text-sm text-gray-900">{`“${visibleApplyImageAltState.appliedValue}”`}</p>
+                    </div>
+                  ) : (
+                    <p className="mt-3 text-xs text-red-600">{visibleApplyImageAltState.reason}</p>
+                  ))}
+              </>
             )}
           </div>
         ) : visibleState.status === 'diagnostic' ? (
