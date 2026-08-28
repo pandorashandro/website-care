@@ -58,18 +58,27 @@ export async function addWebsite(
     return { error: 'Enter a valid URL, e.g. https://example.com.' }
   }
 
-  const { error } = await supabase.from('websites').insert({
-    user_id: user.id,
-    name,
-    url: normalizedUrl,
-  })
+  const { data: inserted, error } = await supabase
+    .from('websites')
+    .insert({
+      user_id: user.id,
+      name,
+      url: normalizedUrl,
+    })
+    .select('id')
+    .single()
 
-  if (error) {
+  if (error || !inserted) {
     return { error: 'Could not save the website. Please try again.' }
   }
 
   revalidatePath('/dashboard')
-  return {}
+
+  // Straight to the new website's Overview, where the "no scan yet" state
+  // already makes Run First Scan the obvious next step — the fastest path
+  // to ADD WEBSITE -> RUN FIRST SCAN -> SEE WEBSITE HEALTH, rather than
+  // leaving the user to find the new card back on the dashboard themselves.
+  redirect(`/dashboard/websites/${inserted.id}`)
 }
 
 export type ScanWebsiteState = { error?: string } | null

@@ -9,7 +9,7 @@ import Alert from '@/components/ui/alert'
 
 const initialState: AddWebsiteState = null
 
-export default function AddWebsiteButton() {
+export default function AddWebsiteButton({ label = '+ Add Website' }: { label?: string }) {
   const [open, setOpen] = useState(false)
   const [state, formAction, pending] = useActionState(addWebsite, initialState)
   const [handledState, setHandledState] = useState(state)
@@ -32,14 +32,14 @@ export default function AddWebsiteButton() {
   return (
     <>
       <Button type="button" onClick={() => setOpen(true)}>
-        + Add Website
+        {label}
       </Button>
 
       <Modal
         open={open}
         onClose={() => setOpen(false)}
         title="Add a website"
-        description="Enter the website you want Website Care to scan."
+        description="Enter the website you want WEBIOOM to scan."
       >
         <form ref={formRef} action={formAction} className="space-y-4">
           <div>
@@ -58,7 +58,7 @@ export default function AddWebsiteButton() {
               className="mt-1"
               placeholder="https://example.com"
             />
-            <p className="mt-1 text-xs text-subtle">No integration required — Website Care can scan this right away.</p>
+            <p className="mt-1 text-xs text-subtle">No integration required — WEBIOOM can scan this right away.</p>
           </div>
 
           {state?.error && <Alert tone="danger">{state.error}</Alert>}

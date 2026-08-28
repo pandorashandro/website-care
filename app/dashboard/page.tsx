@@ -1,19 +1,14 @@
-import { Globe2, ScanSearch, AlertTriangle, BarChart3, ListOrdered, ClipboardList } from 'lucide-react'
+import { Globe2, ScanSearch, AlertTriangle, BarChart3 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import Container from '@/components/ui/container'
 import Card from '@/components/ui/card'
 import EmptyState from '@/components/ui/empty-state'
 import WebsiteCard, { type DashboardWebsite, type DashboardLatestScan } from '@/components/dashboard/website-card'
+import GettingStartedGuide from '@/components/dashboard/getting-started-guide'
 import { needsAttention } from '@/lib/scanner/health-label'
 import AddWebsiteButton from './add-website-button'
 
 type ScanRow = DashboardLatestScan & { id: string; website_id: string }
-
-const BENEFITS = [
-  { icon: BarChart3, label: 'Website health score' },
-  { icon: ListOrdered, label: 'Prioritized issues' },
-  { icon: ClipboardList, label: 'Clear recommendations' },
-]
 
 export default async function DashboardPage() {
   const supabase = await createClient()
@@ -89,7 +84,13 @@ export default async function DashboardPage() {
 
       {hasWebsites ? (
         <>
-          <div className="mt-8 grid grid-cols-2 gap-4 sm:grid-cols-4">
+          {scannedCount === 0 && (
+            <div className="mt-6">
+              <GettingStartedGuide hasWebsite={hasWebsites} hasCompletedScan={scannedCount > 0} />
+            </div>
+          )}
+
+          <div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-4">
             {summaryStats.map((stat) => {
               const Icon = stat.icon
               return (
@@ -113,21 +114,22 @@ export default async function DashboardPage() {
       ) : (
         <EmptyState
           icon={Globe2}
-          title="Add your first website"
-          description="Website Care will scan your website and organize findings into a health report."
-          action={<AddWebsiteButton />}
+          title="Welcome to WEBIOOM"
+          description="Add your first website to see what needs attention."
+          action={<AddWebsiteButton label="Add Your First Website" />}
           className="mt-8"
         >
-          <div className="mt-6 flex flex-wrap items-center justify-center gap-4 border-t border-border pt-6">
-            {BENEFITS.map((benefit) => {
-              const Icon = benefit.icon
-              return (
-                <span key={benefit.label} className="flex items-center gap-1.5 text-xs font-medium text-muted">
-                  <Icon className="h-3.5 w-3.5 text-brand" aria-hidden="true" />
-                  {benefit.label}
-                </span>
-              )
-            })}
+          <div className="mx-auto mt-6 max-w-sm border-t border-border pt-6 text-left">
+            <p className="text-sm text-muted">
+              WEBIOOM will scan the site, organize findings into a health report, and help you understand
+              what to work on first.
+            </p>
+            <p className="mt-4 text-xs font-semibold uppercase tracking-wide text-subtle">What happens next</p>
+            <ol className="mt-2 list-inside list-decimal space-y-1 text-sm text-gray-700">
+              <li>Add your website</li>
+              <li>Run a health scan</li>
+              <li>Review your prioritized report</li>
+            </ol>
           </div>
         </EmptyState>
       )}

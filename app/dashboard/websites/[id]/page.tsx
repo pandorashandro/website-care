@@ -143,6 +143,19 @@ export default async function WebsiteReportPage(props: PageProps<'/dashboard/web
   const healthScore =
     latestScan?.status === 'completed' ? calculateHealthScore(issues, website.url) : null
 
+  // Onboarding context only — a simple count against the existing scans
+  // table, not a new table or persisted "onboarding" state. Only ever
+  // queried when there's a completed scan to contextualize.
+  let isFirstReport = false
+  if (latestScan?.status === 'completed') {
+    const { count: completedScanCount } = await supabase
+      .from('scans')
+      .select('id', { count: 'exact', head: true })
+      .eq('website_id', website.id)
+      .eq('status', 'completed')
+    isFirstReport = completedScanCount === 1
+  }
+
   const wordpress = await wordpressPromise
   const wordpressConnection = await wordpressConnectionPromise
 
@@ -172,6 +185,7 @@ export default async function WebsiteReportPage(props: PageProps<'/dashboard/web
   }))
 
   const topIssues = decoratedIssues.slice(0, TOP_ISSUE_COUNT)
+  const hasActionableIssue = decoratedIssues.some((issue) => issue.fixability.level !== 'unavailable')
 
   const groupedByCategory = CATEGORY_ORDER.map((category) => ({
     category,
@@ -224,7 +238,8 @@ export default async function WebsiteReportPage(props: PageProps<'/dashboard/web
 
       {latestScan?.status === 'running' && (
         <Alert tone="info" className="mt-6">
-          Scanning this website now. The health report will appear here once it completes.
+          Scanning your website now. WEBIOOM is preparing your health report — it will appear here once
+          scanning completes.
         </Alert>
       )}
 
@@ -237,8 +252,8 @@ export default async function WebsiteReportPage(props: PageProps<'/dashboard/web
       {!latestScan && (
         <EmptyState
           icon={ScanSearch}
-          title="No health report yet"
-          description="Run the first scan to analyze this website."
+          title="Your website is ready for its first scan."
+          description="Run a scan to create your website health report. WEBIOOM checks the website and organizes findings by health category and priority."
           action={<ScanWebsiteButton websiteId={website.id} label="Run First Scan" />}
           className="mt-6"
         />
@@ -246,6 +261,22 @@ export default async function WebsiteReportPage(props: PageProps<'/dashboard/web
 
       {latestScan?.status === 'completed' && healthScore && (
         <div className="mt-6 space-y-6">
+          {isFirstReport && issues.length > 0 && (
+            <Alert tone="success">
+              <p>
+                Your first health report is ready. Start with Needs Your Attention below — these are the
+                findings WEBIOOM has prioritized first.
+              </p>
+              {hasActionableIssue && (
+                <p className="mt-1.5">
+                  Some findings can be prepared for review directly in WEBIOOM; others include guided
+                  recommendations you can act on yourself. You&apos;ll always see the proposed change before
+                  anything is applied.
+                </p>
+              )}
+            </Alert>
+          )}
+
           {Object.values(severityCounts).some((count) => count > 0) && (
             <div className="flex flex-wrap items-center gap-2">
               {SEVERITY_DISPLAY_ORDER.filter((severity) => severityCounts[severity] > 0).map((severity) => (
@@ -339,7 +370,9 @@ export default async function WebsiteReportPage(props: PageProps<'/dashboard/web
             ? 'Website Care can use this integration for supported fix workflows.'
             : wordpressConnection.connected
               ? 'This connection needs attention before Website Care can use it.'
-              : 'Scanning and reports still work without it.'}
+              : latestScan?.status === 'completed'
+                ? 'Want WEBIOOM to help apply supported changes? Connect a supported integration.'
+                : 'Scanning and reports still work without it.'}
         </p>
       </Card>
 
