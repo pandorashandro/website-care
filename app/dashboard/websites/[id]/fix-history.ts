@@ -77,12 +77,18 @@ const FIX_HISTORY_COLUMNS =
   'id, issue_title, page_url, image_url, write_strategy, platform, resource_type, resource_id, field, previous_value, applied_value, verification_status, created_at'
 
 /**
- * Read-only, for display in the report's "Recent Fixes" section. Selects an
- * explicit column list (never `select('*')`) and relies on the same
- * ownership check the report page itself already performed on `websiteId`
- * before rendering, with RLS as the enforced second layer underneath.
+ * Read-only, for display in the report's "Recent Fixes" widget and the
+ * dedicated Activity page. Selects an explicit column list (never
+ * `select('*')`) and relies on the same ownership check the calling page
+ * already performed on `websiteId` before rendering, with RLS as the
+ * enforced second layer underneath. `limit` defaults to the original
+ * compact widget size; the Activity page passes a larger value — this is a
+ * read-side convenience only, not a change to what's stored or how.
  */
-export async function getRecentFixHistory(websiteId: string): Promise<FixHistoryRecord[]> {
+export async function getRecentFixHistory(
+  websiteId: string,
+  limit: number = RECENT_FIXES_LIMIT
+): Promise<FixHistoryRecord[]> {
   const supabase = await createClient()
 
   const { data, error } = await supabase
@@ -90,7 +96,7 @@ export async function getRecentFixHistory(websiteId: string): Promise<FixHistory
     .select(FIX_HISTORY_COLUMNS)
     .eq('website_id', websiteId)
     .order('created_at', { ascending: false })
-    .limit(RECENT_FIXES_LIMIT)
+    .limit(limit)
     .returns<FixHistoryRecord[]>()
 
   if (error || !data) return []

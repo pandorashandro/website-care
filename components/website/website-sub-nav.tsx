@@ -1,18 +1,19 @@
 import Link from 'next/link'
 import { cn } from '@/lib/ui/cn'
 
-export type WebsiteSubNavActive = 'overview' | 'integrations'
+export type WebsiteSubNavActive = 'overview' | 'integrations' | 'activity'
 
 /**
  * Small, truthful sub-navigation for a single website. Only real routes
- * belong here — Activity/Monitoring/Settings are added only once those
- * routes actually exist, matching the same "no dead links" rule the main
- * dashboard sidebar already follows.
+ * belong here — Monitoring/Settings are added only once those routes
+ * actually exist, matching the same "no dead links" rule the main dashboard
+ * sidebar already follows.
  */
 export default function WebsiteSubNav({ websiteId, active }: { websiteId: string; active: WebsiteSubNavActive }) {
   const items: { key: WebsiteSubNavActive; label: string; href: string }[] = [
     { key: 'overview', label: 'Overview', href: `/dashboard/websites/${websiteId}` },
     { key: 'integrations', label: 'Integrations', href: `/dashboard/websites/${websiteId}/integrations` },
+    { key: 'activity', label: 'Activity', href: `/dashboard/websites/${websiteId}/activity` },
   ]
 
   return (
