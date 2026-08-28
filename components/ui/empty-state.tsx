@@ -6,11 +6,13 @@ export type EmptyStateProps = {
   title: string
   description?: string
   action?: ReactNode
+  /** Optional extra content rendered below the action — e.g. a short list of benefits. */
+  children?: ReactNode
   className?: string
 }
 
 /** Shared empty-state shell — dashed border card with an optional icon, title, description, and action, for "no websites yet" / "no fixes yet" style states across the platform. */
-export default function EmptyState({ icon: Icon, title, description, action, className }: EmptyStateProps) {
+export default function EmptyState({ icon: Icon, title, description, action, children, className }: EmptyStateProps) {
   return (
     <div
       className={cn(
@@ -26,6 +28,7 @@ export default function EmptyState({ icon: Icon, title, description, action, cla
       <h2 className="text-sm font-medium text-gray-900">{title}</h2>
       {description && <p className="mt-1 max-w-sm text-sm text-muted">{description}</p>}
       {action && <div className="mt-4">{action}</div>}
+      {children}
     </div>
   )
 }

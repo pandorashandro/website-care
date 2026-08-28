@@ -35,11 +35,17 @@ export default function AddWebsiteButton() {
         + Add Website
       </Button>
 
-      <Modal open={open} onClose={() => setOpen(false)} title="Add a website">
+      <Modal
+        open={open}
+        onClose={() => setOpen(false)}
+        title="Add a website"
+        description="Enter the website you want Website Care to scan."
+      >
         <form ref={formRef} action={formAction} className="space-y-4">
           <div>
             <Label htmlFor="name">Website name</Label>
             <Input id="name" name="name" type="text" required className="mt-1" placeholder="My Website" />
+            <p className="mt-1 text-xs text-subtle">A label to help you recognize this website — it isn&apos;t used for scanning.</p>
           </div>
 
           <div>
@@ -52,6 +58,7 @@ export default function AddWebsiteButton() {
               className="mt-1"
               placeholder="https://example.com"
             />
+            <p className="mt-1 text-xs text-subtle">No integration required — Website Care can scan this right away.</p>
           </div>
 
           {state?.error && <Alert tone="danger">{state.error}</Alert>}

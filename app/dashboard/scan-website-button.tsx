@@ -20,7 +20,7 @@ export default function ScanWebsiteButton({
       <input type="hidden" name="websiteId" value={websiteId} />
 
       <Button type="submit" variant="outline" disabled={pending} className="w-full">
-        {pending ? 'Scanning…' : label}
+        {pending ? 'Scanning website…' : label}
       </Button>
 
       {state?.error && <p className="mt-2 text-xs text-red-600">{state.error}</p>}

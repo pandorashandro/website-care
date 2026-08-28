@@ -1,42 +1,19 @@
-import Link from 'next/link'
-import { Globe2 } from 'lucide-react'
+import { Globe2, ScanSearch, AlertTriangle, BarChart3, ListOrdered, ClipboardList } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import Container from '@/components/ui/container'
 import Card from '@/components/ui/card'
-import Badge, { type BadgeTone } from '@/components/ui/badge'
 import EmptyState from '@/components/ui/empty-state'
-import { buttonStyles } from '@/components/ui/button'
+import WebsiteCard, { type DashboardWebsite, type DashboardLatestScan } from '@/components/dashboard/website-card'
+import { needsAttention } from '@/lib/scanner/health-label'
 import AddWebsiteButton from './add-website-button'
-import ScanWebsiteButton from './scan-website-button'
 
-type Website = {
-  id: string
-  name: string
-  url: string
-  created_at: string
-}
+type ScanRow = DashboardLatestScan & { id: string; website_id: string }
 
-type ScanSummary = {
-  id: string
-  website_id: string
-  status: 'running' | 'completed' | 'failed'
-  score: number | null
-  created_at: string
-}
-
-function formatDate(value: string): string {
-  return new Date(value).toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-  })
-}
-
-function scoreBadgeTone(score: number): BadgeTone {
-  if (score >= 80) return 'success'
-  if (score >= 50) return 'warning'
-  return 'danger'
-}
+const BENEFITS = [
+  { icon: BarChart3, label: 'Website health score' },
+  { icon: ListOrdered, label: 'Prioritized issues' },
+  { icon: ClipboardList, label: 'Clear recommendations' },
+]
 
 export default async function DashboardPage() {
   const supabase = await createClient()
@@ -54,11 +31,11 @@ export default async function DashboardPage() {
     .select('id, name, url, created_at')
     .eq('user_id', user.id)
     .order('created_at', { ascending: false })
-    .returns<Website[]>()
+    .returns<DashboardWebsite[]>()
 
   const hasWebsites = (websites?.length ?? 0) > 0
 
-  const latestScans = new Map<string, ScanSummary>()
+  const latestScans = new Map<string, ScanRow>()
 
   if (websites && websites.length > 0) {
     const { data: scans } = await supabase
@@ -69,7 +46,7 @@ export default async function DashboardPage() {
         websites.map((website) => website.id)
       )
       .order('created_at', { ascending: false })
-      .returns<ScanSummary[]>()
+      .returns<ScanRow[]>()
 
     for (const scan of scans ?? []) {
       if (!latestScans.has(scan.website_id)) {
@@ -78,13 +55,32 @@ export default async function DashboardPage() {
     }
   }
 
+  // Derived entirely from data already loaded above — no additional queries.
+  // Only counts what the existing scans/websites data can answer accurately.
+  const scoredScans = Array.from(latestScans.values()).filter(
+    (scan) => scan.status === 'completed' && scan.score !== null
+  )
+  const scannedCount = scoredScans.length
+  const needsAttentionCount = scoredScans.filter((scan) => needsAttention(scan.score as number)).length
+  const averageScore =
+    scoredScans.length > 0
+      ? Math.round(scoredScans.reduce((sum, scan) => sum + (scan.score as number), 0) / scoredScans.length)
+      : null
+
+  const summaryStats = [
+    { icon: Globe2, label: 'Websites', value: websites?.length ?? 0 },
+    { icon: ScanSearch, label: 'Scanned', value: scannedCount },
+    { icon: AlertTriangle, label: 'Needs attention', value: needsAttentionCount },
+    ...(averageScore !== null ? [{ icon: BarChart3, label: 'Average health', value: averageScore }] : []),
+  ]
+
   return (
     <Container size="lg" className="py-10">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-gray-900">Your Websites</h1>
           <p className="mt-1 text-sm text-muted">
-            Keep track of the websites you manage and monitor their health in one place.
+            See the latest health of your websites and open a report to see what needs attention.
           </p>
         </div>
 
@@ -92,61 +88,48 @@ export default async function DashboardPage() {
       </div>
 
       {hasWebsites ? (
-        <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {websites!.map((website) => {
-            const latestScan = latestScans.get(website.id)
+        <>
+          <div className="mt-8 grid grid-cols-2 gap-4 sm:grid-cols-4">
+            {summaryStats.map((stat) => {
+              const Icon = stat.icon
+              return (
+                <Card key={stat.label} padding="sm">
+                  <div className="flex items-center gap-2 text-muted">
+                    <Icon className="h-4 w-4" aria-hidden="true" />
+                    <span className="text-xs font-medium">{stat.label}</span>
+                  </div>
+                  <p className="mt-1.5 text-2xl font-semibold text-gray-900">{stat.value}</p>
+                </Card>
+              )
+            })}
+          </div>
 
-            return (
-              <Card key={website.id} padding="md">
-                <h3 className="truncate font-medium text-gray-900">{website.name}</h3>
-                <a
-                  href={website.url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="mt-0.5 block truncate text-sm text-muted hover:text-gray-700"
-                >
-                  {website.url}
-                </a>
-
-                <div className="mt-4 flex items-center justify-between">
-                  {latestScan?.status === 'completed' && latestScan.score !== null ? (
-                    <Badge tone={scoreBadgeTone(latestScan.score)}>Score: {latestScan.score}</Badge>
-                  ) : latestScan?.status === 'running' ? (
-                    <Badge tone="info">Scanning…</Badge>
-                  ) : latestScan?.status === 'failed' ? (
-                    <Badge tone="danger">Last scan failed</Badge>
-                  ) : (
-                    <Badge tone="neutral">Not scanned yet</Badge>
-                  )}
-
-                  <span className="text-xs text-subtle">
-                    {latestScan
-                      ? `Scanned ${formatDate(latestScan.created_at)}`
-                      : `Added ${formatDate(website.created_at)}`}
-                  </span>
-                </div>
-
-                <div className="mt-4 flex gap-2">
-                  <Link
-                    href={`/dashboard/websites/${website.id}`}
-                    className={buttonStyles({ variant: 'outline', size: 'md', className: 'flex-1 text-center' })}
-                  >
-                    View Report
-                  </Link>
-                </div>
-
-                <ScanWebsiteButton websiteId={website.id} />
-              </Card>
-            )
-          })}
-        </div>
+          <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {websites!.map((website) => (
+              <WebsiteCard key={website.id} website={website} latestScan={latestScans.get(website.id)} />
+            ))}
+          </div>
+        </>
       ) : (
         <EmptyState
           icon={Globe2}
-          title="No websites yet"
-          description="You haven't added any websites yet. Once you add one, it will show up here."
+          title="Add your first website"
+          description="Website Care will scan your website and organize findings into a health report."
+          action={<AddWebsiteButton />}
           className="mt-8"
-        />
+        >
+          <div className="mt-6 flex flex-wrap items-center justify-center gap-4 border-t border-border pt-6">
+            {BENEFITS.map((benefit) => {
+              const Icon = benefit.icon
+              return (
+                <span key={benefit.label} className="flex items-center gap-1.5 text-xs font-medium text-muted">
+                  <Icon className="h-3.5 w-3.5 text-brand" aria-hidden="true" />
+                  {benefit.label}
+                </span>
+              )
+            })}
+          </div>
+        </EmptyState>
       )}
     </Container>
   )
