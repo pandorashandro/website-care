@@ -33,9 +33,9 @@ export default function ActivityItem({ fix, websiteId }: { fix: FixHistoryRecord
       </div>
 
       <div className="mt-1.5 space-y-0.5">
-        <p className="font-mono text-xs text-muted">Page · {formatPageLabel(fix.page_url)}</p>
+        <p className="truncate font-mono text-xs text-muted">Page · {formatPageLabel(fix.page_url)}</p>
         {fix.field === 'image_alt' && fix.image_url && (
-          <p className="font-mono text-xs text-muted">Image · {formatImageLabel(fix.image_url)}</p>
+          <p className="truncate font-mono text-xs text-muted">Image · {formatImageLabel(fix.image_url)}</p>
         )}
       </div>
 
