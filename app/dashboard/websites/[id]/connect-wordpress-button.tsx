@@ -2,6 +2,10 @@
 
 import { useActionState, useEffect, useRef, useState } from 'react'
 import { connectWordPress, type ConnectWordPressState } from './wordpress-actions'
+import Modal from '@/components/ui/modal'
+import { Input, Label } from '@/components/ui/input'
+import Button from '@/components/ui/button'
+import Alert from '@/components/ui/alert'
 
 const initialState: ConnectWordPressState = null
 
@@ -27,75 +31,77 @@ export default function ConnectWordPressButton({ websiteId }: { websiteId: strin
 
   return (
     <>
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        className="mt-4 w-full rounded-md bg-gray-900 px-3 py-2 text-sm font-medium text-white hover:bg-gray-800"
-      >
+      <Button type="button" onClick={() => setOpen(true)}>
         Connect WordPress
-      </button>
+      </Button>
 
-      {open && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
-          <div className="w-full max-w-sm rounded-lg bg-white p-6 shadow-lg">
-            <h2 className="text-lg font-semibold text-gray-900">Connect WordPress</h2>
-            <p className="mt-1 text-sm text-gray-500">
-              Use a WordPress Application Password, not your normal WordPress password.
-            </p>
+      <Modal
+        open={open}
+        onClose={() => setOpen(false)}
+        title="Connect WordPress"
+        description="Use a WordPress Application Password — not your normal account password."
+      >
+        <form ref={formRef} action={formAction} className="space-y-4">
+          <input type="hidden" name="websiteId" value={websiteId} />
 
-            <form ref={formRef} action={formAction} className="mt-4 space-y-4">
-              <input type="hidden" name="websiteId" value={websiteId} />
-
-              <div>
-                <label htmlFor="username" className="block text-sm font-medium text-gray-700">
-                  WordPress Username
-                </label>
-                <input
-                  id="username"
-                  name="username"
-                  type="text"
-                  autoComplete="off"
-                  required
-                  className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-gray-500 focus:outline-none"
-                />
-              </div>
-
-              <div>
-                <label htmlFor="applicationPassword" className="block text-sm font-medium text-gray-700">
-                  WordPress Application Password
-                </label>
-                <input
-                  id="applicationPassword"
-                  name="applicationPassword"
-                  type="password"
-                  autoComplete="off"
-                  required
-                  className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-gray-500 focus:outline-none"
-                />
-              </div>
-
-              {state?.error && <p className="text-sm text-red-600">{state.error}</p>}
-
-              <div className="flex justify-end gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setOpen(false)}
-                  className="rounded-md border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={pending}
-                  className="rounded-md bg-gray-900 px-3 py-2 text-sm font-medium text-white hover:bg-gray-800 disabled:opacity-50"
-                >
-                  {pending ? 'Connecting…' : 'Connect'}
-                </button>
-              </div>
-            </form>
+          <div>
+            <Label htmlFor="username">WordPress username</Label>
+            <Input id="username" name="username" type="text" autoComplete="off" required className="mt-1" />
           </div>
-        </div>
-      )}
+
+          <div>
+            <Label htmlFor="applicationPassword">Application Password</Label>
+            <Input
+              id="applicationPassword"
+              name="applicationPassword"
+              type="password"
+              autoComplete="off"
+              required
+              className="mt-1"
+            />
+          </div>
+
+          <details className="rounded-md border border-border bg-surface-muted p-3">
+            <summary className="cursor-pointer text-xs font-medium text-gray-700 marker:content-none">
+              <span className="inline-flex items-center gap-1">
+                <span aria-hidden="true">›</span>
+                What&apos;s an Application Password?
+              </span>
+            </summary>
+            <p className="mt-2 text-xs leading-relaxed text-muted">
+              It&apos;s a password WordPress generates specifically for tools like Website Care, separate
+              from your login password and easy to revoke on its own. In your WordPress admin, go to{' '}
+              <span className="font-medium text-gray-700">Users → Profile → Application Passwords</span> to
+              create one.{' '}
+              <a
+                href="https://wordpress.org/documentation/article/application-passwords/"
+                target="_blank"
+                rel="noreferrer"
+                className="font-medium text-brand hover:text-brand-hover"
+              >
+                WordPress.org documentation
+              </a>
+              .
+            </p>
+          </details>
+
+          {state?.error && <Alert tone="danger">{state.error}</Alert>}
+
+          <p className="text-xs text-muted">
+            Credentials are handled server-side and are never displayed back to you. Connecting doesn&apos;t
+            apply any changes automatically — supported fixes still require your review and approval.
+          </p>
+
+          <div className="flex justify-end gap-2 pt-2">
+            <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+              Cancel
+            </Button>
+            <Button type="submit" disabled={pending}>
+              {pending ? 'Connecting…' : 'Connect'}
+            </Button>
+          </div>
+        </form>
+      </Modal>
     </>
   )
 }

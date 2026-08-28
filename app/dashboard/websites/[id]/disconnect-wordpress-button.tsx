@@ -2,6 +2,9 @@
 
 import { useActionState, useState } from 'react'
 import { disconnectWordPress, type DisconnectWordPressState } from './wordpress-actions'
+import Button from '@/components/ui/button'
+import Alert from '@/components/ui/alert'
+import Card from '@/components/ui/card'
 
 const initialState: DisconnectWordPressState = null
 
@@ -11,44 +14,37 @@ export default function DisconnectWordPressButton({ websiteId }: { websiteId: st
 
   if (!confirming) {
     return (
-      <button
-        type="button"
-        onClick={() => setConfirming(true)}
-        className="mt-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
-      >
+      <Button type="button" variant="outline" onClick={() => setConfirming(true)}>
         Disconnect WordPress
-      </button>
+      </Button>
     )
   }
 
   return (
-    <form action={formAction} className="mt-4 space-y-2 rounded-md border border-gray-200 bg-gray-50 p-3">
-      <input type="hidden" name="websiteId" value={websiteId} />
-
-      <p className="text-xs text-gray-600">
+    <Card padding="sm" className="space-y-3 bg-surface-muted">
+      <p className="text-xs text-gray-700">
+        Scanning and reports will continue to work. Supported direct fixes will be unavailable until
+        WordPress is connected again.
+      </p>
+      <p className="text-xs text-muted">
         This removes the stored connection from Website Care. It does not necessarily revoke the
-        Application Password inside WordPress — you can also revoke it from your WordPress admin
-        area.
+        Application Password inside WordPress — you can also revoke it from your WordPress admin area.
       </p>
 
-      {state?.error && <p className="text-xs text-red-600">{state.error}</p>}
+      <form action={formAction}>
+        <input type="hidden" name="websiteId" value={websiteId} />
 
-      <div className="flex gap-2">
-        <button
-          type="button"
-          onClick={() => setConfirming(false)}
-          className="flex-1 rounded-md border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50"
-        >
-          Cancel
-        </button>
-        <button
-          type="submit"
-          disabled={pending}
-          className="flex-1 rounded-md bg-red-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-red-700 disabled:opacity-50"
-        >
-          {pending ? 'Disconnecting…' : 'Yes, disconnect'}
-        </button>
-      </div>
-    </form>
+        {state?.error && <Alert tone="danger" className="mb-3">{state.error}</Alert>}
+
+        <div className="flex gap-2">
+          <Button type="button" variant="outline" size="sm" onClick={() => setConfirming(false)} disabled={pending}>
+            Cancel
+          </Button>
+          <Button type="submit" variant="danger" size="sm" disabled={pending}>
+            {pending ? 'Disconnecting…' : 'Yes, disconnect'}
+          </Button>
+        </div>
+      </form>
+    </Card>
   )
 }

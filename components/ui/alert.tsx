@@ -2,16 +2,18 @@ import type { HTMLAttributes } from 'react'
 import { AlertTriangle, CheckCircle2, Info } from 'lucide-react'
 import { cn } from '@/lib/ui/cn'
 
-export type AlertTone = 'danger' | 'success' | 'info'
+export type AlertTone = 'danger' | 'warning' | 'success' | 'info'
 
 const TONE_STYLES: Record<AlertTone, string> = {
   danger: 'border-red-200 bg-danger-subtle text-red-700',
+  warning: 'border-amber-200 bg-warning-subtle text-amber-800',
   success: 'border-green-200 bg-success-subtle text-green-700',
   info: 'border-blue-200 bg-info-subtle text-blue-700',
 }
 
 const TONE_ICONS: Record<AlertTone, typeof AlertTriangle> = {
   danger: AlertTriangle,
+  warning: AlertTriangle,
   success: CheckCircle2,
   info: Info,
 }
@@ -26,7 +28,7 @@ export default function Alert({ tone = 'info', className, children, ...props }: 
 
   return (
     <div
-      role={tone === 'danger' ? 'alert' : 'status'}
+      role={tone === 'danger' || tone === 'warning' ? 'alert' : 'status'}
       className={cn('flex items-start gap-2 rounded-md border px-3 py-2 text-sm', TONE_STYLES[tone], className)}
       {...props}
     >

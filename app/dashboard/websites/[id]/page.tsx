@@ -7,17 +7,16 @@ import { aggregateIssues, type RawIssueRow } from '@/lib/scanner/aggregate-issue
 import { calculateHealthScore } from '@/lib/scanner/calculate-health-score'
 import { ISSUE_DEFINITIONS } from '@/lib/scanner/issue-definitions'
 import { detectWordPress } from '@/lib/integrations/wordpress/detect-wordpress'
-import type { CapabilityValue, WordPressCapabilities } from '@/lib/integrations/wordpress/capabilities'
 import { getWordPressConnectionSummary } from './wordpress-capabilities'
 import { evaluateFixability } from '@/lib/fixes/fixability'
-import ConnectWordPressButton from './connect-wordpress-button'
-import DisconnectWordPressButton from './disconnect-wordpress-button'
 import RecentFixes from './recent-fixes'
 import Container from '@/components/ui/container'
 import Card from '@/components/ui/card'
 import Badge from '@/components/ui/badge'
 import Alert from '@/components/ui/alert'
 import EmptyState from '@/components/ui/empty-state'
+import { buttonStyles } from '@/components/ui/button'
+import WebsiteSubNav from '@/components/website/website-sub-nav'
 import HealthOverview from '@/components/report/health-overview'
 import CategoryScoreGrid from '@/components/report/category-score-grid'
 import PriorityIssues from '@/components/report/priority-issues'
@@ -48,25 +47,6 @@ type Scan = {
 }
 
 type Issue = RawIssueRow & { id: string }
-
-const PERMISSION_ROWS: { key: keyof WordPressCapabilities; label: string }[] = [
-  { key: 'canEditPages', label: 'Edit pages' },
-  { key: 'canEditPosts', label: 'Edit posts' },
-  { key: 'canPublishPosts', label: 'Publish content' },
-  { key: 'canUploadMedia', label: 'Upload media' },
-]
-
-const CAPABILITY_LABELS: Record<CapabilityValue, string> = {
-  available: 'Available',
-  unavailable: 'Unavailable',
-  unknown: 'Unknown',
-}
-
-const CAPABILITY_TEXT_CLASS: Record<CapabilityValue, string> = {
-  available: 'font-medium text-green-700',
-  unavailable: 'font-medium text-gray-400',
-  unknown: 'font-medium text-gray-400',
-}
 
 const TOP_ISSUE_COUNT = 3
 
@@ -240,6 +220,8 @@ export default async function WebsiteReportPage(props: PageProps<'/dashboard/web
         </div>
       </Card>
 
+      <WebsiteSubNav websiteId={website.id} active="overview" />
+
       {latestScan?.status === 'running' && (
         <Alert tone="info" className="mt-6">
           Scanning this website now. The health report will appear here once it completes.
@@ -332,85 +314,33 @@ export default async function WebsiteReportPage(props: PageProps<'/dashboard/web
       <Card padding="md" className="mt-6">
         <h2 className="text-sm font-semibold uppercase tracking-wide text-subtle">Integration</h2>
 
-        {wordpress.status === 'unknown' ? (
-          <p className="mt-2 text-sm text-muted">WordPress not confirmed for this website.</p>
-        ) : (
-          <>
-            <div className="mt-2 flex flex-wrap items-center gap-2">
-              <span className="text-base font-semibold text-gray-900">
-                {wordpress.status === 'confirmed' ? 'WordPress' : 'WordPress likely'}
-              </span>
-              <Badge tone={wordpress.status === 'confirmed' ? 'success' : 'warning'}>
-                {wordpress.status === 'confirmed' ? 'Detected' : 'Likely'}
-              </Badge>
-            </div>
-
-            {wordpress.status === 'likely' && (
-              <p className="mt-1 text-sm text-muted">We found several WordPress signals.</p>
-            )}
-
-            <dl className="mt-4 space-y-2 text-sm">
-              <div className="flex items-center justify-between">
-                <dt className="text-muted">REST API</dt>
-                <dd className="font-medium text-gray-900">
-                  {wordpress.restApiAvailable ? 'Available' : 'Unavailable'}
-                </dd>
-              </div>
-              <div className="flex items-center justify-between">
-                <dt className="text-muted">Connection</dt>
-                <dd
-                  className={`font-medium ${
-                    wordpressConnection.connected && !wordpressConnection.connectionValid
-                      ? 'text-yellow-700'
-                      : 'text-gray-900'
-                  }`}
-                >
-                  {!wordpressConnection.connected
-                    ? 'Not connected'
-                    : wordpressConnection.connectionValid
-                      ? 'Connected ✓'
-                      : 'Needs attention'}
-                </dd>
-              </div>
-              {wordpressConnection.connected &&
-                wordpressConnection.connectionValid &&
-                wordpressConnection.displayName && (
-                  <div className="flex items-center justify-between">
-                    <dt className="text-muted">Connected as</dt>
-                    <dd className="font-medium text-gray-900">{wordpressConnection.displayName}</dd>
-                  </div>
-                )}
-            </dl>
-
-            {wordpressConnection.connected && !wordpressConnection.connectionValid && (
-              <p className="mt-2 text-sm text-muted">
-                Website Care could not verify this WordPress connection. It may need to be reconnected.
-              </p>
-            )}
-
-            {wordpressConnection.connected && wordpressConnection.connectionValid && (
-              <div className="mt-4">
-                <p className="text-xs font-medium uppercase tracking-wide text-subtle">Permissions</p>
-                <dl className="mt-2 space-y-1.5 text-sm">
-                  {PERMISSION_ROWS.map(({ key, label }) => (
-                    <div key={key} className="flex items-center justify-between">
-                      <dt className="text-gray-600">{label}</dt>
-                      <dd className={CAPABILITY_TEXT_CLASS[wordpressConnection.capabilities[key]]}>
-                        {CAPABILITY_LABELS[wordpressConnection.capabilities[key]]}
-                      </dd>
-                    </div>
-                  ))}
-                </dl>
-              </div>
-            )}
-
-            {wordpressConnection.connected ? (
-              <DisconnectWordPressButton websiteId={website.id} />
+        <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <span className="text-base font-semibold text-gray-900">WordPress</span>
+            {!wordpressConnection.connected ? (
+              <Badge tone="neutral">Not connected</Badge>
+            ) : wordpressConnection.connectionValid ? (
+              <Badge tone="success">Connected</Badge>
             ) : (
-              <ConnectWordPressButton websiteId={website.id} />
+              <Badge tone="warning">Needs attention</Badge>
             )}
-          </>
-        )}
+          </div>
+
+          <Link
+            href={`/dashboard/websites/${website.id}/integrations`}
+            className={buttonStyles({ variant: 'outline', size: 'sm' })}
+          >
+            Manage Integration
+          </Link>
+        </div>
+
+        <p className="mt-2 text-sm text-muted">
+          {wordpressConnection.connected && wordpressConnection.connectionValid
+            ? 'Website Care can use this integration for supported fix workflows.'
+            : wordpressConnection.connected
+              ? 'This connection needs attention before Website Care can use it.'
+              : 'Scanning and reports still work without it.'}
+        </p>
       </Card>
 
       <div className="mt-6">
