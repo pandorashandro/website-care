@@ -11,6 +11,7 @@ import type { H1FixVerification } from '@/lib/fixes/verify-h1-fix'
 import type { SeoMetadataProviderResult } from '@/lib/integrations/wordpress/seo-provider'
 import type { H1SourceDetectionResult } from '@/lib/fixes/h1-source-detection'
 import type { ImageAltSourceDetectionResult } from '@/lib/fixes/image-alt-source-detection'
+import type { ImageAltFixVerification } from '@/lib/fixes/verify-image-alt-fix'
 
 const SEO_PROVIDER_LABELS: Record<string, string> = {
   yoast: 'Yoast SEO',
@@ -304,6 +305,38 @@ function H1VerificationResult({ verification }: { verification: H1FixVerificatio
 const initialApplyMetaDescriptionState: ApplyMetaDescriptionFixState = null
 const initialApplyH1State: ApplyH1FixState = null
 const initialApplyImageAltState: ApplyImageAltFixState = null
+
+/** Same labeling philosophy as VerificationResult, for the image-alt fix. */
+function ImageAltVerificationResult({ verification }: { verification: ImageAltFixVerification }) {
+  if (verification.status === 'verified') {
+    return (
+      <div className="mt-1">
+        <p className="text-xs font-medium text-green-700">Verified ✓</p>
+        <p className="mt-1 text-xs text-gray-600">The public page now reflects the fix.</p>
+      </div>
+    )
+  }
+
+  if (verification.status === 'mismatch') {
+    return (
+      <div className="mt-1">
+        <p className="text-xs font-medium text-amber-700">Needs attention</p>
+        <p className="mt-1 text-xs text-gray-600">
+          WordPress accepted the update, but the public page is displaying different alt text for this image.
+        </p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="mt-1">
+      <p className="text-xs font-medium text-gray-500">Could not verify</p>
+      <p className="mt-1 text-xs text-gray-600">
+        Update applied. Public verification is currently unavailable for this image.
+      </p>
+    </div>
+  )
+}
 
 export default function PrepareFixButton({
   websiteId,
@@ -623,6 +656,17 @@ export default function PrepareFixButton({
                       <p className="text-xs font-medium text-green-700">Alt text updated successfully.</p>
                       <p className="mt-2 text-xs font-medium text-gray-500">Current</p>
                       <p className="text-sm text-gray-900">{`“${visibleApplyImageAltState.appliedValue}”`}</p>
+
+                      <p className="mt-3 text-xs font-semibold uppercase tracking-wide text-gray-400">
+                        Verification
+                      </p>
+                      <ImageAltVerificationResult verification={visibleApplyImageAltState.verification} />
+
+                      {visibleApplyImageAltState.historyStatus === 'failed' && (
+                        <p className="mt-3 text-xs text-amber-700">
+                          Fix applied, but Website Care could not save the audit record.
+                        </p>
+                      )}
                     </div>
                   ) : (
                     <p className="mt-3 text-xs text-red-600">{visibleApplyImageAltState.reason}</p>

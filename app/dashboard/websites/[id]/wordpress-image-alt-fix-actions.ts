@@ -9,8 +9,10 @@ import { detectImageAltSource, findContentImageOccurrences } from '@/lib/fixes/i
 import { buildContentWithReplacedImageAlt } from '@/lib/fixes/image-alt-content-transform'
 import { verifyImageAltPreviewToken, hashContent } from '@/lib/fixes/preview-token'
 import { validateAiAltText } from '@/lib/ai/image-alt-recommendation'
+import { verifyPublicImageAlt, type ImageAltFixVerification } from '@/lib/fixes/verify-image-alt-fix'
 import { getConnectedWordPressCredentials } from './wordpress-credentials'
 import { getTrustedMissingImageAltIssue } from './image-alt-issue'
+import { recordFixHistory } from './fix-history'
 
 export type ApplyImageAltFixState =
   | {
@@ -20,6 +22,8 @@ export type ApplyImageAltFixState =
       appliedValue: string
       source: 'media_library' | 'gutenberg_content' | 'classic_html'
       writeStrategy: 'media_alt_text' | 'gutenberg_content_alt' | 'classic_html_alt'
+      verification: ImageAltFixVerification
+      historyStatus: 'saved' | 'failed'
     }
   | { writeStatus: 'failed'; reason: string }
   | null
@@ -77,6 +81,7 @@ export async function applyImageAltFix(
     issueId,
     websiteId,
     pageUrl,
+    issueTitle,
     imageUrl,
     source: expectedSource,
     writeStrategy: expectedWriteStrategy,
@@ -216,6 +221,33 @@ export async function applyImageAltFix(
       return { writeStatus: 'failed', reason: updateResult.reason }
     }
 
+    // Exactly one targeted public verification attempt — no retries, no
+    // polling. Media-library alt_text may or may not control what the
+    // theme/template renders publicly, so 'unavailable' here is expected and
+    // common — it never implies the WordPress write itself failed.
+    const verification = await verifyPublicImageAlt({
+      pageUrl: content.permalink,
+      imageUrl: freshResult.imageUrl,
+      expectedAlt: updateResult.altText,
+    })
+
+    // Recorded regardless of verification outcome — a successful,
+    // authenticated WordPress write is a real change and must be auditable
+    // even when public verification is unavailable or inconclusive.
+    const historyStatus = await recordFixHistory({
+      websiteId,
+      issueTitle,
+      pageUrl: trustedIssue.issue.pageUrl,
+      imageUrl: trustedIssue.issue.imageUrl,
+      writeStrategy: freshResult.writeStrategy,
+      resourceType: content.resourceType,
+      resourceId: content.resourceId,
+      field: 'image_alt',
+      previousValue: expectedCurrentAlt,
+      appliedValue: updateResult.altText,
+      verificationStatus: verification.status,
+    })
+
     revalidatePath(`/dashboard/websites/${websiteId}`)
 
     return {
@@ -225,6 +257,8 @@ export async function applyImageAltFix(
       appliedValue: updateResult.altText,
       source: freshResult.source,
       writeStrategy: 'media_alt_text',
+      verification,
+      historyStatus,
     }
   }
 
@@ -290,6 +324,34 @@ export async function applyImageAltFix(
     }
   }
 
+  // Exactly one targeted public verification attempt — no retries, no
+  // polling, and never a reason to retry the write or roll it back.
+  const verification = await verifyPublicImageAlt({
+    pageUrl: content.permalink,
+    imageUrl: freshResult.imageUrl,
+    expectedAlt: revalidatedAlt,
+  })
+
+  // Recorded regardless of verification outcome — see the media-library
+  // branch above for the same reasoning.
+  const historyStatus = await recordFixHistory({
+    websiteId,
+    issueTitle,
+    pageUrl: trustedIssue.issue.pageUrl,
+    imageUrl: trustedIssue.issue.imageUrl,
+    // freshResult.writeStrategy, not the token's expectedWriteStrategy — by
+    // this point they are proven equal (checked above), but the value
+    // recorded must always be the one the fresh, actually-used detection
+    // result reported, never the token's claim.
+    writeStrategy: freshResult.writeStrategy,
+    resourceType: content.resourceType,
+    resourceId: content.resourceId,
+    field: 'image_alt',
+    previousValue: expectedCurrentAlt,
+    appliedValue: revalidatedAlt,
+    verificationStatus: verification.status,
+  })
+
   revalidatePath(`/dashboard/websites/${websiteId}`)
 
   return {
@@ -299,5 +361,7 @@ export async function applyImageAltFix(
     appliedValue: revalidatedAlt,
     source: freshResult.source,
     writeStrategy: expectedWriteStrategy,
+    verification,
+    historyStatus,
   }
 }

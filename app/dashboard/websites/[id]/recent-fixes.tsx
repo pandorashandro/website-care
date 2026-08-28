@@ -2,6 +2,7 @@ import { getRecentFixHistory, isRollbackEligibleByShape } from './fix-history'
 import UndoFixButton from './undo-fix-button'
 import UndoMetaFixButton from './undo-meta-fix-button'
 import UndoH1FixButton from './undo-h1-fix-button'
+import UndoImageAltFixButton from './undo-image-alt-fix-button'
 
 const VERIFICATION_LABELS: Record<string, string> = {
   verified: 'Verified',
@@ -69,6 +70,10 @@ export default async function RecentFixes({ websiteId }: { websiteId: string }) 
 
             <p className="mt-0.5 font-mono text-xs text-gray-500">{formatPagePath(fix.page_url)}</p>
 
+            {fix.field === 'image_alt' && fix.image_url && (
+              <p className="mt-0.5 truncate font-mono text-xs text-gray-400">{fix.image_url}</p>
+            )}
+
             <div className="mt-2 grid grid-cols-1 gap-1 text-xs sm:grid-cols-2">
               <div>
                 <span className="text-gray-400">Before: </span>
@@ -104,6 +109,15 @@ export default async function RecentFixes({ websiteId }: { websiteId: string }) 
 
             {isRollbackEligibleByShape(fix) && fix.field === 'h1' && (
               <UndoH1FixButton websiteId={websiteId} fixHistoryId={fix.id} appliedValue={fix.applied_value} />
+            )}
+
+            {isRollbackEligibleByShape(fix) && fix.field === 'image_alt' && (
+              <UndoImageAltFixButton
+                websiteId={websiteId}
+                fixHistoryId={fix.id}
+                previousValue={fix.previous_value ?? ''}
+                appliedValue={fix.applied_value}
+              />
             )}
           </div>
         ))}

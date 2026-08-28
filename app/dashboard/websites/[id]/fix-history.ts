@@ -5,9 +5,13 @@ export type FixHistoryInsertInput = {
   websiteId: string
   issueTitle: string
   pageUrl: string
+  /** Only ever populated for field: 'image_alt' — the trusted, server-derived image URL this row's write/rollback targeted. Null for every other field. */
+  imageUrl?: string | null
+  /** Only ever populated for field: 'image_alt' — the exact strategy actually used for this row's write, taken from the freshly revalidated detectImageAltSource result, never from browser input. Null for every other field. */
+  writeStrategy?: 'media_alt_text' | 'gutenberg_content_alt' | 'classic_html_alt' | null
   resourceType: 'page' | 'post'
   resourceId: number
-  field: 'title' | 'meta_description' | 'h1'
+  field: 'title' | 'meta_description' | 'h1' | 'image_alt'
   previousValue: string | null
   appliedValue: string
   verificationStatus: string
@@ -32,6 +36,8 @@ export async function recordFixHistory(input: FixHistoryInsertInput): Promise<Fi
       website_id: input.websiteId,
       issue_title: input.issueTitle,
       page_url: input.pageUrl,
+      image_url: input.imageUrl ?? null,
+      write_strategy: input.writeStrategy ?? null,
       platform: 'wordpress',
       resource_type: input.resourceType,
       resource_id: input.resourceId,
@@ -51,6 +57,10 @@ export type FixHistoryRecord = {
   id: string
   issue_title: string
   page_url: string
+  /** Only ever non-null for field='image_alt' rows. */
+  image_url: string | null
+  /** Only ever non-null for field='image_alt' rows — one of 'media_alt_text' | 'gutenberg_content_alt' | 'classic_html_alt'. */
+  write_strategy: string | null
   platform: string
   resource_type: string | null
   resource_id: number | null
@@ -64,7 +74,7 @@ export type FixHistoryRecord = {
 const RECENT_FIXES_LIMIT = 10
 
 const FIX_HISTORY_COLUMNS =
-  'id, issue_title, page_url, platform, resource_type, resource_id, field, previous_value, applied_value, verification_status, created_at'
+  'id, issue_title, page_url, image_url, write_strategy, platform, resource_type, resource_id, field, previous_value, applied_value, verification_status, created_at'
 
 /**
  * Read-only, for display in the report's "Recent Fixes" section. Selects an
@@ -131,14 +141,41 @@ export async function getFixHistoryRowForRollback(
  * wordpress-h1-rollback-actions.ts) — this function only gates whether a
  * row is even the *shape* of something rollback-eligible; the real proof
  * of reversibility happens live, in the rollback action itself.
+ *
+ * image_alt follows a related but slightly different philosophy: mediaId is
+ * never stored, and is re-detected fresh at rollback time from page_url +
+ * image_url (see wordpress-image-alt-rollback-actions.ts) — never trusted
+ * historically. image_url and write_strategy, however, ARE stored, because
+ * neither can be safely re-derived from nothing: image_url is WHICH image on
+ * the page was targeted, and write_strategy is proof that a fresh
+ * detectImageAltSource result at rollback time is describing the SAME
+ * editable source Apply actually used, not merely *a* still-supported source
+ * (WordPress rendering/content structure can legitimately change over time
+ * in a way that would make a different strategy newly "supported" for the
+ * same image — rolling back through a different strategy than the one that
+ * wrote the value would violate exact rollback semantics). A null image_url
+ * or a write_strategy outside the three valid image-alt values makes an
+ * image_alt row shape-ineligible, exactly like a null previous_value already
+ * does for every field.
  */
+const IMAGE_ALT_WRITE_STRATEGIES = new Set(['media_alt_text', 'gutenberg_content_alt', 'classic_html_alt'])
+
 export function isRollbackEligibleByShape(
-  row: Pick<FixHistoryRecord, 'platform' | 'field' | 'resource_type' | 'resource_id' | 'previous_value'>
+  row: Pick<
+    FixHistoryRecord,
+    'platform' | 'field' | 'resource_type' | 'resource_id' | 'previous_value' | 'image_url' | 'write_strategy'
+  >
 ): boolean {
   if (row.platform !== 'wordpress') return false
-  if (row.field !== 'title' && row.field !== 'meta_description' && row.field !== 'h1') return false
+  if (row.field !== 'title' && row.field !== 'meta_description' && row.field !== 'h1' && row.field !== 'image_alt') {
+    return false
+  }
   if (row.resource_type !== 'page' && row.resource_type !== 'post') return false
   if (typeof row.resource_id !== 'number') return false
   if (row.previous_value === null) return false
+  if (row.field === 'image_alt') {
+    if (!row.image_url || typeof row.image_url !== 'string') return false
+    if (!row.write_strategy || !IMAGE_ALT_WRITE_STRATEGIES.has(row.write_strategy)) return false
+  }
   return true
 }
