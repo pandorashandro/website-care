@@ -1,7 +1,12 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import { wordpressResources, wordpressCapabilities, wordpressWriters } from '@/lib/integrations/wordpress/adapter'
+import {
+  wordpressResources,
+  wordpressCapabilities,
+  wordpressMetadataProvider,
+  wordpressWriters,
+} from '@/lib/integrations/wordpress/adapter'
 import { verifyTitleFix, type TitleFixVerification } from '@/lib/fixes/verify-title-fix'
 import {
   signPreviewToken,
@@ -15,7 +20,6 @@ import { generateTitleRecommendation } from '@/lib/ai/title-recommendation'
 import { generateMetaDescriptionRecommendation } from '@/lib/ai/meta-description-recommendation'
 import { generateH1Recommendation } from '@/lib/ai/h1-recommendation'
 import { generateImageAltRecommendation } from '@/lib/ai/image-alt-recommendation'
-import { detectSeoMetadataProvider } from '@/lib/integrations/wordpress/seo-provider'
 import { detectH1Source } from '@/lib/fixes/h1-source-detection'
 import { detectImageAltSource } from '@/lib/fixes/image-alt-source-detection'
 import { getConnectedWordPressCredentials } from './wordpress-credentials'
@@ -217,7 +221,7 @@ export async function prepareFix(
     // Read-only SEO-provider diagnostic: at most one extra GET request
     // (namespace discovery) beyond the resource load above — see
     // seo-provider.ts.
-    const providerResult = await detectSeoMetadataProvider(
+    const providerResult = await wordpressMetadataProvider.detect(
       credentials.websiteUrl,
       content,
       credentials.username,

@@ -8,6 +8,8 @@ import { mapWordPressContent } from './content-mapping'
 import type { WordPressContentMapping } from './content-mapping'
 import { loadWordPressEditableContent } from './editable-content'
 import type { WordPressEditableContentResult } from './editable-content'
+import { detectSeoMetadataProvider } from './seo-provider'
+import type { SeoMetadataProviderResult, SeoProviderWriteStrategy } from './seo-provider'
 import { updateWordPressTitle } from './write-title'
 import type { WordPressTitleUpdateResult } from './write-title'
 import { updateWordPressMetaDescription } from './write-meta-description'
@@ -182,7 +184,45 @@ export const wordpressResources = {
 export type { WordPressContentMapping, WordPressEditableContentResult }
 
 // ============================================================================
-// 6. FIELD-SPECIFIC WRITERS — grouped for discovery, never generic
+// 6. METADATA PROVIDER BOUNDARY (Meta Description — Phase 19.5B)
+// ============================================================================
+
+/**
+ * WordPress SEO-plugin metadata detection (Yoast / Rank Math / AIOSEO) is
+ * inherently WordPress-specific — a future platform may have no equivalent
+ * concept of a third-party SEO plugin ecosystem at all, so this is exposed
+ * as a WordPress-only namespace, not a generic "SeoProvider"/"MetadataProvider"
+ * abstraction. Thin re-export of seo-provider.ts's existing function; no
+ * behavior change, no new providers, no rewritten detection logic.
+ */
+export const wordpressMetadataProvider = {
+  detect: detectSeoMetadataProvider,
+  /** See toMetaDescriptionWriteStrategy below. */
+  toWriteStrategy: toMetaDescriptionWriteStrategy,
+} as const
+
+export type { SeoMetadataProviderResult, SeoProviderWriteStrategy }
+
+/**
+ * Phase 19.5B-S — the exact, persistable write mechanism for a
+ * meta-description fix. Provider alone is sufficient to identify it:
+ * YOAST_META_FIELD/RANK_MATH_META_FIELD (seo-provider.ts) are fixed
+ * constants, never derived or variable per resource, so 'yoast' can only
+ * ever mean a write to that one field. This is what fix_history.write_strategy
+ * stores for field='meta_description' rows (mirroring the role
+ * write_strategy already played for image_alt), and what Undo compares
+ * against a fresh re-detection before ever writing — see
+ * wordpress-meta-fix-actions.ts and wordpress-meta-rollback-actions.ts.
+ */
+export type MetaDescriptionWriteStrategy = 'yoast_meta_description' | 'rank_math_meta_description'
+
+/** Pure, single source of truth for the provider -> write-strategy-string mapping, used identically by Apply (to record it) and Undo (to prove it still matches). */
+export function toMetaDescriptionWriteStrategy(provider: 'yoast' | 'rank_math'): MetaDescriptionWriteStrategy {
+  return provider === 'yoast' ? 'yoast_meta_description' : 'rank_math_meta_description'
+}
+
+// ============================================================================
+// 7. FIELD-SPECIFIC WRITERS — grouped for discovery, never generic
 // ============================================================================
 
 /**

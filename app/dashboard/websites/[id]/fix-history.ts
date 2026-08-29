@@ -7,8 +7,28 @@ export type FixHistoryInsertInput = {
   pageUrl: string
   /** Only ever populated for field: 'image_alt' — the trusted, server-derived image URL this row's write/rollback targeted. Null for every other field. */
   imageUrl?: string | null
-  /** Only ever populated for field: 'image_alt' — the exact strategy actually used for this row's write, taken from the freshly revalidated detectImageAltSource result, never from browser input. Null for every other field. */
-  writeStrategy?: 'media_alt_text' | 'gutenberg_content_alt' | 'classic_html_alt' | null
+  /**
+   * The exact write mechanism actually used for this row's write — never
+   * from browser/AI input, always taken from the freshly revalidated
+   * server-side detection performed during Apply:
+   *   - field: 'image_alt' -> one of the three image-alt strategies, from
+   *     detectImageAltSource.
+   *   - field: 'meta_description' -> one of the two SEO-provider strategies
+   *     (Phase 19.5B-S), from the freshly re-detected SEO provider — see
+   *     lib/integrations/wordpress/adapter.ts's
+   *     toMetaDescriptionWriteStrategy. Existing rows written before this
+   *     phase have no value here (null) and are deliberately treated as not
+   *     rollback-eligible — see isRollbackEligibleByShape.
+   *   - Null for every other field (title, h1), which only ever have one
+   *     possible write mechanism.
+   */
+  writeStrategy?:
+    | 'media_alt_text'
+    | 'gutenberg_content_alt'
+    | 'classic_html_alt'
+    | 'yoast_meta_description'
+    | 'rank_math_meta_description'
+    | null
   resourceType: 'page' | 'post'
   resourceId: number
   field: 'title' | 'meta_description' | 'h1' | 'image_alt'
@@ -59,7 +79,15 @@ export type FixHistoryRecord = {
   page_url: string
   /** Only ever non-null for field='image_alt' rows. */
   image_url: string | null
-  /** Only ever non-null for field='image_alt' rows — one of 'media_alt_text' | 'gutenberg_content_alt' | 'classic_html_alt'. */
+  /**
+   * Non-null for field='image_alt' rows (one of 'media_alt_text' |
+   * 'gutenberg_content_alt' | 'classic_html_alt') and, since Phase 19.5B-S,
+   * for field='meta_description' rows written from this point forward (one
+   * of 'yoast_meta_description' | 'rank_math_meta_description'). Null for
+   * every other field, and null for meta_description rows written before
+   * 19.5B-S — see isRollbackEligibleByShape for how that legacy gap is
+   * handled (fails closed, never guessed).
+   */
   write_strategy: string | null
   platform: string
   resource_type: string | null
@@ -139,9 +167,6 @@ export async function getFixHistoryRowForRollback(
  * whether it represents a genuinely empty title/meta description (safe to
  * restore) or a value that simply couldn't be read from WordPress at fix
  * time (unsafe to guess), so it is left unsupported rather than guessed at.
- * meta_description rollback additionally re-detects its provider fresh at
- * rollback time (see wordpress-meta-rollback-actions.ts) rather than
- * needing it stored here — fix_history has no provider column. Likewise,
  * h1 rollback re-detects the content source and reconstructs the exact
  * expected inserted markup fresh at rollback time (see
  * wordpress-h1-rollback-actions.ts) — this function only gates whether a
@@ -163,8 +188,24 @@ export async function getFixHistoryRowForRollback(
  * or a write_strategy outside the three valid image-alt values makes an
  * image_alt row shape-ineligible, exactly like a null previous_value already
  * does for every field.
+ *
+ * meta_description (Phase 19.5B-S) follows the same philosophy as image_alt,
+ * for the same reason: which SEO provider/field a fix actually wrote to is
+ * not safely re-derivable from nothing, because a *different* provider can
+ * legitimately become the one currently active for the same page over time
+ * (a plugin switch), and rolling back through a different provider's field
+ * than the one Apply actually wrote would violate exact rollback semantics
+ * — see wordpress-meta-rollback-actions.ts for the live same-mechanism
+ * proof this shape check exists to support. A write_strategy outside the
+ * two valid meta_description values (including null, which is what every
+ * row written before this phase has) makes a meta_description row
+ * shape-ineligible. This is a deliberate behavior change for pre-existing
+ * rows: a meta_description fix applied before Phase 19.5B-S is no longer
+ * offered for Undo, because webioom can no longer prove which SEO field it
+ * used — failing closed rather than guessing.
  */
 const IMAGE_ALT_WRITE_STRATEGIES = new Set(['media_alt_text', 'gutenberg_content_alt', 'classic_html_alt'])
+const META_DESCRIPTION_WRITE_STRATEGIES = new Set(['yoast_meta_description', 'rank_math_meta_description'])
 
 export function isRollbackEligibleByShape(
   row: Pick<
@@ -179,6 +220,9 @@ export function isRollbackEligibleByShape(
   if (row.resource_type !== 'page' && row.resource_type !== 'post') return false
   if (typeof row.resource_id !== 'number') return false
   if (row.previous_value === null) return false
+  if (row.field === 'meta_description') {
+    if (!row.write_strategy || !META_DESCRIPTION_WRITE_STRATEGIES.has(row.write_strategy)) return false
+  }
   if (row.field === 'image_alt') {
     if (!row.image_url || typeof row.image_url !== 'string') return false
     if (!row.write_strategy || !IMAGE_ALT_WRITE_STRATEGIES.has(row.write_strategy)) return false

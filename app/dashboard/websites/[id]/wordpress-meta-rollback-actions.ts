@@ -1,10 +1,12 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import { loadWordPressEditableContent } from '@/lib/integrations/wordpress/editable-content'
-import { checkWordPressCapabilities } from '@/lib/integrations/wordpress/capabilities'
-import { detectSeoMetadataProvider } from '@/lib/integrations/wordpress/seo-provider'
-import { updateWordPressMetaDescription } from '@/lib/integrations/wordpress/write-meta-description'
+import {
+  wordpressResources,
+  wordpressCapabilities,
+  wordpressMetadataProvider,
+  wordpressWriters,
+} from '@/lib/integrations/wordpress/adapter'
 import {
   verifyMetaDescriptionRollback,
   type MetaDescriptionRollbackVerification,
@@ -76,7 +78,7 @@ export async function rollbackMetaDescriptionFix(
   const resourceId = historyRow.resource_id as number
   const restoreValue = historyRow.previous_value as string
 
-  const content = await loadWordPressEditableContent(
+  const content = await wordpressResources.loadEditable(
     credentials.websiteUrl,
     historyRow.page_url,
     credentials.username,
@@ -96,7 +98,7 @@ export async function rollbackMetaDescriptionFix(
 
   // Fresh provider re-detection — see function doc comment. Never inferred
   // from history; must be writable now, on a supported provider.
-  const providerResult = await detectSeoMetadataProvider(
+  const providerResult = await wordpressMetadataProvider.detect(
     credentials.websiteUrl,
     content,
     credentials.username,
@@ -117,7 +119,25 @@ export async function rollbackMetaDescriptionFix(
 
   const provider = providerResult.provider
 
-  const capabilityResult = await checkWordPressCapabilities(
+  // Phase 19.5B-S — same-mechanism proof: isRollbackEligibleByShape already
+  // confirmed historyRow.write_strategy is a recognized meta_description
+  // value (never null — legacy rows written before this phase fail that
+  // check and never reach here). The currently, freshly re-detected
+  // provider must resolve to that EXACT SAME write mechanism — not merely
+  // "some" currently-writable provider — before any write is attempted.
+  // Provider alone fully determines the mechanism (YOAST_META_FIELD /
+  // RANK_MATH_META_FIELD are fixed constants, never variable per resource),
+  // so this one comparison proves both "same provider" and "same field."
+  const currentWriteStrategy = wordpressMetadataProvider.toWriteStrategy(provider)
+
+  if (currentWriteStrategy !== historyRow.write_strategy) {
+    return {
+      rollbackWriteStatus: 'failed',
+      reason: 'webioom could not confirm the same SEO field used by the original fix, so Undo was not performed.',
+    }
+  }
+
+  const capabilityResult = await wordpressCapabilities.check(
     credentials.websiteUrl,
     credentials.username,
     credentials.applicationPassword
@@ -152,7 +172,7 @@ export async function rollbackMetaDescriptionFix(
 
   const restBase = resourceType === 'page' ? 'pages' : 'posts'
 
-  const updateResult = await updateWordPressMetaDescription({
+  const updateResult = await wordpressWriters.metaDescription({
     websiteUrl: credentials.websiteUrl,
     restBase,
     resourceId,
@@ -175,6 +195,9 @@ export async function rollbackMetaDescriptionFix(
 
   // The original history row is never modified or deleted — this inserts a
   // NEW row representing the rollback as its own historical event.
+  // writeStrategy carries forward the same currentWriteStrategy just proven
+  // to match the original fix, so the rollback row is itself internally
+  // consistent and, if ever undone again, provides the same proof.
   const historyStatus = await recordFixHistory({
     websiteId,
     issueTitle: `Rollback: ${historyRow.issue_title}`,
@@ -182,6 +205,7 @@ export async function rollbackMetaDescriptionFix(
     resourceType,
     resourceId,
     field: 'meta_description',
+    writeStrategy: currentWriteStrategy,
     previousValue: historyRow.applied_value,
     appliedValue: updateResult.metaDescription,
     verificationStatus: verification.status,

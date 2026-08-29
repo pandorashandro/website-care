@@ -1,10 +1,12 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import { loadWordPressEditableContent } from '@/lib/integrations/wordpress/editable-content'
-import { checkWordPressCapabilities } from '@/lib/integrations/wordpress/capabilities'
-import { detectSeoMetadataProvider } from '@/lib/integrations/wordpress/seo-provider'
-import { updateWordPressMetaDescription } from '@/lib/integrations/wordpress/write-meta-description'
+import {
+  wordpressResources,
+  wordpressCapabilities,
+  wordpressMetadataProvider,
+  wordpressWriters,
+} from '@/lib/integrations/wordpress/adapter'
 import { verifyMetaDescriptionFix, type MetaDescriptionFixVerification } from '@/lib/fixes/verify-meta-description-fix'
 import { verifyMetaDescriptionPreviewToken } from '@/lib/fixes/preview-token'
 import { validateAiMetaDescription } from '@/lib/ai/meta-description-recommendation'
@@ -108,7 +110,7 @@ export async function applyMetaDescriptionFix(
 
   // Fresh mapping + fresh resource reload — never reuses anything from the
   // earlier Prepare Fix call.
-  const content = await loadWordPressEditableContent(
+  const content = await wordpressResources.loadEditable(
     credentials.websiteUrl,
     pageUrl,
     credentials.username,
@@ -123,7 +125,7 @@ export async function applyMetaDescriptionFix(
   // previewed and approved. A provider that changed since the preview (or
   // is no longer writable) aborts rather than writing to a different field
   // than the user actually saw.
-  const providerResult = await detectSeoMetadataProvider(
+  const providerResult = await wordpressMetadataProvider.detect(
     credentials.websiteUrl,
     content,
     credentials.username,
@@ -161,7 +163,7 @@ export async function applyMetaDescriptionFix(
   // canEditPages, a post requires canEditPosts. 'unavailable' and
   // 'unknown' both fail closed; only 'available' permits a write. Never
   // relies solely on providerResult.writable for permission.
-  const capabilityResult = await checkWordPressCapabilities(
+  const capabilityResult = await wordpressCapabilities.check(
     credentials.websiteUrl,
     credentials.username,
     credentials.applicationPassword
@@ -196,7 +198,7 @@ export async function applyMetaDescriptionFix(
 
   const restBase = content.resourceType === 'page' ? 'pages' : 'posts'
 
-  const updateResult = await updateWordPressMetaDescription({
+  const updateResult = await wordpressWriters.metaDescription({
     websiteUrl: credentials.websiteUrl,
     restBase,
     resourceId: content.resourceId,
@@ -222,6 +224,11 @@ export async function applyMetaDescriptionFix(
 
   // Recorded regardless of verification outcome. websiteId is already
   // ownership-verified above; every other value here is server-derived.
+  // Phase 19.5B-S: writeStrategy records the exact SEO-provider mechanism
+  // this write actually used — derived from `provider`, the same
+  // freshly-revalidated value passed to the writer above, never from the
+  // token or any client input — so a future Undo can prove it is reversing
+  // through the same mechanism, not merely a currently-matching value.
   const historyStatus = await recordFixHistory({
     websiteId,
     issueTitle,
@@ -229,6 +236,7 @@ export async function applyMetaDescriptionFix(
     resourceType: content.resourceType,
     resourceId: content.resourceId,
     field: 'meta_description',
+    writeStrategy: wordpressMetadataProvider.toWriteStrategy(provider),
     previousValue: providerResult.currentMetaDescription,
     appliedValue: updateResult.metaDescription,
     verificationStatus: verification.status,
