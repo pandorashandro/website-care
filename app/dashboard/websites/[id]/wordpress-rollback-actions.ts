@@ -1,9 +1,7 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import { loadWordPressEditableContent } from '@/lib/integrations/wordpress/editable-content'
-import { checkWordPressCapabilities } from '@/lib/integrations/wordpress/capabilities'
-import { updateWordPressTitle } from '@/lib/integrations/wordpress/write-title'
+import { wordpressResources, wordpressCapabilities, wordpressWriters } from '@/lib/integrations/wordpress/adapter'
 import { verifyRollback, type RollbackVerification } from '@/lib/fixes/verify-rollback'
 import { getConnectedWordPressCredentials } from './wordpress-credentials'
 import { getFixHistoryRowForRollback, isRollbackEligibleByShape, recordFixHistory } from './fix-history'
@@ -73,7 +71,7 @@ export async function rollbackFix(_prevState: RollbackFixState, formData: FormDa
   // Fresh mapping + fresh resource reload from the history row's own
   // page_url — never trusts anything client-submitted, and never reuses a
   // stale resourceId without reconfirming it against a live remap.
-  const content = await loadWordPressEditableContent(
+  const content = await wordpressResources.loadEditable(
     credentials.websiteUrl,
     historyRow.page_url,
     credentials.username,
@@ -94,7 +92,7 @@ export async function rollbackFix(_prevState: RollbackFixState, formData: FormDa
     }
   }
 
-  const capabilityResult = await checkWordPressCapabilities(
+  const capabilityResult = await wordpressCapabilities.check(
     credentials.websiteUrl,
     credentials.username,
     credentials.applicationPassword
@@ -130,7 +128,7 @@ export async function rollbackFix(_prevState: RollbackFixState, formData: FormDa
 
   const restBase = resourceType === 'page' ? 'pages' : 'posts'
 
-  const updateResult = await updateWordPressTitle(
+  const updateResult = await wordpressWriters.title(
     credentials.websiteUrl,
     restBase,
     resourceId,

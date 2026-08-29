@@ -1,9 +1,7 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import { loadWordPressEditableContent } from '@/lib/integrations/wordpress/editable-content'
-import { checkWordPressCapabilities } from '@/lib/integrations/wordpress/capabilities'
-import { updateWordPressTitle } from '@/lib/integrations/wordpress/write-title'
+import { wordpressResources, wordpressCapabilities, wordpressWriters } from '@/lib/integrations/wordpress/adapter'
 import { verifyTitleFix, type TitleFixVerification } from '@/lib/fixes/verify-title-fix'
 import {
   signPreviewToken,
@@ -107,7 +105,7 @@ export async function prepareFix(
     const trustedPageUrl = trustedIssue.issue.pageUrl
     const trustedImageUrl = trustedIssue.issue.imageUrl
 
-    const content = await loadWordPressEditableContent(
+    const content = await wordpressResources.loadEditable(
       credentials.websiteUrl,
       trustedPageUrl,
       credentials.username,
@@ -204,7 +202,7 @@ export async function prepareFix(
     return { status: 'unavailable', reason: 'Missing information for this request.' }
   }
 
-  const content = await loadWordPressEditableContent(
+  const content = await wordpressResources.loadEditable(
     credentials.websiteUrl,
     pageUrl,
     credentials.username,
@@ -514,7 +512,7 @@ export async function applyFix(_prevState: ApplyFixState, formData: FormData): P
   // Fresh mapping + fresh resource reload — never reuses anything from the
   // earlier Prepare Fix call. Also reconfirms the resource's permalink still
   // matches the mapping, protecting against the page having moved.
-  const content = await loadWordPressEditableContent(
+  const content = await wordpressResources.loadEditable(
     credentials.websiteUrl,
     pageUrl,
     credentials.username,
@@ -528,7 +526,7 @@ export async function applyFix(_prevState: ApplyFixState, formData: FormData): P
   // Capability gating is resource-type-specific now that the exact resource
   // is known — a page requires canEditPages, a post requires canEditPosts.
   // 'unavailable' and 'unknown' both fail closed; only 'available' permits a write.
-  const capabilityResult = await checkWordPressCapabilities(
+  const capabilityResult = await wordpressCapabilities.check(
     credentials.websiteUrl,
     credentials.username,
     credentials.applicationPassword
@@ -560,7 +558,7 @@ export async function applyFix(_prevState: ApplyFixState, formData: FormData): P
 
   const restBase = content.resourceType === 'page' ? 'pages' : 'posts'
 
-  const updateResult = await updateWordPressTitle(
+  const updateResult = await wordpressWriters.title(
     credentials.websiteUrl,
     restBase,
     content.resourceId,

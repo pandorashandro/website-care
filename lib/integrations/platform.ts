@@ -1,29 +1,29 @@
 /**
- * Platform-independent integration vocabulary (Phase 19.2).
+ * Platform-independent integration vocabulary (Phase 19.2, extended 19.4).
  *
  * This module defines TYPES ONLY — no runtime logic, no interfaces, no
- * adapter contracts. It exists so future integration work (Phase 19.3+)
- * has a shared vocabulary to build against, without abstracting anything
- * before a second platform actually justifies it. See the Phase 19.1 audit
- * for the full reasoning behind every choice below.
+ * adapter contracts. It exists so future integration work has a shared
+ * vocabulary to build against, without abstracting anything before a real
+ * need justifies it. See the Phase 19.1 audit for the full reasoning.
  *
- * Deliberately deferred out of this phase (documented, not forgotten):
+ * Resolved since Phase 19.2:
  *
- * - Connection status. The current WordPress connection summary shape
- *   (`connected: boolean` + `connectionValid: boolean` + a 4-value
- *   diagnostic `state: 'ok' | 'revoked' | 'unreachable' | 'malformed'` —
- *   see wordpress-capabilities.ts / lib/integrations/wordpress/capabilities.ts)
- *   does not collapse cleanly into one generic status without either
- *   losing that diagnostic granularity or reshaping WordPress's runtime
- *   return type, which this phase must not do. Revisit in 19.4.
- * - Resource identity. WordPress's own resource vocabulary ('page'/'post',
- *   numeric REST ids, `restBase`) is the only data point available right
- *   now. A generic resource-identity type designed from a single platform
- *   would be speculative by definition. Revisit in 19.3, once the adapter
- *   boundary itself is being built and the real requirement is known.
+ * - Resource identity was addressed in Phase 19.3, deliberately as a
+ *   WordPress-specific type (WordPressResourceIdentity, in
+ *   lib/integrations/wordpress/adapter.ts) rather than a generic one — no
+ *   second platform's resource vocabulary is known yet, so a cross-platform
+ *   shape would still be speculative. Not revisited here.
+ * - Connection status is addressed in Phase 19.4 below (IntegrationConnectionState),
+ *   now that lib/fixes/fixability.ts is an immediate, real consumer. It is
+ *   deliberately a normalized EXECUTION-ELIGIBILITY summary, not a
+ *   replacement for WordPress's own diagnostics — see that type's doc
+ *   comment for exactly what is and isn't preserved.
+ *
+ * Still deliberately deferred (documented, not forgotten):
+ *
  * - ConnectionAuthenticator / CapabilityProvider / ResourceResolver /
- *   FieldWriter contracts. No second implementation and no immediate 19.3
- *   need exists yet to justify an interface. Types only, for now.
+ *   FieldWriter contracts. No second implementation and no immediate need
+ *   exists yet to justify an interface. Types only, for now.
  */
 
 /**
@@ -42,17 +42,19 @@ export type PlatformType = 'wordpress'
  *
  * CRITICAL: 'unknown' must never be treated as 'available'. Every fix
  * family's capability gating fails closed on 'unknown' today (see
- * lib/fixes/fixability.ts's resolveCapabilityValue) — this type exists to
- * preserve that behavior across future adapters, not to relax it.
+ * lib/fixes/fixability.ts's resolveSnapshotCapability) — this type exists
+ * to preserve that behavior across future adapters, not to relax it.
  */
 export type IntegrationCapabilityState = 'available' | 'unavailable' | 'unknown'
 
 /**
  * The webioom-level capability vocabulary fixability rules actually reason
  * about — deliberately smaller than any one platform's native capability
- * set. Extracted from lib/fixes/fixability.ts's `RequiredWordPressCapability`,
- * which the Phase 19.1 audit found was already functioning as this exact
- * layer, just under a WordPress-flavored name.
+ * set. Originally extracted (Phase 19.2) from lib/fixes/fixability.ts's
+ * then-named `RequiredWordPressCapability`, which the Phase 19.1 audit
+ * found was already functioning as this exact layer, just under a
+ * WordPress-flavored name; fixability.ts now imports this type directly
+ * (Phase 19.4).
  *
  * Contains ONLY the two values a real fix family currently requires. Do
  * not add speculative values (edit_theme, manage_options, publish, delete,
@@ -70,6 +72,43 @@ export type IntegrationCapabilityState = 'available' | 'unavailable' | 'unknown'
  *      the orchestration layer, e.g. wordpress-fix-actions.ts's applyFix)
  */
 export type RequiredIntegrationCapability = 'edit_content' | 'upload_media'
+
+/**
+ * A generic snapshot of every webioom-level capability, resolved for the
+ * currently connected integration — exactly the two keys
+ * RequiredIntegrationCapability has today. This is what
+ * lib/fixes/fixability.ts actually receives; it never sees a platform's
+ * native capability shape (e.g. WordPress's canEditPages/canEditPosts/
+ * canPublishPosts/canUploadMedia) directly. Building this snapshot from a
+ * platform's native model is entirely that platform's adapter's
+ * responsibility — see lib/integrations/wordpress/adapter.ts's
+ * resolveRequiredWordPressCapability, the single source of truth for that
+ * translation.
+ */
+export type IntegrationCapabilitySnapshot = Record<RequiredIntegrationCapability, IntegrationCapabilityState>
+
+/**
+ * The smallest normalized connection state core fixability actually
+ * branches on today (confirmed against lib/fixes/fixability.ts's existing
+ * logic, which only ever consulted two booleans — `wordpressConnected` and
+ * `connectionValid` — never WordPress's own 4-value diagnostic state).
+ *
+ * - 'not_connected': no usable connection exists for this website.
+ * - 'connected': a connection exists and was just successfully re-verified
+ *   — capabilities may be consulted.
+ * - 'needs_attention': a connection exists but could not be confirmed
+ *   valid right now (e.g. a revoked credential, or a transient WordPress
+ *   REST failure) — execution is not permitted, but this is distinct from
+ *   never having connected at all, for wording purposes.
+ *
+ * This is deliberately an EXECUTION-ELIGIBILITY summary, not a replacement
+ * for a platform's own diagnostics. WordPress's finer-grained state
+ * ('ok' | 'revoked' | 'unreachable' | 'malformed' — see
+ * lib/integrations/wordpress/capabilities.ts's WordPressConnectionState)
+ * is untouched and still fully available inside the WordPress layer; it is
+ * simply never passed down into core fixability, which never used it.
+ */
+export type IntegrationConnectionState = 'not_connected' | 'connected' | 'needs_attention'
 
 /*
  * ===========================================================================

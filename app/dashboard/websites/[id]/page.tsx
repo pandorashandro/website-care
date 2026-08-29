@@ -7,7 +7,7 @@ import { aggregateIssues, type RawIssueRow } from '@/lib/scanner/aggregate-issue
 import { calculateHealthScore } from '@/lib/scanner/calculate-health-score'
 import { ISSUE_DEFINITIONS } from '@/lib/scanner/issue-definitions'
 import { detectWordPress } from '@/lib/integrations/wordpress/detect-wordpress'
-import { getWordPressConnectionSummary } from './wordpress-capabilities'
+import { getWordPressConnectionSummary, toIntegrationFixabilityInputs } from './wordpress-capabilities'
 import { evaluateFixability } from '@/lib/fixes/fixability'
 import RecentFixes from './recent-fixes'
 import Container from '@/components/ui/container'
@@ -161,17 +161,18 @@ export default async function WebsiteReportPage(props: PageProps<'/dashboard/web
 
   // Centralizes fixability evaluation — pure, deterministic, and does not
   // affect priority ranking or health scoring, which are computed
-  // independently above.
+  // independently above. Phase 19.4: the WordPress-specific connection
+  // summary is translated to fixability's generic inputs via the thin
+  // wordpress-capabilities.ts mapper — evaluateFixability itself no longer
+  // knows anything WordPress-specific.
+  const { connectionState, capabilities } = toIntegrationFixabilityInputs(wordpressConnection)
+
   function getFixability(issueTitle: string) {
     return evaluateFixability({
       issueTitle,
-      wordpressDetected: wordpress.status !== 'unknown',
-      wordpressConnected: wordpressConnection.connected,
-      connectionValid: wordpressConnection.connected ? wordpressConnection.connectionValid : false,
-      capabilities:
-        wordpressConnection.connected && wordpressConnection.connectionValid
-          ? wordpressConnection.capabilities
-          : null,
+      integrationDetected: wordpress.status !== 'unknown',
+      connectionState,
+      capabilities,
     })
   }
 
