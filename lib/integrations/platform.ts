@@ -8,11 +8,13 @@
  *
  * Resolved since Phase 19.2:
  *
- * - Resource identity was addressed in Phase 19.3, deliberately as a
- *   WordPress-specific type (WordPressResourceIdentity, in
- *   lib/integrations/wordpress/adapter.ts) rather than a generic one — no
- *   second platform's resource vocabulary is known yet, so a cross-platform
- *   shape would still be speculative. Not revisited here.
+ * - Resource identity was considered in Phase 19.3 as a dedicated
+ *   WordPress-specific type, but no orchestration code ever adopted it in
+ *   place of the plain inline resourceType/resourceId/restBase fields
+ *   already threaded through every write call — it was confirmed unused and
+ *   removed in the Phase 19.5E cleanup. A generic cross-platform resource
+ *   shape remains unaddressed and still speculative, since no second
+ *   platform's resource vocabulary is known yet.
  * - Connection status is addressed in Phase 19.4 below (IntegrationConnectionState),
  *   now that lib/fixes/fixability.ts is an immediate, real consumer. It is
  *   deliberately a normalized EXECUTION-ELIGIBILITY summary, not a

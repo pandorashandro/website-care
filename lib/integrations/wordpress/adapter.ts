@@ -31,24 +31,28 @@ import { updateWordPressMediaAltText } from './write-image-alt-media'
 import type { WordPressMediaAltTextUpdateResult } from './write-image-alt-media'
 
 /**
- * Phase 19.3 — WordPress integration boundary.
+ * WordPress integration boundary (Phase 19.3; fully adopted by Phase 19.5A–D;
+ * reviewed for consolidation in Phase 19.5E).
  *
  * This module is a THIN composition layer over the existing WordPress
- * modules in this directory. It introduces almost no new logic — it exists
- * so that future core code (Phase 19.5+) has one deliberate place to depend
- * on instead of reaching into five separate low-level files individually.
- * Every re-exported function below is called exactly as it already was;
- * nothing about its implementation, parameters, or behavior changed.
+ * modules in this directory (plus two closely-related detection modules in
+ * lib/fixes/ — see the H1/Image Alt sections below). It introduces almost no
+ * new logic. Every re-exported function is called exactly as it already
+ * was; nothing about its implementation, parameters, or behavior changed.
+ *
+ * As of Phase 19.5D, all four existing fix families (Title, Meta
+ * Description, Missing H1, Missing Image Alt) route their platform-specific
+ * operations through this boundary — the shared `prepareFix` function and
+ * all eight `wordpress-*-fix-actions.ts` / `wordpress-*-rollback-actions.ts`
+ * orchestration files depend on the namespaces below rather than importing
+ * the underlying low-level modules directly. Phase 19.5E's dependency audit
+ * (see that phase's report) confirmed no remaining bypass paths.
  *
  * Explicitly NOT done here, by design:
  *
- * - No orchestration files (wordpress-*-fix-actions.ts / rollback-actions.ts)
- *   were changed to use this boundary yet. That migration is Phase 19.5's
- *   job, done one fix family at a time with full regression testing. This
- *   phase only builds the boundary; nothing consumes it yet.
  * - No giant `IntegrationAdapter` object was created. There is no single
  *   export with dozens of methods (connect/disconnect/read/write/verify/
- *   undo/...). Responsibilities are grouped into four small, independently
+ *   undo/...). Responsibilities are grouped into small, independently
  *   understandable namespaces below, mirroring the module boundaries that
  *   already existed.
  * - No generic writer. `wordpressWriters` groups five *already distinct*
@@ -62,9 +66,8 @@ import type { WordPressMediaAltTextUpdateResult } from './write-image-alt-media'
  *   re-verifying `websites.user_id` on every call) with WordPress credential
  *   decryption. lib/integrations/wordpress/ currently has zero Supabase/DB
  *   dependencies — pulling that layer in here would blur a boundary that is
- *   otherwise clean, for no immediate benefit (nothing needs it yet). If a
- *   real need appears in 19.5, it can be revisited then with the actual
- *   requirement known, rather than guessed at now.
+ *   otherwise clean, for no benefit ever actually needed across Phase 19.5's
+ *   four migrations. Re-confirmed still correct in the Phase 19.5E review.
  */
 
 // ============================================================================
@@ -75,47 +78,7 @@ import type { WordPressMediaAltTextUpdateResult } from './write-image-alt-media'
 export const WORDPRESS_PLATFORM: PlatformType = 'wordpress'
 
 // ============================================================================
-// 2. RESOURCE IDENTITY (WordPress-specific — not a generic cross-platform shape)
-// ============================================================================
-
-/**
- * A confirmed WordPress resource's identity — the same four facts every
- * write function (write-title.ts, write-meta-description.ts, etc.) already
- * requires as parameters (restBase/resourceId/expectedPermalink) plus the
- * platform tag. Deliberately WordPress-shaped (page/post, numeric REST id,
- * restBase) rather than a generic cross-platform resource model — per the
- * Phase 19.1 audit, no second platform's resource vocabulary is known yet,
- * so generalizing this further would be speculative.
- */
-export type WordPressResourceIdentity = {
-  platform: typeof WORDPRESS_PLATFORM
-  resourceType: 'page' | 'post'
-  resourceId: number
-  restBase: 'pages' | 'posts'
-  permalink: string
-}
-
-/**
- * Derives a WordPressResourceIdentity from an already-loaded editable
- * resource. Pure, no I/O — the `restBase = resourceType === 'page' ? ... `
- * derivation mirrors the exact inline expression already repeated in every
- * wordpress-*-fix-actions.ts orchestration file today; this just gives it
- * one named home. Not yet called by those files (see module doc comment).
- */
-export function toWordPressResourceIdentity(
-  content: Extract<WordPressEditableContentResult, { status: 'loaded' }>
-): WordPressResourceIdentity {
-  return {
-    platform: WORDPRESS_PLATFORM,
-    resourceType: content.resourceType,
-    resourceId: content.resourceId,
-    restBase: content.resourceType === 'page' ? 'pages' : 'posts',
-    permalink: content.permalink,
-  }
-}
-
-// ============================================================================
-// 3. CONNECTION BOUNDARY
+// 2. CONNECTION BOUNDARY
 // ============================================================================
 
 /**
@@ -131,7 +94,7 @@ export const wordpressConnection = {
 export type { VerifyWordPressResult, VerifyWordPressReason }
 
 // ============================================================================
-// 4. CAPABILITY BOUNDARY
+// 3. CAPABILITY BOUNDARY
 // ============================================================================
 
 export const wordpressCapabilities = {
@@ -150,14 +113,14 @@ export type { WordPressCapabilities, WordPressCapabilityResult, WordPressConnect
  * only ever returned when the underlying signal is genuinely ambiguous,
  * never coerced toward 'available'.
  *
- * The 'edit_content' branch deliberately duplicates
- * lib/fixes/fixability.ts's existing resolveEditContentCapability logic
- * byte-for-byte rather than importing it — fixability.ts is not touched by
- * this phase (see Phase 19.3 brief §11: security duplication that exists
- * because each piece independently proves safety may remain). Nothing
- * calls this function yet; fixability.ts's own internal resolver keeps
- * running unchanged until Phase 19.5 wires orchestration through this
- * boundary.
+ * The 'edit_content' branch deliberately duplicates what
+ * lib/fixes/fixability.ts's resolver used to do byte-for-byte rather than
+ * importing it — Phase 19.4 removed that internal resolver from
+ * fixability.ts entirely (not merely superseded it) and routed
+ * fixability.ts's evaluation through IntegrationCapabilitySnapshot values
+ * supplied by callers instead. This function is that supply path: it has
+ * been called by wordpress-capabilities.ts's toIntegrationFixabilityInputs()
+ * since Phase 19.4, which builds the snapshot fixability.ts now consumes.
  */
 export function resolveRequiredWordPressCapability(
   required: RequiredIntegrationCapability,
@@ -178,7 +141,7 @@ export function resolveRequiredWordPressCapability(
 }
 
 // ============================================================================
-// 5. CONTENT / RESOURCE RESOLUTION BOUNDARY
+// 4. CONTENT / RESOURCE RESOLUTION BOUNDARY
 // ============================================================================
 
 export const wordpressResources = {
@@ -186,14 +149,12 @@ export const wordpressResources = {
   map: mapWordPressContent,
   /** Thin re-export of editable-content.ts's existing function (mapping + load + link re-confirmation, unchanged); no behavior change. */
   loadEditable: loadWordPressEditableContent,
-  /** See toWordPressResourceIdentity above. */
-  toIdentity: toWordPressResourceIdentity,
 } as const
 
 export type { WordPressContentMapping, WordPressEditableContentResult }
 
 // ============================================================================
-// 6. METADATA PROVIDER BOUNDARY (Meta Description — Phase 19.5B)
+// 5. METADATA PROVIDER BOUNDARY (Meta Description — Phase 19.5B)
 // ============================================================================
 
 /**
@@ -231,7 +192,7 @@ export function toMetaDescriptionWriteStrategy(provider: 'yoast' | 'rank_math'):
 }
 
 // ============================================================================
-// 7. H1 SOURCE BOUNDARY (Missing H1 — Phase 19.5C)
+// 6. H1 SOURCE BOUNDARY (Missing H1 — Phase 19.5C)
 // ============================================================================
 
 /**
@@ -254,7 +215,7 @@ export const wordpressH1Source = {
 export type { H1SourceDetectionResult, H1ContentSource }
 
 // ============================================================================
-// 8. IMAGE ALT SOURCE BOUNDARY (Missing Image Alt — Phase 19.5D)
+// 7. IMAGE ALT SOURCE BOUNDARY (Missing Image Alt — Phase 19.5D)
 // ============================================================================
 
 /**
@@ -285,7 +246,7 @@ export const wordpressImageAltSource = {
 export type { ImageAltSourceDetectionResult, ImageAltSource, ImageAltWriteStrategy, ContentImageOccurrence }
 
 // ============================================================================
-// 9. FIELD-SPECIFIC WRITERS — grouped for discovery, never generic
+// 8. FIELD-SPECIFIC WRITERS — grouped for discovery, never generic
 // ============================================================================
 
 /**
