@@ -1,7 +1,14 @@
 import 'server-only'
 import { fetchWordPressApi, parseErrorCode, usersMeEndpoint } from './client'
+import type { IntegrationCapabilityState } from '@/lib/integrations/platform'
 
-export type CapabilityValue = 'available' | 'unavailable' | 'unknown'
+/**
+ * Type-level alias only (Phase 19.2) — the platform-independent vocabulary
+ * for this exact three-state result now lives in lib/integrations/platform.ts.
+ * Semantics are unchanged; every existing 'available'/'unavailable'/'unknown'
+ * value in this file is still exactly that.
+ */
+export type CapabilityValue = IntegrationCapabilityState
 
 export type WordPressCapabilities = {
   canEditPosts: CapabilityValue

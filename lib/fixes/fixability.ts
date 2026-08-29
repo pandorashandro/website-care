@@ -1,5 +1,6 @@
 import { ISSUE_DEFINITIONS } from '@/lib/scanner/issue-definitions'
 import type { CapabilityValue, WordPressCapabilities } from '@/lib/integrations/wordpress/capabilities'
+import type { RequiredIntegrationCapability } from '@/lib/integrations/platform'
 
 export type FixabilityLevel = 'assisted' | 'manual' | 'unavailable'
 
@@ -9,8 +10,14 @@ export type FixabilityLevel = 'assisted' | 'manual' | 'unavailable'
  * (post vs. page), so checks that would eventually target either one are
  * conservatively gated on having *some* relevant edit capability, per the
  * spec's explicit instruction not to do content-type mapping yet.
+ *
+ * Type-level alias only (Phase 19.2) — the Phase 19.1 audit found this was
+ * already functioning as the platform-independent webioom-level capability
+ * vocabulary, just under a WordPress-flavored name. That vocabulary now
+ * lives in lib/integrations/platform.ts as RequiredIntegrationCapability;
+ * this name is kept so no call site in this file needs to change.
  */
-export type RequiredWordPressCapability = 'edit_content' | 'upload_media'
+export type RequiredWordPressCapability = RequiredIntegrationCapability
 
 export type FixabilityResult = {
   level: FixabilityLevel
