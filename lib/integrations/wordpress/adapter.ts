@@ -12,6 +12,13 @@ import { detectSeoMetadataProvider } from './seo-provider'
 import type { SeoMetadataProviderResult, SeoProviderWriteStrategy } from './seo-provider'
 import { detectH1Source, classifyH1ContentSource } from '@/lib/fixes/h1-source-detection'
 import type { H1SourceDetectionResult, H1ContentSource } from '@/lib/fixes/h1-source-detection'
+import { detectImageAltSource, findContentImageOccurrences } from '@/lib/fixes/image-alt-source-detection'
+import type {
+  ImageAltSourceDetectionResult,
+  ImageAltSource,
+  ImageAltWriteStrategy,
+  ContentImageOccurrence,
+} from '@/lib/fixes/image-alt-source-detection'
 import { updateWordPressTitle } from './write-title'
 import type { WordPressTitleUpdateResult } from './write-title'
 import { updateWordPressMetaDescription } from './write-meta-description'
@@ -247,7 +254,38 @@ export const wordpressH1Source = {
 export type { H1SourceDetectionResult, H1ContentSource }
 
 // ============================================================================
-// 8. FIELD-SPECIFIC WRITERS — grouped for discovery, never generic
+// 8. IMAGE ALT SOURCE BOUNDARY (Missing Image Alt — Phase 19.5D)
+// ============================================================================
+
+/**
+ * Media Library resources, Gutenberg/Classic HTML content matching, and
+ * `wp-image-{id}` class conventions are all WordPress-specific facts — a
+ * future platform may model images completely differently (or not have a
+ * separate media library concept at all) — so this stays a WordPress-only
+ * namespace, not a generic "IntegrationImageSource"/"UniversalAssetIdentity"
+ * abstraction. Thin re-export of the existing functions (still implemented
+ * in lib/fixes/image-alt-source-detection.ts, not moved here); no behavior
+ * change, no rewritten matching/detection rules, no fuzzy matching
+ * introduced. `findContentOccurrences` is included because orchestration
+ * (both Apply and Undo) calls it directly for post-write response
+ * validation, exactly as it called `detect` directly for source detection —
+ * both are WordPress-content-parsing operations orchestration depends on.
+ *
+ * Not included here (deliberately): image-alt-source-detection.ts's own
+ * internal use of classifyH1ContentSource (from lib/fixes/h1-source-detection.ts)
+ * is left as a direct sibling import, unchanged — see the Phase 19.5D report
+ * for why routing that internal dependency through this adapter would add
+ * an indirection with no architectural benefit.
+ */
+export const wordpressImageAltSource = {
+  detect: detectImageAltSource,
+  findContentOccurrences: findContentImageOccurrences,
+} as const
+
+export type { ImageAltSourceDetectionResult, ImageAltSource, ImageAltWriteStrategy, ContentImageOccurrence }
+
+// ============================================================================
+// 9. FIELD-SPECIFIC WRITERS — grouped for discovery, never generic
 // ============================================================================
 
 /**

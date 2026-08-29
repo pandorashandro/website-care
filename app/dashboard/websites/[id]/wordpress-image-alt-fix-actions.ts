@@ -1,11 +1,12 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import { loadWordPressEditableContent } from '@/lib/integrations/wordpress/editable-content'
-import { checkWordPressCapabilities } from '@/lib/integrations/wordpress/capabilities'
-import { updateWordPressMediaAltText } from '@/lib/integrations/wordpress/write-image-alt-media'
-import { updateWordPressImageAltContent } from '@/lib/integrations/wordpress/write-image-alt-content'
-import { detectImageAltSource, findContentImageOccurrences } from '@/lib/fixes/image-alt-source-detection'
+import {
+  wordpressResources,
+  wordpressCapabilities,
+  wordpressImageAltSource,
+  wordpressWriters,
+} from '@/lib/integrations/wordpress/adapter'
 import { buildContentWithReplacedImageAlt } from '@/lib/fixes/image-alt-content-transform'
 import { verifyImageAltPreviewToken, hashContent } from '@/lib/fixes/preview-token'
 import { validateAiAltText } from '@/lib/ai/image-alt-recommendation'
@@ -125,7 +126,7 @@ export async function applyImageAltFix(
 
   // Fresh mapping + fresh resource reload — never reuses anything from the
   // earlier Prepare Fix call.
-  const content = await loadWordPressEditableContent(
+  const content = await wordpressResources.loadEditable(
     credentials.websiteUrl,
     trustedIssue.issue.pageUrl,
     credentials.username,
@@ -139,7 +140,7 @@ export async function applyImageAltFix(
   // Fresh image-alt source detection — never trusts Prepare-time detection
   // as authority. Must still be supported, with the exact same source,
   // write strategy, and media mapping the preview was based on.
-  const freshResult = await detectImageAltSource({
+  const freshResult = await wordpressImageAltSource.detect({
     websiteUrl: credentials.websiteUrl,
     imageUrl: trustedIssue.issue.imageUrl,
     content,
@@ -182,7 +183,7 @@ export async function applyImageAltFix(
     }
   }
 
-  const capabilityResult = await checkWordPressCapabilities(
+  const capabilityResult = await wordpressCapabilities.check(
     credentials.websiteUrl,
     credentials.username,
     credentials.applicationPassword
@@ -208,7 +209,7 @@ export async function applyImageAltFix(
       return { writeStatus: 'failed', reason: NO_LONGER_SAFE_REASON }
     }
 
-    const updateResult = await updateWordPressMediaAltText({
+    const updateResult = await wordpressWriters.imageAltMedia({
       websiteUrl: credentials.websiteUrl,
       mediaId: freshResult.mediaId,
       expectedCurrentAlt,
@@ -287,7 +288,7 @@ export async function applyImageAltFix(
 
   const restBase = content.resourceType === 'page' ? 'pages' : 'posts'
 
-  const updateResult = await updateWordPressImageAltContent({
+  const updateResult = await wordpressWriters.imageAltContent({
     websiteUrl: credentials.websiteUrl,
     restBase,
     resourceId: content.resourceId,
@@ -305,7 +306,7 @@ export async function applyImageAltFix(
   // the new alt text at exactly the one occurrence we targeted. Full-content
   // byte equality isn't required (WordPress's save pipeline may legitimately
   // reformat markup) — see write-image-alt-content.ts for the reasoning.
-  const returnedOccurrences = findContentImageOccurrences(
+  const returnedOccurrences = wordpressImageAltSource.findContentOccurrences(
     updateResult.contentRaw,
     freshResult.imageUrl,
     freshResult.mediaId,

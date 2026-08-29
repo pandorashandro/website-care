@@ -1,11 +1,12 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import { loadWordPressEditableContent } from '@/lib/integrations/wordpress/editable-content'
-import { checkWordPressCapabilities } from '@/lib/integrations/wordpress/capabilities'
-import { updateWordPressMediaAltText } from '@/lib/integrations/wordpress/write-image-alt-media'
-import { updateWordPressImageAltContent } from '@/lib/integrations/wordpress/write-image-alt-content'
-import { detectImageAltSource, findContentImageOccurrences } from '@/lib/fixes/image-alt-source-detection'
+import {
+  wordpressResources,
+  wordpressCapabilities,
+  wordpressImageAltSource,
+  wordpressWriters,
+} from '@/lib/integrations/wordpress/adapter'
 import { buildContentWithReplacedImageAlt } from '@/lib/fixes/image-alt-content-transform'
 import { verifyPublicImageAlt, type ImageAltFixVerification } from '@/lib/fixes/verify-image-alt-fix'
 import { getConnectedWordPressCredentials } from './wordpress-credentials'
@@ -109,7 +110,7 @@ export async function rollbackImageAltFix(
   // Fresh mapping + fresh resource reload from the history row's own
   // page_url — never trusts anything client-submitted, and never reuses a
   // stale resourceId without reconfirming it against a live remap.
-  const content = await loadWordPressEditableContent(
+  const content = await wordpressResources.loadEditable(
     credentials.websiteUrl,
     trustedPageUrl,
     credentials.username,
@@ -134,7 +135,7 @@ export async function rollbackImageAltFix(
   // isn't one). Whatever this reports right now is what Undo acts on, but it
   // is not sufficient by itself: see the write_strategy check immediately
   // below.
-  const freshResult = await detectImageAltSource({
+  const freshResult = await wordpressImageAltSource.detect({
     websiteUrl: credentials.websiteUrl,
     imageUrl: trustedImageUrl,
     content,
@@ -174,7 +175,7 @@ export async function rollbackImageAltFix(
     return { rollbackWriteStatus: 'failed', reason: CHANGED_SINCE_APPLIED_REASON }
   }
 
-  const capabilityResult = await checkWordPressCapabilities(
+  const capabilityResult = await wordpressCapabilities.check(
     credentials.websiteUrl,
     credentials.username,
     credentials.applicationPassword
@@ -203,7 +204,7 @@ export async function rollbackImageAltFix(
       return { rollbackWriteStatus: 'failed', reason: NO_LONGER_SAFE_REASON }
     }
 
-    const updateResult = await updateWordPressMediaAltText({
+    const updateResult = await wordpressWriters.imageAltMedia({
       websiteUrl: credentials.websiteUrl,
       mediaId: freshResult.mediaId,
       expectedCurrentAlt: appliedValue,
@@ -278,7 +279,7 @@ export async function rollbackImageAltFix(
 
   const restBase = content.resourceType === 'page' ? 'pages' : 'posts'
 
-  const updateResult = await updateWordPressImageAltContent({
+  const updateResult = await wordpressWriters.imageAltContent({
     websiteUrl: credentials.websiteUrl,
     restBase,
     resourceId: content.resourceId,
@@ -294,7 +295,7 @@ export async function rollbackImageAltFix(
 
   // Response validation: confirm the returned content.raw actually shows
   // the restored (previous) alt text at exactly the one occurrence targeted.
-  const returnedOccurrences = findContentImageOccurrences(
+  const returnedOccurrences = wordpressImageAltSource.findContentOccurrences(
     updateResult.contentRaw,
     freshResult.imageUrl,
     freshResult.mediaId,

@@ -6,6 +6,7 @@ import {
   wordpressCapabilities,
   wordpressMetadataProvider,
   wordpressH1Source,
+  wordpressImageAltSource,
   wordpressWriters,
 } from '@/lib/integrations/wordpress/adapter'
 import { verifyTitleFix, type TitleFixVerification } from '@/lib/fixes/verify-title-fix'
@@ -21,7 +22,6 @@ import { generateTitleRecommendation } from '@/lib/ai/title-recommendation'
 import { generateMetaDescriptionRecommendation } from '@/lib/ai/meta-description-recommendation'
 import { generateH1Recommendation } from '@/lib/ai/h1-recommendation'
 import { generateImageAltRecommendation } from '@/lib/ai/image-alt-recommendation'
-import { detectImageAltSource } from '@/lib/fixes/image-alt-source-detection'
 import { getConnectedWordPressCredentials } from './wordpress-credentials'
 import { getTrustedMissingImageAltIssue } from './image-alt-issue'
 import { recordFixHistory } from './fix-history'
@@ -123,7 +123,7 @@ export async function prepareFix(
     // Read-only image-alt source detection: content-level matches cost zero
     // extra WordPress requests; a Media Library resolution costs at most a
     // search + a detail GET — see image-alt-source-detection.ts.
-    const result = await detectImageAltSource({
+    const result = await wordpressImageAltSource.detect({
       websiteUrl: credentials.websiteUrl,
       imageUrl: trustedImageUrl,
       content,
