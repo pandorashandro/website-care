@@ -15,7 +15,9 @@ export default function SectionHeading({ eyebrow, title, description, align = 'l
     <div className={cn(align === 'center' && 'text-center', className)}>
       {eyebrow && <p className="text-sm font-semibold tracking-wide text-brand">{eyebrow}</p>}
       <h2 className="mt-1 text-2xl font-semibold tracking-tight text-gray-900 sm:text-3xl">{title}</h2>
-      {description && <p className="mt-2 max-w-2xl text-base text-muted">{description}</p>}
+      {description && (
+        <p className={cn('mt-2 max-w-2xl text-base text-muted', align === 'center' && 'mx-auto')}>{description}</p>
+      )}
     </div>
   )
 }
