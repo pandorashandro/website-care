@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import {
+  WORDPRESS_PLATFORM,
   wordpressResources,
   wordpressCapabilities,
   wordpressImageAltSource,
@@ -237,6 +238,7 @@ export async function applyImageAltFix(
     // even when public verification is unavailable or inconclusive.
     const historyStatus = await recordFixHistory({
       websiteId,
+      platform: WORDPRESS_PLATFORM,
       issueTitle,
       pageUrl: trustedIssue.issue.pageUrl,
       imageUrl: trustedIssue.issue.imageUrl,
@@ -337,6 +339,7 @@ export async function applyImageAltFix(
   // branch above for the same reasoning.
   const historyStatus = await recordFixHistory({
     websiteId,
+    platform: WORDPRESS_PLATFORM,
     issueTitle,
     pageUrl: trustedIssue.issue.pageUrl,
     imageUrl: trustedIssue.issue.imageUrl,

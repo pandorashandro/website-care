@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import {
+  WORDPRESS_PLATFORM,
   wordpressResources,
   wordpressCapabilities,
   wordpressH1Source,
@@ -222,6 +223,7 @@ export async function applyH1Fix(_prevState: ApplyH1FixState, formData: FormData
   // ownership-verified above; every other value here is server-derived.
   const historyStatus = await recordFixHistory({
     websiteId,
+    platform: WORDPRESS_PLATFORM,
     issueTitle,
     pageUrl: content.permalink,
     resourceType: content.resourceType,

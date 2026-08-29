@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import {
+  WORDPRESS_PLATFORM,
   wordpressResources,
   wordpressCapabilities,
   wordpressImageAltSource,
@@ -229,6 +230,7 @@ export async function rollbackImageAltFix(
     // fix, exactly like title/meta/H1 rollback.
     const historyStatus = await recordFixHistory({
       websiteId,
+      platform: WORDPRESS_PLATFORM,
       issueTitle: `Rollback: ${historyRow.issue_title}`,
       pageUrl: trustedPageUrl,
       imageUrl: trustedImageUrl,
@@ -322,6 +324,7 @@ export async function rollbackImageAltFix(
 
   const historyStatus = await recordFixHistory({
     websiteId,
+    platform: WORDPRESS_PLATFORM,
     issueTitle: `Rollback: ${historyRow.issue_title}`,
     pageUrl: trustedPageUrl,
     imageUrl: trustedImageUrl,

@@ -1,8 +1,19 @@
 import 'server-only'
 import { createClient } from '@/lib/supabase/server'
+import type { PlatformType } from '@/lib/integrations/platform'
 
 export type FixHistoryInsertInput = {
   websiteId: string
+  /**
+   * The exact platform this write/rollback was performed against — always
+   * the caller's own typed platform identity constant (e.g.
+   * lib/integrations/wordpress/adapter.ts's WORDPRESS_PLATFORM), never a
+   * bare string literal re-typed at the call site. This module deliberately
+   * has no WordPress-specific import of its own (it stays platform-agnostic
+   * core) — it only knows the generic PlatformType vocabulary and faithfully
+   * stores whatever typed value each platform's own orchestration provides.
+   */
+  platform: PlatformType
   issueTitle: string
   pageUrl: string
   /** Only ever populated for field: 'image_alt' — the trusted, server-derived image URL this row's write/rollback targeted. Null for every other field. */
@@ -41,12 +52,15 @@ export type FixHistoryInsertResult = 'saved' | 'failed'
 
 /**
  * Records a durable audit row for one already-completed, already-confirmed
- * WordPress title write. This is an internal helper, not a Server Action —
- * it is reachable only from inside applyFix, after ownership, capability,
- * and WordPress response validation have all already passed, so every value
- * here is server-derived rather than accepted fresh from the browser. A
- * failure here never implies (and must never be reported as) the WordPress
- * write having failed — the external change already happened regardless.
+ * platform write or rollback (today, always WordPress — see the `platform`
+ * field doc comment above). This is an internal helper, not a Server
+ * Action — it is reachable only from inside each fix family's own
+ * apply/rollback action, after ownership, capability, and platform response
+ * validation have all already passed, so every value here (including
+ * `platform` itself) is server-derived rather than accepted fresh from the
+ * browser. A failure here never implies (and must never be reported as) the
+ * underlying platform write having failed — the external change already
+ * happened regardless.
  */
 export async function recordFixHistory(input: FixHistoryInsertInput): Promise<FixHistoryInsertResult> {
   try {
@@ -58,7 +72,7 @@ export async function recordFixHistory(input: FixHistoryInsertInput): Promise<Fi
       page_url: input.pageUrl,
       image_url: input.imageUrl ?? null,
       write_strategy: input.writeStrategy ?? null,
-      platform: 'wordpress',
+      platform: input.platform,
       resource_type: input.resourceType,
       resource_id: input.resourceId,
       field: input.field,
@@ -207,13 +221,33 @@ export async function getFixHistoryRowForRollback(
 const IMAGE_ALT_WRITE_STRATEGIES = new Set(['media_alt_text', 'gutenberg_content_alt', 'classic_html_alt'])
 const META_DESCRIPTION_WRITE_STRATEGIES = new Set(['yoast_meta_description', 'rank_math_meta_description'])
 
+/**
+ * Platform-compatibility gate for rollback, kept as a single named source of
+ * truth rather than a bare string comparison. `Record<PlatformType, true>`
+ * is deliberately used instead of a plain array/Set: if PlatformType ever
+ * gains a second member, this object literal fails to type-check until a
+ * decision is made for that platform too, so a future platform can never be
+ * silently treated as rollback-compatible by omission. This is an allowlist
+ * check, not a dispatcher — it says nothing about HOW to roll a platform
+ * back, only whether this row's platform is one any current rollback
+ * implementation is entitled to touch. Every fix-family rollback action
+ * (wordpress-*-rollback-actions.ts) reverses WordPress content specifically;
+ * a row from any other/unknown platform value must fail closed here rather
+ * than be guessed at downstream.
+ */
+const ROLLBACK_COMPATIBLE_PLATFORMS: Record<PlatformType, true> = { wordpress: true }
+
+function isRollbackCompatiblePlatform(platform: string): platform is PlatformType {
+  return Object.prototype.hasOwnProperty.call(ROLLBACK_COMPATIBLE_PLATFORMS, platform)
+}
+
 export function isRollbackEligibleByShape(
   row: Pick<
     FixHistoryRecord,
     'platform' | 'field' | 'resource_type' | 'resource_id' | 'previous_value' | 'image_url' | 'write_strategy'
   >
 ): boolean {
-  if (row.platform !== 'wordpress') return false
+  if (!isRollbackCompatiblePlatform(row.platform)) return false
   if (row.field !== 'title' && row.field !== 'meta_description' && row.field !== 'h1' && row.field !== 'image_alt') {
     return false
   }

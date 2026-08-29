@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import {
+  WORDPRESS_PLATFORM,
   wordpressResources,
   wordpressCapabilities,
   wordpressH1Source,
@@ -165,6 +166,7 @@ export async function rollbackH1Fix(_prevState: RollbackH1FixState, formData: Fo
   // NEW row representing the rollback as its own historical event.
   const historyStatus = await recordFixHistory({
     websiteId,
+    platform: WORDPRESS_PLATFORM,
     issueTitle: `Rollback: ${historyRow.issue_title}`,
     pageUrl: historyRow.page_url,
     resourceType,

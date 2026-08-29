@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import {
+  WORDPRESS_PLATFORM,
   wordpressResources,
   wordpressCapabilities,
   wordpressMetadataProvider,
@@ -231,6 +232,7 @@ export async function applyMetaDescriptionFix(
   // through the same mechanism, not merely a currently-matching value.
   const historyStatus = await recordFixHistory({
     websiteId,
+    platform: WORDPRESS_PLATFORM,
     issueTitle,
     pageUrl: content.permalink,
     resourceType: content.resourceType,

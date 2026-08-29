@@ -1,7 +1,12 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import { wordpressResources, wordpressCapabilities, wordpressWriters } from '@/lib/integrations/wordpress/adapter'
+import {
+  WORDPRESS_PLATFORM,
+  wordpressResources,
+  wordpressCapabilities,
+  wordpressWriters,
+} from '@/lib/integrations/wordpress/adapter'
 import { verifyRollback, type RollbackVerification } from '@/lib/fixes/verify-rollback'
 import { getConnectedWordPressCredentials } from './wordpress-credentials'
 import { getFixHistoryRowForRollback, isRollbackEligibleByShape, recordFixHistory } from './fix-history'
@@ -155,6 +160,7 @@ export async function rollbackFix(_prevState: RollbackFixState, formData: FormDa
   // previous/applied values swapped relative to the original fix.
   const historyStatus = await recordFixHistory({
     websiteId,
+    platform: WORDPRESS_PLATFORM,
     issueTitle: `Rollback: ${historyRow.issue_title}`,
     pageUrl: historyRow.page_url,
     resourceType,

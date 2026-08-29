@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import {
+  WORDPRESS_PLATFORM,
   wordpressResources,
   wordpressCapabilities,
   wordpressMetadataProvider,
@@ -200,6 +201,7 @@ export async function rollbackMetaDescriptionFix(
   // consistent and, if ever undone again, provides the same proof.
   const historyStatus = await recordFixHistory({
     websiteId,
+    platform: WORDPRESS_PLATFORM,
     issueTitle: `Rollback: ${historyRow.issue_title}`,
     pageUrl: historyRow.page_url,
     resourceType,
