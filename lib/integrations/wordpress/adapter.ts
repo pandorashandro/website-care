@@ -10,6 +10,8 @@ import { loadWordPressEditableContent } from './editable-content'
 import type { WordPressEditableContentResult } from './editable-content'
 import { detectSeoMetadataProvider } from './seo-provider'
 import type { SeoMetadataProviderResult, SeoProviderWriteStrategy } from './seo-provider'
+import { detectH1Source, classifyH1ContentSource } from '@/lib/fixes/h1-source-detection'
+import type { H1SourceDetectionResult, H1ContentSource } from '@/lib/fixes/h1-source-detection'
 import { updateWordPressTitle } from './write-title'
 import type { WordPressTitleUpdateResult } from './write-title'
 import { updateWordPressMetaDescription } from './write-meta-description'
@@ -222,7 +224,30 @@ export function toMetaDescriptionWriteStrategy(provider: 'yoast' | 'rank_math'):
 }
 
 // ============================================================================
-// 7. FIELD-SPECIFIC WRITERS — grouped for discovery, never generic
+// 7. H1 SOURCE BOUNDARY (Missing H1 — Phase 19.5C)
+// ============================================================================
+
+/**
+ * Gutenberg-vs-Classic-HTML content classification is inherently a
+ * WordPress content-serialization concern — a future platform's editor
+ * model may have no equivalent concept at all — so this stays a
+ * WordPress-only namespace, not a generic "IntegrationContentSource" or
+ * "CmsContentMode" abstraction. Thin re-export of the existing detection
+ * functions (still implemented in lib/fixes/h1-source-detection.ts, not
+ * moved here); no behavior change, no rewritten detection rules. Both
+ * Prepare/Apply (detect) and Undo (classifySource, used to deterministically
+ * reconstruct the exact snippet that was inserted — see
+ * lib/fixes/h1-content-transform.ts) route through this one namespace.
+ */
+export const wordpressH1Source = {
+  detect: detectH1Source,
+  classifySource: classifyH1ContentSource,
+} as const
+
+export type { H1SourceDetectionResult, H1ContentSource }
+
+// ============================================================================
+// 8. FIELD-SPECIFIC WRITERS — grouped for discovery, never generic
 // ============================================================================
 
 /**

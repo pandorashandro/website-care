@@ -1,10 +1,12 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import { loadWordPressEditableContent } from '@/lib/integrations/wordpress/editable-content'
-import { checkWordPressCapabilities } from '@/lib/integrations/wordpress/capabilities'
-import { updateWordPressH1Content } from '@/lib/integrations/wordpress/write-h1-content'
-import { classifyH1ContentSource } from '@/lib/fixes/h1-source-detection'
+import {
+  wordpressResources,
+  wordpressCapabilities,
+  wordpressH1Source,
+  wordpressWriters,
+} from '@/lib/integrations/wordpress/adapter'
 import { buildH1InsertionSnippet } from '@/lib/fixes/h1-content-transform'
 import { verifyH1Rollback, type H1RollbackVerification } from '@/lib/fixes/verify-h1-rollback'
 import { getConnectedWordPressCredentials } from './wordpress-credentials'
@@ -68,7 +70,7 @@ export async function rollbackH1Fix(_prevState: RollbackH1FixState, formData: Fo
   const resourceId = historyRow.resource_id as number
   const appliedH1 = historyRow.applied_value
 
-  const content = await loadWordPressEditableContent(
+  const content = await wordpressResources.loadEditable(
     credentials.websiteUrl,
     historyRow.page_url,
     credentials.username,
@@ -87,7 +89,7 @@ export async function rollbackH1Fix(_prevState: RollbackH1FixState, formData: Fo
   }
 
   // Fresh source classification — never inferred from history.
-  const source = classifyH1ContentSource(content.content)
+  const source = wordpressH1Source.classifySource(content.content)
 
   if (source !== 'gutenberg' && source !== 'classic_html') {
     return { rollbackWriteStatus: 'failed', reason: 'This heading can no longer be safely undone.' }
@@ -109,7 +111,7 @@ export async function rollbackH1Fix(_prevState: RollbackH1FixState, formData: Fo
     }
   }
 
-  const capabilityResult = await checkWordPressCapabilities(
+  const capabilityResult = await wordpressCapabilities.check(
     credentials.websiteUrl,
     credentials.username,
     credentials.applicationPassword
@@ -135,7 +137,7 @@ export async function rollbackH1Fix(_prevState: RollbackH1FixState, formData: Fo
 
   const restBase = resourceType === 'page' ? 'pages' : 'posts'
 
-  const updateResult = await updateWordPressH1Content({
+  const updateResult = await wordpressWriters.h1Content({
     websiteUrl: credentials.websiteUrl,
     restBase,
     resourceId,

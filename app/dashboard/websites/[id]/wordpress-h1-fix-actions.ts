@@ -1,10 +1,12 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import { loadWordPressEditableContent } from '@/lib/integrations/wordpress/editable-content'
-import { checkWordPressCapabilities } from '@/lib/integrations/wordpress/capabilities'
-import { updateWordPressH1Content } from '@/lib/integrations/wordpress/write-h1-content'
-import { detectH1Source } from '@/lib/fixes/h1-source-detection'
+import {
+  wordpressResources,
+  wordpressCapabilities,
+  wordpressH1Source,
+  wordpressWriters,
+} from '@/lib/integrations/wordpress/adapter'
 import { buildContentWithInsertedH1 } from '@/lib/fixes/h1-content-transform'
 import { verifyH1Fix, type H1FixVerification } from '@/lib/fixes/verify-h1-fix'
 import { verifyH1PreviewToken, hashContent } from '@/lib/fixes/preview-token'
@@ -95,7 +97,7 @@ export async function applyH1Fix(_prevState: ApplyH1FixState, formData: FormData
 
   // Fresh mapping + fresh resource reload — never reuses anything from the
   // earlier Prepare Fix call.
-  const content = await loadWordPressEditableContent(
+  const content = await wordpressResources.loadEditable(
     credentials.websiteUrl,
     pageUrl,
     credentials.username,
@@ -110,7 +112,7 @@ export async function applyH1Fix(_prevState: ApplyH1FixState, formData: FormData
   // with the exact same source and H1 counts (0/0) the preview was based
   // on. Any drift aborts rather than risk writing something the user never
   // actually saw confirmed.
-  const sourceResult = await detectH1Source({ pageUrl: content.permalink, issueKind: 'missing_h1', content })
+  const sourceResult = await wordpressH1Source.detect({ pageUrl: content.permalink, issueKind: 'missing_h1', content })
 
   if (sourceResult.status !== 'supported') {
     return {
@@ -151,7 +153,7 @@ export async function applyH1Fix(_prevState: ApplyH1FixState, formData: FormData
   // Capability gating is resource-type-specific — a page requires
   // canEditPages, a post requires canEditPosts. 'unavailable' and
   // 'unknown' both fail closed; only 'available' permits a write.
-  const capabilityResult = await checkWordPressCapabilities(
+  const capabilityResult = await wordpressCapabilities.check(
     credentials.websiteUrl,
     credentials.username,
     credentials.applicationPassword
@@ -183,7 +185,7 @@ export async function applyH1Fix(_prevState: ApplyH1FixState, formData: FormData
 
   const restBase = content.resourceType === 'page' ? 'pages' : 'posts'
 
-  const updateResult = await updateWordPressH1Content({
+  const updateResult = await wordpressWriters.h1Content({
     websiteUrl: credentials.websiteUrl,
     restBase,
     resourceId: content.resourceId,

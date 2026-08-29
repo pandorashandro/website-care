@@ -5,6 +5,7 @@ import {
   wordpressResources,
   wordpressCapabilities,
   wordpressMetadataProvider,
+  wordpressH1Source,
   wordpressWriters,
 } from '@/lib/integrations/wordpress/adapter'
 import { verifyTitleFix, type TitleFixVerification } from '@/lib/fixes/verify-title-fix'
@@ -20,7 +21,6 @@ import { generateTitleRecommendation } from '@/lib/ai/title-recommendation'
 import { generateMetaDescriptionRecommendation } from '@/lib/ai/meta-description-recommendation'
 import { generateH1Recommendation } from '@/lib/ai/h1-recommendation'
 import { generateImageAltRecommendation } from '@/lib/ai/image-alt-recommendation'
-import { detectH1Source } from '@/lib/fixes/h1-source-detection'
 import { detectImageAltSource } from '@/lib/fixes/image-alt-source-detection'
 import { getConnectedWordPressCredentials } from './wordpress-credentials'
 import { getTrustedMissingImageAltIssue } from './image-alt-issue'
@@ -318,7 +318,7 @@ export async function prepareFix(
 
     // Read-only H1 source diagnostic: exactly one extra public-page GET
     // request beyond the resource load above — see h1-source-detection.ts.
-    const result = await detectH1Source({ pageUrl: content.permalink, issueKind, content })
+    const result = await wordpressH1Source.detect({ pageUrl: content.permalink, issueKind, content })
 
     // AI is only ever attempted for missing_h1 on a confirmed-supported
     // source. multiple_h1 always stays diagnostic-only (webioom will
