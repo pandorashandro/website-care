@@ -11,8 +11,8 @@ import type { WordPressConnectionSummary } from '@/app/dashboard/websites/[id]/w
 const SUPPORTED_FIXES = [
   'Page title',
   'Meta description, where a supported SEO provider/configuration is detected',
-  'Missing H1, where Website Care can safely confirm the editable source',
-  'Missing image alt text, where Website Care can safely confirm the image and its source',
+  'Missing H1, where webioom can safely confirm the editable source',
+  'Missing image alt text, where webioom can safely confirm the image and its source',
 ]
 
 /**
@@ -57,7 +57,7 @@ export default function WordPressIntegrationCard({
 
       {!wordpressConnection.connected && wordpress.status === 'unknown' && (
         <p className="mt-2 text-sm text-muted">
-          Website Care hasn&apos;t confirmed this website runs WordPress from scanning it, but you can still
+          webioom hasn&apos;t confirmed this website runs WordPress from scanning it, but you can still
           connect if it does.
         </p>
       )}
@@ -77,7 +77,7 @@ export default function WordPressIntegrationCard({
 
       {wordpressConnection.connected && !wordpressConnection.connectionValid && (
         <Alert tone="warning" className="mt-4">
-          Website Care could not verify this WordPress connection. It may need to be reconnected.
+          webioom could not verify this WordPress connection. It may need to be reconnected.
         </Alert>
       )}
 

@@ -1,3 +1,4 @@
+import type { Metadata } from 'next'
 import { Globe2, ScanSearch, AlertTriangle, BarChart3 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import Container from '@/components/ui/container'
@@ -7,6 +8,10 @@ import WebsiteCard, { type DashboardWebsite, type DashboardLatestScan } from '@/
 import GettingStartedGuide from '@/components/dashboard/getting-started-guide'
 import { needsAttention } from '@/lib/scanner/health-label'
 import AddWebsiteButton from './add-website-button'
+
+export const metadata: Metadata = {
+  title: 'Dashboard',
+}
 
 type ScanRow = DashboardLatestScan & { id: string; website_id: string }
 
@@ -114,14 +119,14 @@ export default async function DashboardPage() {
       ) : (
         <EmptyState
           icon={Globe2}
-          title="Welcome to WEBIOOM"
+          title="Welcome to webioom"
           description="Add your first website to see what needs attention."
           action={<AddWebsiteButton label="Add Your First Website" />}
           className="mt-8"
         >
           <div className="mx-auto mt-6 max-w-sm border-t border-border pt-6 text-left">
             <p className="text-sm text-muted">
-              WEBIOOM will scan the site, organize findings into a health report, and help you understand
+              webioom will scan the site, organize findings into a health report, and help you understand
               what to work on first.
             </p>
             <p className="mt-4 text-xs font-semibold uppercase tracking-wide text-subtle">What happens next</p>

@@ -27,7 +27,7 @@ export default function DisconnectWordPressButton({ websiteId }: { websiteId: st
         WordPress is connected again.
       </p>
       <p className="text-xs text-muted">
-        This removes the stored connection from Website Care. It does not necessarily revoke the
+        This removes the stored connection from webioom. It does not necessarily revoke the
         Application Password inside WordPress — you can also revoke it from your WordPress admin area.
       </p>
 

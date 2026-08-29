@@ -129,9 +129,9 @@ const H1_ISSUE_TITLES = new Set<string>(Object.keys(H1_ISSUE_KIND))
 const GENERIC_UNSUPPORTED_REASON = 'Preview not available yet for this fix type.'
 
 const META_DESCRIPTION_REASON =
-  'WordPress page identified, but Website Care does not yet know which SEO metadata provider controls this field.'
+  'WordPress page identified, but webioom does not yet know which SEO metadata provider controls this field.'
 
-const TITLE_EXPLANATION = 'Website Care proposes a clearer title that stays within a recommended length.'
+const TITLE_EXPLANATION = 'webioom proposes a clearer title that stays within a recommended length.'
 
 /**
  * Static classification — does not require loading any WordPress content,

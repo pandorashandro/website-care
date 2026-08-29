@@ -30,7 +30,7 @@ function escapeHtml(value: string): string {
 }
 
 const DUPLICATE_REASON =
-  'Website Care found more than one matching image in this page and will not guess which one to change.'
+  'webioom found more than one matching image in this page and will not guess which one to change.'
 
 /**
  * Replaces only the alt attribute value of the single <img> tag matching
@@ -80,7 +80,7 @@ export function buildContentWithReplacedImageAlt(params: {
   const altAttributePattern = /\balt\s*=\s*("([^"]*)"|'([^']*)')/i
 
   if (!altAttributePattern.test(matchedTag)) {
-    return { status: 'unsafe', reason: 'Website Care could not safely update this image’s alt text.' }
+    return { status: 'unsafe', reason: 'webioom could not safely update this image’s alt text.' }
   }
 
   const escapedAlt = escapeHtml(params.proposedAlt)

@@ -64,7 +64,7 @@ export async function checkRobots(websiteUrl: string): Promise<RobotsCheckResult
       issues: [
         buildIssue(
           'robots_unreachable',
-          'Website Care could not fetch robots.txt to check crawler access rules.'
+          'webioom could not fetch robots.txt to check crawler access rules.'
         ),
       ],
       sitemapUrls: [],

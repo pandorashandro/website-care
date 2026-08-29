@@ -95,17 +95,17 @@ const RULES = {
     level: 'assisted',
     requiresWordPress: true,
     requiredCapability: 'edit_content',
-    reason: `${EDIT_CONTENT_REASON} Website Care will not change page layout or theme structure.`,
+    reason: `${EDIT_CONTENT_REASON} webioom will not change page layout or theme structure.`,
   },
   // Phase 15.3A: 'assisted' here only gates whether Prepare Fix's read-only
   // H1 source diagnostic can run — like missing_h1, there is no working H1
   // write path yet. Restructuring/removing headings still requires a
-  // Website Care write feature that does not exist yet.
+  // webioom write feature that does not exist yet.
   multiple_h1: {
     level: 'assisted',
     requiresWordPress: true,
     requiredCapability: 'edit_content',
-    reason: `${EDIT_CONTENT_REASON} Website Care will not change page layout or theme structure.`,
+    reason: `${EDIT_CONTENT_REASON} webioom will not change page layout or theme structure.`,
   },
   missing_image_alt: {
     level: 'assisted',
@@ -373,9 +373,9 @@ function resolveCapabilityValue(
 }
 
 /**
- * Determines whether Website Care may later be able to propose an assisted
+ * Determines whether webioom may later be able to propose an assisted
  * WordPress-backed fix for an issue ('assisted'), whether the user should
- * fix it themselves for now ('manual'), or whether Website Care cannot
+ * fix it themselves for now ('manual'), or whether webioom cannot
  * currently perform or meaningfully assist with it at all ('unavailable').
  *
  * Pure and deterministic: no Supabase, no network calls, no React. Reuses
@@ -388,7 +388,7 @@ export function evaluateFixability(context: FixabilityContext): FixabilityResult
   if (!rule) {
     return {
       level: 'unavailable',
-      reason: 'Website Care does not yet recognize this issue type well enough to assist with a fix.',
+      reason: 'webioom does not yet recognize this issue type well enough to assist with a fix.',
       requiresWordPress: false,
     }
   }
@@ -405,7 +405,7 @@ export function evaluateFixability(context: FixabilityContext): FixabilityResult
   // rule.level === 'assisted' (candidate) — gate on the live WordPress connection.
   if (!context.wordpressConnected) {
     const suffix = context.wordpressDetected
-      ? ' Connect WordPress to let Website Care assist with this automatically.'
+      ? ' Connect WordPress to let webioom assist with this automatically.'
       : ' This currently requires a supported platform connection (such as WordPress), which was not detected for this site.'
 
     return {
@@ -419,7 +419,7 @@ export function evaluateFixability(context: FixabilityContext): FixabilityResult
   if (!context.connectionValid) {
     return {
       level: 'unavailable',
-      reason: 'Your WordPress connection needs attention before Website Care can assist with this fix.',
+      reason: 'Your WordPress connection needs attention before webioom can assist with this fix.',
       requiresWordPress: true,
       requiredCapability: rule.requiredCapability ?? undefined,
     }
@@ -440,7 +440,7 @@ export function evaluateFixability(context: FixabilityContext): FixabilityResult
     return {
       level: 'manual',
       reason:
-        'Website Care could not confirm your WordPress account has the permission required for this fix.',
+        'webioom could not confirm your WordPress account has the permission required for this fix.',
       requiresWordPress: true,
       requiredCapability: rule.requiredCapability ?? undefined,
     }

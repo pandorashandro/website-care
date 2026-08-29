@@ -69,7 +69,7 @@ export default function ConnectWordPressButton({ websiteId }: { websiteId: strin
               </span>
             </summary>
             <p className="mt-2 text-xs leading-relaxed text-muted">
-              It&apos;s a password WordPress generates specifically for tools like Website Care, separate
+              It&apos;s a password WordPress generates specifically for tools like webioom, separate
               from your login password and easy to revoke on its own. In your WordPress admin, go to{' '}
               <span className="font-medium text-gray-700">Users → Profile → Application Passwords</span> to
               create one.{' '}

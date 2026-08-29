@@ -39,7 +39,7 @@ export default function AddWebsiteButton({ label = '+ Add Website' }: { label?: 
         open={open}
         onClose={() => setOpen(false)}
         title="Add a website"
-        description="Enter the website you want WEBIOOM to scan."
+        description="Enter the website you want webioom to scan."
       >
         <form ref={formRef} action={formAction} className="space-y-4">
           <div>
@@ -58,7 +58,7 @@ export default function AddWebsiteButton({ label = '+ Add Website' }: { label?: 
               className="mt-1"
               placeholder="https://example.com"
             />
-            <p className="mt-1 text-xs text-subtle">No integration required — WEBIOOM can scan this right away.</p>
+            <p className="mt-1 text-xs text-subtle">No integration required — webioom can scan this right away.</p>
           </div>
 
           {state?.error && <Alert tone="danger">{state.error}</Alert>}

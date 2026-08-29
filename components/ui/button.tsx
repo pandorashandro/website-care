@@ -9,7 +9,7 @@ const BASE =
 
 const VARIANT_STYLES: Record<ButtonVariant, string> = {
   primary: 'bg-brand text-brand-foreground hover:bg-brand-hover',
-  secondary: 'bg-gray-900 text-white hover:bg-gray-800',
+  secondary: 'bg-brand-dark text-text-on-dark hover:bg-brand-dark-hover',
   outline: 'border border-border bg-surface text-gray-700 hover:bg-surface-muted',
   ghost: 'text-gray-600 hover:bg-surface-muted hover:text-gray-900',
   danger: 'bg-danger text-white hover:bg-red-700',

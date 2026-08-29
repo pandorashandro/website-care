@@ -15,13 +15,47 @@
   --color-border: #e2e8f0;
   --color-border-strong: #cbd5e1;
 
-  /* Brand */
-  --color-brand: #1d4ed8;
-  --color-brand-hover: #1e40af;
-  --color-brand-subtle: #eff6ff;
+  /*
+   * Brand — WEBIOOM green, sampled directly (by decoding the PNG's raw pixel
+   * data) from the accent stroke of the approved logo at
+   * brand-reference/webioom-logo1.png. That stroke is itself a gradient —
+   * bright yellow-green (~#88C338) at the top fading to a deep emerald-teal
+   * (~#03794E) at the bottom — so rather than inventing a single flat color,
+   * each token below is an actual sampled point on that same gradient:
+   *   - --color-brand-vivid (#3c9d46) is the stroke's natural midpoint —
+   *     the "iconic" green most people would name at a glance.
+   *   - --color-brand (#038554) is sampled further down the same gradient,
+   *     chosen specifically because it clears 4.5:1 contrast against white
+   *     (verified: ~4.68:1), so it's safe for button/link/focus-ring text.
+   *   - --color-brand-hover (#03794e) is one step further down again — a
+   *     visibly darker hover state that is still literally the logo's own
+   *     color, not a programmatic darken.
+   * The vivid tone still reads as fully accessible only against the dark
+   * navy surfaces (~7.6:1) or as a non-text accent on light ones (~3.4:1
+   * against white — decorative use only, never text).
+   */
+  --color-brand: #038554;
+  --color-brand-hover: #03794e;
+  --color-brand-subtle: #ebf5f1;
   --color-brand-foreground: #ffffff;
 
-  /* Status */
+  /* The logo's own mid-gradient green — decorative only (icon fills,
+     dark-surface accents, active-nav indication). Never used as text on a
+     light surface. */
+  --color-brand-vivid: #3c9d46;
+
+  /* Near-black WEBIOOM navy, for the app's dark sidebar/header, dark public
+     sections (hero/footer/CTA), and the logo's badge background. */
+  --color-brand-dark: #12141c;
+  --color-brand-dark-hover: #1c1f2a;
+  --color-surface-dark: #181b24;
+  --color-border-dark: #2a2e3a;
+  --color-text-on-dark: #f4f6f8;
+  --color-text-on-dark-muted: #9ca3b4;
+
+  /* Status — deliberately distinct from --color-brand (not the same hex or
+     visual weight) so a status badge and a brand accent never look
+     ambiguous next to each other, even though both land in "green." */
   --color-success: #16a34a;
   --color-success-subtle: #f0fdf4;
   --color-warning: #d97706;
@@ -45,6 +79,13 @@
   --color-brand-hover: var(--color-brand-hover);
   --color-brand-subtle: var(--color-brand-subtle);
   --color-brand-foreground: var(--color-brand-foreground);
+  --color-brand-vivid: var(--color-brand-vivid);
+  --color-brand-dark: var(--color-brand-dark);
+  --color-brand-dark-hover: var(--color-brand-dark-hover);
+  --color-surface-dark: var(--color-surface-dark);
+  --color-border-dark: var(--color-border-dark);
+  --color-text-on-dark: var(--color-text-on-dark);
+  --color-text-on-dark-muted: var(--color-text-on-dark-muted);
   --color-success: var(--color-success);
   --color-success-subtle: var(--color-success-subtle);
   --color-warning: var(--color-warning);
@@ -62,9 +103,14 @@
  * version of this file swapped --background/--foreground in dark mode while
  * every component hardcoded light-mode Tailwind classes (bg-white,
  * text-gray-900, etc.) — the result was a half-dark, half-light interface,
- * not a working dark mode. Phase 18.2 intentionally ships a polished
- * light-mode-only experience; a real dark mode is a deliberate future
- * decision, not an accidental side effect of two CSS variables.
+ * not a working dark mode. Phase 18.2 intentionally shipped a polished
+ * light-mode-only experience, and that still holds — a real dark-mode
+ * toggle is a deliberate future decision, not an accidental side effect of
+ * two CSS variables. The --color-brand-dark/-surface-dark/-text-on-dark
+ * tokens added in Phase 18.17 are unrelated: they give specific surfaces
+ * (the app sidebar, the public footer/hero) a fixed, intentional dark
+ * treatment as part of the WEBIOOM brand identity, not a theme that varies
+ * with the visitor's OS preference.
  */
 
 body {

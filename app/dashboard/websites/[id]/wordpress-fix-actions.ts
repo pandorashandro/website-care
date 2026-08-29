@@ -76,7 +76,7 @@ export async function prepareFix(
     return { status: 'unsupported', reason: 'Preview not available yet for this fix type.' }
   }
 
-  // Re-verifies Website Care session + website ownership internally before
+  // Re-verifies webioom session + website ownership internally before
   // ever touching wordpress_connections — never trusts the form's websiteId alone.
   const credentials = await getConnectedWordPressCredentials(websiteId)
 
@@ -182,7 +182,7 @@ export async function prepareFix(
     } catch {
       return {
         status: 'unavailable',
-        reason: 'Website Care could not prepare this fix right now. Please try again shortly.',
+        reason: 'webioom could not prepare this fix right now. Please try again shortly.',
       }
     }
 
@@ -289,7 +289,7 @@ export async function prepareFix(
     } catch {
       return {
         status: 'unavailable',
-        reason: 'Website Care could not prepare this fix right now. Please try again shortly.',
+        reason: 'webioom could not prepare this fix right now. Please try again shortly.',
       }
     }
 
@@ -319,7 +319,7 @@ export async function prepareFix(
     const result = await detectH1Source({ pageUrl: content.permalink, issueKind, content })
 
     // AI is only ever attempted for missing_h1 on a confirmed-supported
-    // source. multiple_h1 always stays diagnostic-only (Website Care will
+    // source. multiple_h1 always stays diagnostic-only (webioom will
     // not automatically decide which heading to remove), and any
     // unsupported/ambiguous/connection_error result never reaches AI.
     if (result.status !== 'supported' || issueKind !== 'missing_h1') {
@@ -365,7 +365,7 @@ export async function prepareFix(
     } catch {
       return {
         status: 'unavailable',
-        reason: 'Website Care could not prepare this fix right now. Please try again shortly.',
+        reason: 'webioom could not prepare this fix right now. Please try again shortly.',
       }
     }
 
@@ -438,7 +438,7 @@ export async function prepareFix(
     // can't later be safely approved.
     return {
       status: 'unavailable',
-      reason: 'Website Care could not prepare this fix right now. Please try again shortly.',
+      reason: 'webioom could not prepare this fix right now. Please try again shortly.',
     }
   }
 
@@ -499,7 +499,7 @@ export async function applyFix(_prevState: ApplyFixState, formData: FormData): P
     return { writeStatus: 'failed', reason: 'This fix type is not supported.' }
   }
 
-  // Re-verifies Website Care session + website ownership internally before
+  // Re-verifies webioom session + website ownership internally before
   // ever touching wordpress_connections — never trusts the token's
   // websiteId as proof the current session may act on it.
   const credentials = await getConnectedWordPressCredentials(websiteId)

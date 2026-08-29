@@ -27,14 +27,14 @@ import { buttonStyles } from '@/components/ui/button'
 export const metadata: Metadata = {
   title: 'Product',
   description:
-    'How Website Care actually works: scanning vs. connecting an integration, how issues become Safe, AI-Assisted, or Guided fixes, and the Review → Apply → Verify → History workflow.',
+    'How webioom actually works: scanning vs. connecting an integration, how issues become Safe, AI-Assisted, or Guided fixes, and the Review → Apply → Verify → History workflow.',
 }
 
 const LOOP_STEPS = [
   {
     icon: ScanSearch,
     title: 'Scan',
-    description: 'Website Care crawls important pages across your site and checks them for supported website-health issues.',
+    description: 'webioom crawls important pages across your site and checks them for supported website-health issues.',
   },
   {
     icon: BarChart3,
@@ -46,12 +46,12 @@ const LOOP_STEPS = [
     icon: Wrench,
     title: 'Act',
     description:
-      'Depending on what Website Care can safely support, an issue becomes a Safe Fix, an AI-Assisted Fix, or a Guided Fix you carry out yourself.',
+      'Depending on what webioom can safely support, an issue becomes a Safe Fix, an AI-Assisted Fix, or a Guided Fix you carry out yourself.',
   },
   {
     icon: Eye,
     title: 'Review',
-    description: 'For supported direct changes, Website Care prepares a preview — showing exactly what would change — before anything is written.',
+    description: 'For supported direct changes, webioom prepares a preview — showing exactly what would change — before anything is written.',
   },
   {
     icon: CheckCircle2,
@@ -61,13 +61,13 @@ const LOOP_STEPS = [
   {
     icon: ShieldCheck,
     title: 'Verify',
-    description: 'After a supported change is applied, Website Care checks that it actually appears correctly — not just that the request succeeded.',
+    description: 'After a supported change is applied, webioom checks that it actually appears correctly — not just that the request succeeded.',
   },
   {
     icon: History,
     title: 'History / Undo',
     description:
-      'Supported writes are recorded so you can see exactly what changed, and can be undone when Website Care can safely confirm the target is unchanged.',
+      'Supported writes are recorded so you can see exactly what changed, and can be undone when webioom can safely confirm the target is unchanged.',
   },
 ]
 
@@ -76,7 +76,7 @@ const FIX_TYPES = [
     icon: Zap,
     title: 'Safe Fix',
     description:
-      'A constrained, deterministic change Website Care can prepare with confidence — the kind of edit where there is one clearly correct outcome.',
+      'A constrained, deterministic change webioom can prepare with confidence — the kind of edit where there is one clearly correct outcome.',
   },
   {
     icon: Sparkles,
@@ -88,7 +88,7 @@ const FIX_TYPES = [
     icon: Compass,
     title: 'Guided Fix',
     description:
-      'When automating a change would be unsafe, ambiguous, or depend on judgment only you can make, Website Care explains what to do instead of guessing.',
+      'When automating a change would be unsafe, ambiguous, or depend on judgment only you can make, webioom explains what to do instead of guessing.',
   },
 ]
 
@@ -97,11 +97,11 @@ const SUPPORTED_FIX_EXAMPLES = ['Page title', 'Meta description', 'Missing H1', 
 const SAFETY_POINTS = [
   { icon: Target, text: 'Supported fixes are narrowly scoped to the exact field they describe.' },
   { icon: Hand, text: 'A supported change is applied only after you explicitly approve it.' },
-  { icon: ScanLine, text: 'Website Care re-checks the target fresh, right before applying — not from a stale snapshot.' },
+  { icon: ScanLine, text: 'webioom re-checks the target fresh, right before applying — not from a stale snapshot.' },
   { icon: ShieldCheck, text: 'A verification pass follows every supported write.' },
   { icon: History, text: 'History gives you a record of exactly what changed, and when.' },
   { icon: RotateCcw, text: 'Where it can safely confirm nothing else has changed, a supported fix can be undone.' },
-  { icon: ShieldAlert, text: 'When Website Care can’t safely confirm what it would be changing, it declines rather than guesses.' },
+  { icon: ShieldAlert, text: 'When webioom can’t safely confirm what it would be changing, it declines rather than guesses.' },
 ]
 
 export default function ProductPage() {
@@ -115,7 +115,7 @@ export default function ProductPage() {
             From website problems to clear next steps.
           </h1>
           <p className="mx-auto mt-4 max-w-2xl text-lg text-muted">
-            Website Care scans important pages, organizes what it finds, shows what matters most, and helps
+            webioom scans important pages, organizes what it finds, shows what matters most, and helps
             resolve supported issues through a controlled, reviewable workflow.
           </p>
           <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
@@ -181,7 +181,7 @@ export default function ProductPage() {
                 Integration <Badge tone="neutral">Optional</Badge>
               </h3>
               <ul className="mt-4 space-y-2.5 text-sm text-gray-700">
-                <li>Gives Website Care authorized access to a supported system</li>
+                <li>Gives webioom authorized access to a supported system</li>
                 <li>Unlocks supported direct fixes for that site</li>
                 <li>Does not mean anything changes automatically — approval is still required for every fix</li>
               </ul>
@@ -205,7 +205,7 @@ export default function ProductPage() {
       <Container size="lg" className="py-16 sm:py-20">
         <SectionHeading
           eyebrow="Not every issue is the same"
-          title="Website Care doesn't put an Apply button next to everything"
+          title="webioom doesn't put an Apply button next to everything"
           description="Every finding is matched to the kind of action that's actually appropriate for it."
         />
 
@@ -232,7 +232,7 @@ export default function ProductPage() {
           </div>
           <p className="mt-2 max-w-2xl text-sm text-muted">
             These four are today&apos;s concrete examples of the fix engine, not the whole picture — the
-            report detects considerably more issues than Website Care can currently apply directly. As
+            report detects considerably more issues than webioom can currently apply directly. As
             support grows, more issue types will move from Guided into Safe or AI-Assisted.
           </p>
           <div className="mt-4 flex flex-wrap gap-2">
@@ -249,7 +249,7 @@ export default function ProductPage() {
       <div className="border-t border-border bg-surface-muted">
         <Container size="md" className="py-16 sm:py-20 text-center">
           <p className="text-xl font-semibold tracking-tight text-gray-900 sm:text-2xl">
-            &ldquo;Automate what Website Care can prove. Don&apos;t guess when intent matters.&rdquo;
+            &ldquo;Automate what webioom can prove. Don&apos;t guess when intent matters.&rdquo;
           </p>
           <p className="mx-auto mt-3 max-w-xl text-sm text-muted">
             That principle shapes every supported fix, not just the ones that happen to be easy.

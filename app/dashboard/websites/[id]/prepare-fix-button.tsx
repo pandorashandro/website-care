@@ -71,7 +71,7 @@ function H1SourceDiagnostic({ result }: { result: H1SourceDetectionResult }) {
         <p className="text-sm text-gray-900">WordPress page content</p>
 
         <p className="mt-2 text-xs text-gray-500">
-          Website Care identified multiple H1 headings in editable content.
+          webioom identified multiple H1 headings in editable content.
         </p>
 
         <p className="mt-2 text-xs font-medium text-gray-500">Detected</p>
@@ -85,7 +85,7 @@ function H1SourceDiagnostic({ result }: { result: H1SourceDetectionResult }) {
 
         <p className="mt-3 text-xs font-medium text-amber-700">Guided fix</p>
         <p className="mt-1 text-xs text-gray-500">
-          Website Care will not automatically choose which heading to remove yet.
+          webioom will not automatically choose which heading to remove yet.
         </p>
       </div>
     )
@@ -204,7 +204,7 @@ function VerificationResult({ verification }: { verification: TitleFixVerificati
   return (
     <div className="mt-1">
       <p className="text-xs font-medium text-gray-500">Could not verify</p>
-      <p className="mt-1 text-xs text-gray-600">Website Care could not safely check the public page right now.</p>
+      <p className="mt-1 text-xs text-gray-600">webioom could not safely check the public page right now.</p>
     </div>
   )
 }
@@ -256,7 +256,7 @@ function MetaDescriptionVerificationResult({ verification }: { verification: Met
   return (
     <div className="mt-1">
       <p className="text-xs font-medium text-gray-500">Could not verify</p>
-      <p className="mt-1 text-xs text-gray-600">Website Care could not safely check the public page right now.</p>
+      <p className="mt-1 text-xs text-gray-600">webioom could not safely check the public page right now.</p>
     </div>
   )
 }
@@ -297,7 +297,7 @@ function H1VerificationResult({ verification }: { verification: H1FixVerificatio
   return (
     <div className="mt-1">
       <p className="text-xs font-medium text-gray-500">Could not verify</p>
-      <p className="mt-1 text-xs text-gray-600">Website Care could not safely check the public page right now.</p>
+      <p className="mt-1 text-xs text-gray-600">webioom could not safely check the public page right now.</p>
     </div>
   )
 }
@@ -508,7 +508,7 @@ export default function PrepareFixButton({
                     <button
                       type="submit"
                       disabled={applyPending}
-                      className="rounded-md border border-blue-300 bg-blue-50 px-3 py-1.5 text-xs font-medium text-blue-700 hover:bg-blue-100 disabled:opacity-50"
+                      className="rounded-md border border-brand/40 bg-brand-subtle px-3 py-1.5 text-xs font-medium text-brand hover:brightness-95 disabled:opacity-50"
                     >
                       {applyPending ? 'Applying…' : 'Apply Fix'}
                     </button>
@@ -530,7 +530,7 @@ export default function PrepareFixButton({
 
                       {visibleApplyState.historyStatus === 'failed' && (
                         <p className="mt-3 text-xs text-amber-700">
-                          Fix applied, but Website Care could not save the audit record.
+                          Fix applied, but webioom could not save the audit record.
                         </p>
                       )}
                     </div>
@@ -553,7 +553,7 @@ export default function PrepareFixButton({
                     <button
                       type="submit"
                       disabled={applyMetaPending}
-                      className="rounded-md border border-blue-300 bg-blue-50 px-3 py-1.5 text-xs font-medium text-blue-700 hover:bg-blue-100 disabled:opacity-50"
+                      className="rounded-md border border-brand/40 bg-brand-subtle px-3 py-1.5 text-xs font-medium text-brand hover:brightness-95 disabled:opacity-50"
                     >
                       {applyMetaPending ? 'Applying…' : 'Apply Fix'}
                     </button>
@@ -575,7 +575,7 @@ export default function PrepareFixButton({
 
                       {visibleApplyMetaState.historyStatus === 'failed' && (
                         <p className="mt-3 text-xs text-amber-700">
-                          Fix applied, but Website Care could not save the audit record.
+                          Fix applied, but webioom could not save the audit record.
                         </p>
                       )}
                     </div>
@@ -598,7 +598,7 @@ export default function PrepareFixButton({
                     <button
                       type="submit"
                       disabled={applyH1Pending}
-                      className="rounded-md border border-blue-300 bg-blue-50 px-3 py-1.5 text-xs font-medium text-blue-700 hover:bg-blue-100 disabled:opacity-50"
+                      className="rounded-md border border-brand/40 bg-brand-subtle px-3 py-1.5 text-xs font-medium text-brand hover:brightness-95 disabled:opacity-50"
                     >
                       {applyH1Pending ? 'Applying…' : 'Apply Fix'}
                     </button>
@@ -620,7 +620,7 @@ export default function PrepareFixButton({
 
                       {visibleApplyH1State.historyStatus === 'failed' && (
                         <p className="mt-3 text-xs text-amber-700">
-                          Fix applied, but Website Care could not save the audit record.
+                          Fix applied, but webioom could not save the audit record.
                         </p>
                       )}
                     </div>
@@ -643,7 +643,7 @@ export default function PrepareFixButton({
                     <button
                       type="submit"
                       disabled={applyImageAltPending}
-                      className="rounded-md border border-blue-300 bg-blue-50 px-3 py-1.5 text-xs font-medium text-blue-700 hover:bg-blue-100 disabled:opacity-50"
+                      className="rounded-md border border-brand/40 bg-brand-subtle px-3 py-1.5 text-xs font-medium text-brand hover:brightness-95 disabled:opacity-50"
                     >
                       {applyImageAltPending ? 'Applying…' : 'Apply Fix'}
                     </button>
@@ -664,7 +664,7 @@ export default function PrepareFixButton({
 
                       {visibleApplyImageAltState.historyStatus === 'failed' && (
                         <p className="mt-3 text-xs text-amber-700">
-                          Fix applied, but Website Care could not save the audit record.
+                          Fix applied, but webioom could not save the audit record.
                         </p>
                       )}
                     </div>

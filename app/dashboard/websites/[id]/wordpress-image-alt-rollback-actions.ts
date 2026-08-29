@@ -25,12 +25,12 @@ function normalizeForComparison(value: string): string {
   return value.replace(/\s+/g, ' ').trim()
 }
 
-const NO_LONGER_SAFE_REASON = 'Website Care could no longer confirm the exact image target, so nothing was undone.'
-const CHANGED_SINCE_APPLIED_REASON = 'This image has changed since Website Care applied the fix, so Undo was not performed.'
+const NO_LONGER_SAFE_REASON = 'webioom could no longer confirm the exact image target, so nothing was undone.'
+const CHANGED_SINCE_APPLIED_REASON = 'This image has changed since webioom applied the fix, so Undo was not performed.'
 const ALREADY_REVERTED_REASON = 'This fix is no longer in the applied state, so there is nothing to undo.'
 
 /**
- * Reverses one previous Website Care image-alt fix. The browser may only
+ * Reverses one previous webioom image-alt fix. The browser may only
  * submit `websiteId` and `fixHistoryId` (an opaque reference to a
  * fix_history row) — exactly like title/meta/H1 rollback, no signed token is
  * involved. historyId is only a lookup key, never sufficient authority on
@@ -49,7 +49,7 @@ const ALREADY_REVERTED_REASON = 'This fix is no longer in the applied state, so 
  * resource identity, always re-derive" philosophy Apply itself uses.
  *
  * Global drift rule: rollback only proceeds if the CURRENT alt text still
- * exactly equals history.applied_value — the value Website Care itself last
+ * exactly equals history.applied_value — the value webioom itself last
  * wrote. Any drift (a human, plugin, or later edit having changed it since)
  * aborts rather than overwriting newer content. If the current alt already
  * equals history.previous_value, this specific fix has already been
@@ -68,7 +68,7 @@ export async function rollbackImageAltFix(
     return { rollbackWriteStatus: 'failed', reason: 'Missing information for this request.' }
   }
 
-  // Re-verifies Website Care session + website ownership internally before
+  // Re-verifies webioom session + website ownership internally before
   // ever touching fix_history or wordpress_connections.
   const credentials = await getConnectedWordPressCredentials(websiteId)
 
@@ -158,12 +158,12 @@ export async function rollbackImageAltFix(
   if (freshResult.writeStrategy !== historyWriteStrategy) {
     return {
       rollbackWriteStatus: 'failed',
-      reason: 'Website Care could no longer confirm the same image source used by the original fix, so Undo was not performed.',
+      reason: 'webioom could no longer confirm the same image source used by the original fix, so Undo was not performed.',
     }
   }
 
   // Global drift rule: only proceed if the current alt text still exactly
-  // equals what Website Care itself applied. Distinguish "already reverted"
+  // equals what webioom itself applied. Distinguish "already reverted"
   // (no-op, safe) from "changed to something else" (abort, unsafe) so a
   // second Undo click — or a page that was already manually restored — never
   // performs a redundant or incorrect write.

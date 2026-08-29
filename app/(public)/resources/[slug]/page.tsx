@@ -90,7 +90,7 @@ export default async function ResourceArticlePage(props: PageProps<'/resources/[
       <Card className="mt-10 bg-surface-muted">
         <div className="flex items-center gap-2">
           <Sparkles className="h-4 w-4 text-brand" aria-hidden="true" />
-          <p className="text-xs font-semibold uppercase tracking-wide text-subtle">How Website Care handles this</p>
+          <p className="text-xs font-semibold tracking-wide text-subtle">How webioom handles this</p>
         </div>
         <p className="mt-2 text-sm leading-relaxed text-gray-700">{resource.productConnection}</p>
       </Card>

@@ -34,7 +34,7 @@ function normalizeForComparison(value: string): string {
 
 const STALE_PREVIEW_REASON = 'This fix preview is no longer valid. Please prepare the fix again.'
 const CHANGED_SINCE_PREVIEW_REASON = 'This image changed since the preview was created. Please prepare a new fix before applying.'
-const NO_LONGER_SAFE_REASON = 'Website Care could no longer confirm the exact image target, so nothing was changed.'
+const NO_LONGER_SAFE_REASON = 'webioom could no longer confirm the exact image target, so nothing was changed.'
 
 /**
  * Applies a previously-previewed missing-image-alt fix to WordPress. This is

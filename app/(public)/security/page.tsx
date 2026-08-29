@@ -26,14 +26,14 @@ import FlowDiagram from '@/components/ui/flow-diagram'
 export const metadata: Metadata = {
   title: 'Security & Trust',
   description:
-    "Website Care's actual product safety model: scanning is separate from fixing, supported changes require your approval, credentials stay server-side, and changes are verified, recorded, and reversible where safe.",
+    "webioom's actual product safety model: scanning is separate from fixing, supported changes require your approval, credentials stay server-side, and changes are verified, recorded, and reversible where safe.",
 }
 
 const PRINCIPLES = [
   {
     icon: Layers,
     title: 'Scanning is separate from fixing',
-    description: 'Scanning a website does not itself authorize Website Care to edit it — the two are distinct.',
+    description: 'Scanning a website does not itself authorize webioom to edit it — the two are distinct.',
   },
   {
     icon: Hand,
@@ -43,7 +43,7 @@ const PRINCIPLES = [
   {
     icon: Lock,
     title: 'Credentials stay server-side',
-    description: 'Connected credentials are handled on Website Care\'s servers, not intentionally rendered into the browser.',
+    description: 'Connected credentials are handled on webioom\'s servers, not intentionally rendered into the browser.',
   },
   {
     icon: Target,
@@ -53,7 +53,7 @@ const PRINCIPLES = [
   {
     icon: EyeOff,
     title: 'Fresh checks before Apply',
-    description: 'Website Care re-checks the relevant state right before a supported write, so a stale preview is never blindly applied.',
+    description: 'webioom re-checks the relevant state right before a supported write, so a stale preview is never blindly applied.',
   },
   {
     icon: ShieldCheck,
@@ -68,12 +68,12 @@ const PRINCIPLES = [
   {
     icon: RotateCcw,
     title: 'Undo where safe',
-    description: 'Supported changes can be undone when Website Care can safely confirm the current target and state.',
+    description: 'Supported changes can be undone when webioom can safely confirm the current target and state.',
   },
   {
     icon: ShieldAlert,
     title: 'Refuses rather than guesses',
-    description: 'If Website Care cannot safely confirm the target or current state, it stops instead of attempting an uncertain write.',
+    description: 'If webioom cannot safely confirm the target or current state, it stops instead of attempting an uncertain write.',
   },
 ]
 
@@ -90,7 +90,7 @@ const CREDENTIAL_POINTS = [
   'Handled server-side — never processed or stored in your browser session',
   'Stored encrypted at rest',
   'Never displayed back as raw credentials anywhere in the product',
-  'Used only through Website Care\'s own authenticated server-side workflows',
+  'Used only through webioom\'s own authenticated server-side workflows',
 ]
 
 const AI_BOUNDARY_POINTS = [
@@ -102,7 +102,7 @@ const AI_BOUNDARY_POINTS = [
 ]
 
 const LIFECYCLE_STEPS = [
-  { title: '1. Verify', description: 'Website Care attempts a targeted check of the applied change, where verification is available.' },
+  { title: '1. Verify', description: 'webioom attempts a targeted check of the applied change, where verification is available.' },
   { title: '2. Record', description: 'A successful write is recorded in your history, so you can see exactly what changed.' },
   { title: '3. Undo', description: 'Where the change is supported and safe to reverse, you can undo it.' },
   { title: '4. Re-check', description: 'Undo itself re-checks the current state before writing anything — never a blind reversal.' },
@@ -119,7 +119,7 @@ export default function SecurityPage() {
             You&apos;re always in control of changes to your website.
           </h1>
           <p className="mx-auto mt-4 max-w-2xl text-lg text-muted">
-            Website Care separates finding problems from changing your site. Supported changes follow a
+            webioom separates finding problems from changing your site. Supported changes follow a
             controlled workflow designed to confirm the target, require your approval, and give you
             visibility into what happened.
           </p>
@@ -185,7 +185,7 @@ export default function SecurityPage() {
         <Container size="lg" className="py-16 sm:py-20">
           <div className="grid grid-cols-1 gap-8 lg:grid-cols-2 lg:items-start">
             <div>
-              <h2 className="text-2xl font-semibold tracking-tight text-gray-900">Why Website Care doesn&apos;t just &ldquo;let AI edit the site&rdquo;</h2>
+              <h2 className="text-2xl font-semibold tracking-tight text-gray-900">Why webioom doesn&apos;t just &ldquo;let AI edit the site&rdquo;</h2>
               <p className="mt-3 text-sm text-muted">
                 For AI-assisted fixes, AI helps prepare the replacement text — like a title or a description
                 — for you to review. That&apos;s the extent of its role. AI does not:
@@ -224,7 +224,7 @@ export default function SecurityPage() {
       <div className="border-t border-border bg-surface-muted">
         <Container size="lg" className="py-16 sm:py-20">
           <Alert tone="info">
-            Website Care does not currently hold formal certifications such as SOC 2, ISO 27001, or similar,
+            webioom does not currently hold formal certifications such as SOC 2, ISO 27001, or similar,
             and has not undergone third-party security audits or penetration testing. This page describes
             the product&apos;s design principles, not a compliance or certification claim.
           </Alert>
@@ -234,7 +234,7 @@ export default function SecurityPage() {
               See Integrations
             </Link>
             <Link href="/product" className={buttonStyles({ variant: 'outline', size: 'lg' })}>
-              How Website Care Works
+              How webioom Works
             </Link>
             <Link href="/signup" className={buttonStyles({ variant: 'primary', size: 'lg' })}>
               Get Started

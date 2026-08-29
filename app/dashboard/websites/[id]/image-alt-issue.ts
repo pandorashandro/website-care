@@ -76,7 +76,7 @@ export async function getTrustedMissingImageAltIssue(
   if (!issue.image_url || typeof issue.image_url !== 'string') {
     return {
       ok: false,
-      reason: 'This image issue needs a fresh scan before Website Care can prepare a fix.',
+      reason: 'This image issue needs a fresh scan before webioom can prepare a fix.',
     }
   }
 

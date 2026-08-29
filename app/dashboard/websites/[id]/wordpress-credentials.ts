@@ -6,7 +6,7 @@ export type ConnectedWordPressCredentials =
   | {
       ok: true
       websiteUrl: string
-      /** The Website Care website's own name — already ownership-verified, safe to use as a trusted brand/context signal. */
+      /** The webioom website's own name — already ownership-verified, safe to use as a trusted brand/context signal. */
       websiteName: string
       username: string
       applicationPassword: string
@@ -21,7 +21,7 @@ export type ConnectedWordPressCredentials =
  * flows) so ownership verification and credential decryption exist in
  * exactly one place.
  *
- * Independently re-verifies both the Website Care session and website
+ * Independently re-verifies both the webioom session and website
  * ownership — never trusts that a caller already did so — before ever
  * reading a wordpress_connections row. Only reads the columns actually
  * needed (never select('*')). The decrypted Application Password is

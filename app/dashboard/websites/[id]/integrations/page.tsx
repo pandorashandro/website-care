@@ -18,7 +18,7 @@ type Website = {
 const TRUST_POINTS = [
   { icon: Hand, text: 'Nothing changes automatically — supported fixes still require your review and approval.' },
   { icon: Lock, text: 'Credentials are handled server-side and are never displayed back to you.' },
-  { icon: ShieldCheck, text: 'Website Care re-checks the target and your permissions before every supported write.' },
+  { icon: ShieldCheck, text: 'webioom re-checks the target and your permissions before every supported write.' },
 ]
 
 export default async function WebsiteIntegrationsPage(props: PageProps<'/dashboard/websites/[id]/integrations'>) {
@@ -67,7 +67,7 @@ export default async function WebsiteIntegrationsPage(props: PageProps<'/dashboa
         <p className="text-xs font-semibold uppercase tracking-wide text-subtle">{website.url}</p>
         <h1 className="mt-1 text-2xl font-semibold text-gray-900">Integrations</h1>
         <p className="mt-2 max-w-xl text-sm text-muted">
-          Connect supported platforms to let Website Care prepare and apply supported changes after your
+          Connect supported platforms to let webioom prepare and apply supported changes after your
           review. Scanning and reporting work without an integration.
         </p>
       </div>

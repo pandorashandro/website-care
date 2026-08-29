@@ -23,7 +23,7 @@ const MAX_OUTPUT_TOKENS = 60
 const UNAVAILABLE_SENTINEL = 'UNAVAILABLE'
 
 const FALLBACK_EXPLANATION =
-  'Website Care used a standard recommendation because the smart suggestion service was unavailable.'
+  'webioom used a standard recommendation because the smart suggestion service was unavailable.'
 
 const GENERATED_EXPLANATION =
   'Based on the page content, this title more clearly describes the page while remaining within the recommended length.'

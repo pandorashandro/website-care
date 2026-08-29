@@ -32,16 +32,16 @@ import ProductPreview from '@/components/marketing/product-preview'
 import { RESOURCES } from '@/lib/content/resources'
 
 export const metadata: Metadata = {
-  title: 'Website Care — Know what your website needs. Fix what matters.',
+  title: 'webioom — Know what your website needs. Fix what matters.',
   description:
-    'Website Care scans your website, shows what needs attention across SEO, technical, accessibility, performance and content, and helps you resolve supported problems safely.',
+    'webioom scans your website, shows what needs attention across SEO, technical, accessibility, performance and content, and helps you resolve supported problems safely.',
 }
 
 const WORKFLOW_STEPS = [
   {
     icon: ScanSearch,
     title: 'Scan',
-    description: 'Website Care checks important pages across your website.',
+    description: 'webioom checks important pages across your website.',
   },
   {
     icon: BarChart3,
@@ -56,7 +56,7 @@ const WORKFLOW_STEPS = [
   {
     icon: ShieldCheck,
     title: 'Verify',
-    description: 'Website Care checks supported fixes after they are applied.',
+    description: 'webioom checks supported fixes after they are applied.',
   },
   {
     icon: History,
@@ -91,7 +91,7 @@ const FIX_TYPES = [
   {
     icon: Zap,
     title: 'Safe Fix',
-    description: 'For deterministic changes Website Care can prepare safely.',
+    description: 'For deterministic changes webioom can prepare safely.',
   },
   {
     icon: Sparkles,
@@ -101,7 +101,7 @@ const FIX_TYPES = [
   {
     icon: Compass,
     title: 'Guided Fix',
-    description: 'When direct automation would be unsafe or inappropriate, Website Care explains what to do.',
+    description: 'When direct automation would be unsafe or inappropriate, webioom explains what to do.',
   },
 ]
 
@@ -110,30 +110,34 @@ const SUPPORTED_FIX_EXAMPLES = ['Page titles', 'Meta descriptions', 'Missing H1 
 const TRUST_POINTS = [
   { icon: Hand, text: 'You approve every supported change before it happens.' },
   { icon: Lock, text: 'Connected credentials stay server-side, never in your browser.' },
-  { icon: ShieldCheck, text: 'Website Care verifies supported fixes after applying them.' },
+  { icon: ShieldCheck, text: 'webioom verifies supported fixes after applying them.' },
   { icon: History, text: 'Every applied change is recorded in your fix history.' },
   { icon: RotateCcw, text: 'Supported changes can be undone where it’s safe to do so.' },
-  { icon: ShieldAlert, text: 'Website Care stops when it can’t safely confirm the target.' },
+  { icon: ShieldAlert, text: 'webioom stops when it can’t safely confirm the target.' },
 ]
 
 export default function Home() {
   return (
     <>
       {/* 2. HERO */}
-      <div className="border-b border-border bg-surface-muted">
+      <div className="border-b border-border-dark bg-brand-dark">
         <Container size="lg" className="py-20 text-center sm:py-28">
-          <h1 className="mx-auto max-w-3xl text-4xl font-semibold tracking-tight text-gray-900 sm:text-5xl">
+          <p className="text-sm font-semibold tracking-wide text-brand-vivid">Where Websites Bloom.</p>
+          <h1 className="mx-auto mt-3 max-w-3xl text-4xl font-semibold tracking-tight text-text-on-dark sm:text-5xl">
             Know what your website needs. Fix what matters.
           </h1>
-          <p className="mx-auto mt-5 max-w-2xl text-lg text-muted">
-            Website Care scans your website, shows what needs attention, prioritizes the issues, and helps
+          <p className="mx-auto mt-5 max-w-2xl text-lg text-text-on-dark-muted">
+            webioom scans your website, shows what needs attention, prioritizes the issues, and helps
             you resolve supported problems safely.
           </p>
           <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
             <Link href="/signup" className={buttonStyles({ variant: 'primary', size: 'lg' })}>
               Get Started
             </Link>
-            <Link href="/product" className={buttonStyles({ variant: 'outline', size: 'lg' })}>
+            <Link
+              href="/product"
+              className="inline-flex items-center justify-center gap-2 rounded-md border border-white/25 px-6 py-3 text-base font-medium text-text-on-dark transition-colors hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-vivid focus-visible:ring-offset-2 focus-visible:ring-offset-brand-dark"
+            >
               See How It Works
             </Link>
           </div>
@@ -178,7 +182,7 @@ export default function Home() {
         <SectionHeading
           eyebrow="Website health"
           title="Five categories, not just SEO"
-          description="Website Care looks at what makes a website work well as a whole — not only how it ranks in search."
+          description="webioom looks at what makes a website work well as a whole — not only how it ranks in search."
         />
 
         <div className="mt-10 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
@@ -207,7 +211,7 @@ export default function Home() {
       <div className="border-t border-border bg-surface-muted">
         <Container size="lg" className="py-16 sm:py-20">
           <SectionHeading
-            eyebrow="Why Website Care"
+            eyebrow="Why webioom"
             title="An audit shouldn't end with a list of problems"
             align="center"
           />
@@ -226,7 +230,7 @@ export default function Home() {
             </Card>
 
             <Card className="border-brand/30">
-              <h3 className="text-sm font-semibold uppercase tracking-wide text-brand">Website Care</h3>
+              <h3 className="text-sm font-semibold tracking-wide text-brand">webioom</h3>
               <ul className="mt-4 space-y-3">
                 {WEBSITE_CARE_STEPS.map((step) => (
                   <li key={step} className="flex items-center gap-2 text-sm text-gray-700">
@@ -261,7 +265,7 @@ export default function Home() {
 
         {/* 8. CURRENT SUPPORTED FIX EXAMPLES */}
         <Card className="mt-8 bg-surface-muted">
-          <h3 className="text-base font-semibold text-gray-900">Website Care can already help with</h3>
+          <h3 className="text-base font-semibold text-gray-900">webioom can already help with</h3>
           <p className="mt-1 text-sm text-muted">
             Initial supported fixes include the issues below. The full report checks well beyond these — this
             is where the fix engine starts, not where it ends.
@@ -313,7 +317,7 @@ export default function Home() {
 
       {/* 10. TRUST */}
       <Container size="lg" className="py-16 sm:py-20">
-        <SectionHeading eyebrow="Trust" title="Website Care doesn't change your site without you" />
+        <SectionHeading eyebrow="Trust" title="webioom doesn't change your site without you" />
 
         <div className="mt-10 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
           {TRUST_POINTS.map((point) => {

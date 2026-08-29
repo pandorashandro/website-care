@@ -12,7 +12,7 @@ const VERIFY_ERROR_MESSAGES: Record<VerifyWordPressReason, string> = {
     'Those credentials worked, but this WordPress user does not have enough access. Try an account with at least Author-level permissions.',
   rest_api_unavailable:
     "This site's WordPress REST API could not be found. Make sure it isn't disabled or blocked.",
-  unreachable: 'Website Care could not reach this WordPress site right now. Please try again shortly.',
+  unreachable: 'webioom could not reach this WordPress site right now. Please try again shortly.',
   https_required: 'WordPress connections require an HTTPS website.',
   invalid_response:
     'WordPress returned an unexpected response. Please try again, or verify the site is running WordPress.',
@@ -85,7 +85,7 @@ export async function connectWordPress(
   try {
     encryptedAppPassword = encryptCredential(applicationPassword)
   } catch {
-    return { error: 'Website Care could not securely store this credential. Please contact support.' }
+    return { error: 'webioom could not securely store this credential. Please contact support.' }
   }
 
   // website_id is UNIQUE, so this upserts in place rather than creating a

@@ -94,7 +94,7 @@ export async function applyMetaDescriptionFix(
     }
   }
 
-  // Re-verifies Website Care session + website ownership internally before
+  // Re-verifies webioom session + website ownership internally before
   // ever touching wordpress_connections — never trusts the token's
   // websiteId as proof the current session may act on it.
   const credentials = await getConnectedWordPressCredentials(websiteId)

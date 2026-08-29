@@ -27,7 +27,7 @@ function normalizeForComparison(value: string): string {
 }
 
 /**
- * Reverses one previous Website Care meta-description fix, for Yoast or
+ * Reverses one previous webioom meta-description fix, for Yoast or
  * Rank Math only. The browser may only submit `websiteId` and
  * `fixHistoryId` — exactly like title rollback, no signed token is
  * involved here at all.
@@ -139,7 +139,7 @@ export async function rollbackMetaDescriptionFix(
 
   // Current-state drift protection: only roll back if the live meta
   // description still exactly matches (whitespace normalized) what
-  // Website Care itself applied.
+  // webioom itself applied.
   const currentValueNormalized = normalizeForComparison(providerResult.currentMetaDescription ?? '')
   const appliedValueNormalized = normalizeForComparison(historyRow.applied_value)
 

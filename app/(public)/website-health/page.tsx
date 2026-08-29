@@ -10,7 +10,7 @@ import { buttonStyles } from '@/components/ui/button'
 export const metadata: Metadata = {
   title: 'Website Health',
   description:
-    'What "website health" means in Website Care: the five real report categories, how the health score works, severity vs. priority, affected pages, and recommendations.',
+    'What "website health" means in webioom: the five real report categories, how the health score works, severity vs. priority, affected pages, and recommendations.',
 }
 
 const CATEGORIES = [
@@ -80,7 +80,7 @@ export default function WebsiteHealthPage() {
             Website health is more than SEO.
           </h1>
           <p className="mx-auto mt-4 max-w-2xl text-lg text-muted">
-            Website Care evaluates your site across five real dimensions and organizes the results into one
+            webioom evaluates your site across five real dimensions and organizes the results into one
             clearer view — not just how you rank in search.
           </p>
           <div className="mt-6 flex flex-wrap items-center justify-center gap-2">
@@ -161,7 +161,7 @@ export default function WebsiteHealthPage() {
           <SectionHeading
             eyebrow="Report categories"
             title="Five categories, each with real checks"
-            description="These are the categories every Website Care report is organized into. The examples below are checks Website Care actually performs today."
+            description="These are the categories every webioom report is organized into. The examples below are checks webioom actually performs today."
           />
 
           <div className="mt-10 space-y-5">
@@ -214,7 +214,7 @@ export default function WebsiteHealthPage() {
           <Card>
             <h3 className="text-base font-semibold text-gray-900">Priority</h3>
             <p className="mt-2 text-sm text-muted">
-              How strongly Website Care recommends acting on this specific finding right now, relative to
+              How strongly webioom recommends acting on this specific finding right now, relative to
               everything else in the report.
             </p>
             <p className="mt-3 text-sm text-gray-700">
@@ -233,7 +233,7 @@ export default function WebsiteHealthPage() {
 
           <div className="mt-8 grid grid-cols-1 items-center gap-8 lg:grid-cols-2">
             <p className="text-sm leading-relaxed text-gray-700">
-              Website Care groups repeated findings so you see one entry per issue, not one row per page.
+              webioom groups repeated findings so you see one entry per issue, not one row per page.
               Each entry shows exactly how many — and which — pages it affects, so you can immediately tell
               whether something is an isolated slip or a pattern worth fixing at the template or theme
               level, instead of page by page.
@@ -255,7 +255,7 @@ export default function WebsiteHealthPage() {
       <Container size="lg" className="py-16 sm:py-20">
         <SectionHeading
           eyebrow="Reading a report"
-          title="Website Care doesn't stop at naming a problem"
+          title="webioom doesn't stop at naming a problem"
           description="Every finding in a report includes:"
         />
 
@@ -281,7 +281,7 @@ export default function WebsiteHealthPage() {
             From a report entry to a resolved issue
           </h2>
           <p className="mx-auto mt-3 max-w-xl text-muted">
-            A report identifies the problem. Website Care determines what kind of action is appropriate.
+            A report identifies the problem. webioom determines what kind of action is appropriate.
             Supported fixes move through Prepare, Review, Apply, and Verify — everything else stays a clear,
             guided recommendation you can act on yourself.
           </p>

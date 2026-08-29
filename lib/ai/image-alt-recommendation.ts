@@ -30,7 +30,7 @@ const MAX_OUTPUT_TOKENS = 80
 const UNAVAILABLE_SENTINEL = 'UNAVAILABLE'
 
 const UNAVAILABLE_EXPLANATION =
-  "Website Care identified the editable alt-text source, but there isn't enough reliable context to generate a safe description."
+  "webioom identified the editable alt-text source, but there isn't enough reliable context to generate a safe description."
 
 const GENERATED_EXPLANATION = 'Based on the content around this image on the page, this description reflects what it likely shows.'
 

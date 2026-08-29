@@ -238,7 +238,7 @@ export default async function WebsiteReportPage(props: PageProps<'/dashboard/web
 
       {latestScan?.status === 'running' && (
         <Alert tone="info" className="mt-6">
-          Scanning your website now. WEBIOOM is preparing your health report — it will appear here once
+          Scanning your website now. webioom is preparing your health report — it will appear here once
           scanning completes.
         </Alert>
       )}
@@ -253,7 +253,7 @@ export default async function WebsiteReportPage(props: PageProps<'/dashboard/web
         <EmptyState
           icon={ScanSearch}
           title="Your website is ready for its first scan."
-          description="Run a scan to create your website health report. WEBIOOM checks the website and organizes findings by health category and priority."
+          description="Run a scan to create your website health report. webioom checks the website and organizes findings by health category and priority."
           action={<ScanWebsiteButton websiteId={website.id} label="Run First Scan" />}
           className="mt-6"
         />
@@ -265,11 +265,11 @@ export default async function WebsiteReportPage(props: PageProps<'/dashboard/web
             <Alert tone="success">
               <p>
                 Your first health report is ready. Start with Needs Your Attention below — these are the
-                findings WEBIOOM has prioritized first.
+                findings webioom has prioritized first.
               </p>
               {hasActionableIssue && (
                 <p className="mt-1.5">
-                  Some findings can be prepared for review directly in WEBIOOM; others include guided
+                  Some findings can be prepared for review directly in webioom; others include guided
                   recommendations you can act on yourself. You&apos;ll always see the proposed change before
                   anything is applied.
                 </p>
@@ -294,7 +294,7 @@ export default async function WebsiteReportPage(props: PageProps<'/dashboard/web
           {issues.length === 0 ? (
             <EmptyState
               title="No issues found in this scan"
-              description="WEBIOOM didn't detect any of the issues covered by the current scan."
+              description="webioom didn't detect any of the issues covered by the current scan."
             />
           ) : (
             <>
@@ -370,11 +370,11 @@ export default async function WebsiteReportPage(props: PageProps<'/dashboard/web
 
         <p className="mt-2 text-sm text-muted">
           {wordpressConnection.connected && wordpressConnection.connectionValid
-            ? 'Website Care can use this integration for supported fix workflows.'
+            ? 'webioom can use this integration for supported fix workflows.'
             : wordpressConnection.connected
-              ? 'This connection needs attention before Website Care can use it.'
+              ? 'This connection needs attention before webioom can use it.'
               : latestScan?.status === 'completed'
-                ? 'Want WEBIOOM to help apply supported changes? Connect a supported integration.'
+                ? 'Want webioom to help apply supported changes? Connect a supported integration.'
                 : 'Scanning and reports still work without it.'}
         </p>
       </Card>

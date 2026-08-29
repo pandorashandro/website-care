@@ -37,7 +37,7 @@ export default function UndoMetaFixButton({
         </p>
         {state.historyStatus === 'failed' && (
           <p className="mt-1 text-xs text-amber-700">
-            Rollback applied, but Website Care could not save the audit record.
+            Rollback applied, but webioom could not save the audit record.
           </p>
         )}
       </div>
@@ -69,7 +69,7 @@ export default function UndoMetaFixButton({
       <p className="text-xs font-semibold text-gray-900">Undo this change?</p>
 
       <p className="mt-2 text-xs font-medium uppercase tracking-wide text-gray-400">
-        Current Website Care change
+        Current webioom change
       </p>
       <p className="mt-1 text-xs font-medium text-gray-500">Before</p>
       <p className="text-sm text-gray-900">{previousValue ? `"${previousValue}"` : '(empty description)'}</p>

@@ -33,7 +33,7 @@ export type Resource = {
   category: ResourceCategory
   body: ResourceBlock[]
   /**
-   * A short, honest paragraph connecting the topic to what Website Care
+   * A short, honest paragraph connecting the topic to what webioom
    * actually does. For the four complete fix families this may truthfully
    * describe a supported fix workflow; for everything else it describes
    * detection/recommendation only — never implying automatic fixing that
@@ -52,7 +52,7 @@ export const RESOURCES: Resource[] = [
   {
     slug: 'website-health-score',
     title: 'What is a website health score?',
-    summary: 'A single number can only tell you so much. Here is what actually goes into a Website Care health score.',
+    summary: 'A single number can only tell you so much. Here is what actually goes into a webioom health score.',
     intro: 'A health score is meant to answer one question fast: how is this website actually doing right now? Here is what actually goes into it.',
     category: 'Website Health',
     featured: true,
@@ -60,12 +60,12 @@ export const RESOURCES: Resource[] = [
     body: [
       {
         type: 'paragraph',
-        text: 'A website health score is a snapshot, taken from your most recent scan, of how many issues Website Care found and how serious they are. It is not a permanent grade — rescanning after you make changes produces a fresh score based on the site as it exists right now.',
+        text: 'A website health score is a snapshot, taken from your most recent scan, of how many issues webioom found and how serious they are. It is not a permanent grade — rescanning after you make changes produces a fresh score based on the site as it exists right now.',
       },
       { type: 'heading', text: 'One number, five categories' },
       {
         type: 'paragraph',
-        text: 'On its own, a single overall number can hide more than it reveals. A site could score reasonably well overall while having a serious accessibility problem, or vice versa. That is why Website Care also breaks health down into five categories — SEO, Technical, Accessibility, Performance, and Content — each with its own score, so you can see exactly where a website is strong and where it needs attention.',
+        text: 'On its own, a single overall number can hide more than it reveals. A site could score reasonably well overall while having a serious accessibility problem, or vice versa. That is why webioom also breaks health down into five categories — SEO, Technical, Accessibility, Performance, and Content — each with its own score, so you can see exactly where a website is strong and where it needs attention.',
       },
       { type: 'heading', text: 'Not every issue counts the same' },
       {
@@ -78,7 +78,7 @@ export const RESOURCES: Resource[] = [
       },
     ],
     productConnection:
-      'Every Website Care report includes an overall score plus a score for each of the five categories, calculated fresh on every scan.',
+      'Every webioom report includes an overall score plus a score for each of the five categories, calculated fresh on every scan.',
     ctaLabel: 'Scan your website',
     ctaHref: '/signup',
   },
@@ -86,7 +86,7 @@ export const RESOURCES: Resource[] = [
     slug: 'understanding-severity-and-priority',
     title: 'Severity vs. priority: what’s the difference?',
     summary: 'Two issues can be the same "kind" of problem and still deserve very different amounts of attention.',
-    intro: 'Two issues can be the same "kind" of problem and still deserve very different amounts of attention. Here is how Website Care tells them apart.',
+    intro: 'Two issues can be the same "kind" of problem and still deserve very different amounts of attention. Here is how webioom tells them apart.',
     category: 'Website Health',
     body: [
       {
@@ -96,7 +96,7 @@ export const RESOURCES: Resource[] = [
       { type: 'heading', text: 'Severity isn’t the whole story' },
       {
         type: 'paragraph',
-        text: 'Priority is different: it is how strongly Website Care recommends acting on one specific finding right now, relative to everything else in the report. Priority takes severity into account, but also how widely the issue is spread — how many pages it affects, and whether one of them is your homepage.',
+        text: 'Priority is different: it is how strongly webioom recommends acting on one specific finding right now, relative to everything else in the report. Priority takes severity into account, but also how widely the issue is spread — how many pages it affects, and whether one of them is your homepage.',
       },
       {
         type: 'callout',
@@ -109,7 +109,7 @@ export const RESOURCES: Resource[] = [
       },
     ],
     productConnection:
-      'Every Website Care report ranks findings by priority, not just severity, and highlights the top few as “Fix These First” so you always know where to start.',
+      'Every webioom report ranks findings by priority, not just severity, and highlights the top few as “Fix These First” so you always know where to start.',
     ctaLabel: 'Check your website',
     ctaHref: '/signup',
   },
@@ -144,7 +144,7 @@ export const RESOURCES: Resource[] = [
       },
     ],
     productConnection:
-      'Website Care checks every page for a missing, too-short, or too-long title, and for supported pages can prepare a replacement — often AI-assisted, based on the page’s own content — for your review.',
+      'webioom checks every page for a missing, too-short, or too-long title, and for supported pages can prepare a replacement — often AI-assisted, based on the page’s own content — for your review.',
     ctaLabel: 'Check your website',
     ctaHref: '/signup',
   },
@@ -170,7 +170,7 @@ export const RESOURCES: Resource[] = [
       },
     ],
     productConnection:
-      'Website Care detects pages with a missing H1 and, for supported pages, can prepare a fitting heading for your review. Pages with more than one H1 are flagged with a clear explanation, since deciding which heading to keep is a judgment call Website Care leaves to you.',
+      'webioom detects pages with a missing H1 and, for supported pages, can prepare a fitting heading for your review. Pages with more than one H1 are flagged with a clear explanation, since deciding which heading to keep is a judgment call webioom leaves to you.',
     ctaLabel: 'Check your website',
     ctaHref: '/signup',
   },
@@ -193,11 +193,11 @@ export const RESOURCES: Resource[] = [
       },
       {
         type: 'callout',
-        text: 'Missing alt text is invisible to a sighted visitor with images loading normally, which is exactly why it’s one of the most commonly overlooked issues Website Care finds.',
+        text: 'Missing alt text is invisible to a sighted visitor with images loading normally, which is exactly why it’s one of the most commonly overlooked issues webioom finds.',
       },
     ],
     productConnection:
-      'Website Care identifies images missing alt text and, for supported cases, can prepare an AI-assisted description for your review before anything is applied.',
+      'webioom identifies images missing alt text and, for supported cases, can prepare an AI-assisted description for your review before anything is applied.',
     ctaLabel: 'Check your website',
     ctaHref: '/signup',
   },
@@ -229,7 +229,7 @@ export const RESOURCES: Resource[] = [
       },
     ],
     productConnection:
-      'Website Care checks for missing meta descriptions as well as ones that are too short or too long, and for supported pages can prepare a well-sized replacement for your review.',
+      'webioom checks for missing meta descriptions as well as ones that are too short or too long, and for supported pages can prepare a well-sized replacement for your review.',
     ctaLabel: 'Check your website',
     ctaHref: '/signup',
   },
@@ -244,7 +244,7 @@ export const RESOURCES: Resource[] = [
         type: 'paragraph',
         text: 'Technical health is about whether your site is dependably accessible to visitors and search engines — not visual polish or content quality, which are their own separate categories.',
       },
-      { type: 'heading', text: 'What Website Care checks for' },
+      { type: 'heading', text: 'What webioom checks for' },
       {
         type: 'list',
         items: [
@@ -261,7 +261,7 @@ export const RESOURCES: Resource[] = [
       },
     ],
     productConnection:
-      'Technical findings come with a clear description and recommendation, but most require a hosting, DNS, or server-level change only you or your host can make safely — they aren’t part of Website Care’s current direct-fix workflows.',
+      'Technical findings come with a clear description and recommendation, but most require a hosting, DNS, or server-level change only you or your host can make safely — they aren’t part of webioom’s current direct-fix workflows.',
     ctaLabel: 'Check your website',
     ctaHref: '/signup',
   },
@@ -276,10 +276,10 @@ export const RESOURCES: Resource[] = [
         type: 'paragraph',
         text: 'How quickly a page responds and how much unnecessary weight it carries directly shapes whether a visitor sticks around long enough to see it. Nobody consciously waits for a slow page — they just leave.',
       },
-      { type: 'heading', text: 'What Website Care looks at' },
+      { type: 'heading', text: 'What webioom looks at' },
       {
         type: 'paragraph',
-        text: 'Website Care checks how quickly a page returns its initial response, and flags HTML documents that are unusually large — a sign of unused markup, excessive inline content, or bloated embedded scripts weighing a page down.',
+        text: 'webioom checks how quickly a page returns its initial response, and flags HTML documents that are unusually large — a sign of unused markup, excessive inline content, or bloated embedded scripts weighing a page down.',
       },
       {
         type: 'callout',
@@ -287,7 +287,7 @@ export const RESOURCES: Resource[] = [
       },
     ],
     productConnection:
-      'Slow-response and page-weight findings come with a specific recommendation, but like other technical issues, they currently require action outside Website Care’s direct-fix workflows — most trace back to hosting, caching, or how a page is built.',
+      'Slow-response and page-weight findings come with a specific recommendation, but like other technical issues, they currently require action outside webioom’s direct-fix workflows — most trace back to hosting, caching, or how a page is built.',
     ctaLabel: 'Check your website',
     ctaHref: '/signup',
   },

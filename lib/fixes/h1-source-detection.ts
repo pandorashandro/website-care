@@ -68,15 +68,15 @@ function normalizeForComparison(value: string): string {
 }
 
 const UNSUPPORTED_BUILDER_REASON =
-  'This heading appears to be controlled by a page builder, theme, or another content layer. Website Care will not modify it automatically.'
+  'This heading appears to be controlled by a page builder, theme, or another content layer. webioom will not modify it automatically.'
 
 const UNSUPPORTED_UNKNOWN_REASON =
-  "Website Care could not confirm where this page's content comes from, so it will not modify this heading automatically."
+  "webioom could not confirm where this page's content comes from, so it will not modify this heading automatically."
 
 const AMBIGUOUS_REASON =
-  'Website Care found conflicting H1 information between WordPress content and the public page, so automatic editing is disabled.'
+  'webioom found conflicting H1 information between WordPress content and the public page, so automatic editing is disabled.'
 
-const SUPPORTED_REASON = "Website Care identified this H1 issue inside the page's editable WordPress content."
+const SUPPORTED_REASON = "webioom identified this H1 issue inside the page's editable WordPress content."
 
 /**
  * Determines whether a public H1 issue (missing or multiple H1s) can be

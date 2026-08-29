@@ -5,7 +5,7 @@ export type TitleProposalContext = {
   currentTitle: string | null
   /** The resource's WordPress slug — used as the only source for a from-scratch proposal. */
   slug: string
-  /** The Website Care website's own name, already ownership-verified — used only as a safe brand/context signal. */
+  /** The webioom website's own name, already ownership-verified — used only as a safe brand/context signal. */
   websiteName: string | null
 }
 
@@ -64,7 +64,7 @@ function isSafeFinalProposal(value: string): boolean {
  * Deterministic, non-AI title proposal generator. Every proposal is built
  * only from trusted context already available server-side (the current
  * WordPress title, its slug, and — only as a safe brand/context signal —
- * the ownership-verified Website Care website name). Never fabricates
+ * the ownership-verified webioom website name). Never fabricates
  * business claims, locations, services, or benefits; refuses (ok: false)
  * rather than guess when it cannot produce a safe result.
  */
@@ -100,7 +100,7 @@ export function generateTitleProposal(
     if (extended === trimmedCurrent || !isSafeFinalProposal(extended)) {
       return {
         ok: false,
-        reason: 'Website Care could not safely lengthen this title without adding unverified claims.',
+        reason: 'webioom could not safely lengthen this title without adding unverified claims.',
       }
     }
 
@@ -112,7 +112,7 @@ export function generateTitleProposal(
   if (!shortened || !isSafeFinalProposal(shortened)) {
     return {
       ok: false,
-      reason: 'Website Care could not safely shorten this title without losing meaning.',
+      reason: 'webioom could not safely shorten this title without losing meaning.',
     }
   }
 

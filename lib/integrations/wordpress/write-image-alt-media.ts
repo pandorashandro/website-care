@@ -58,7 +58,7 @@ export async function updateWordPressMediaAltText(params: {
   }
 
   if (detailResult.status === 401 || detailResult.status === 403) {
-    return { status: 'failed', reason: 'WordPress did not allow Website Care to update this image.' }
+    return { status: 'failed', reason: 'WordPress did not allow webioom to update this image.' }
   }
 
   if (detailResult.status === 404) {
@@ -118,7 +118,7 @@ export async function updateWordPressMediaAltText(params: {
   }
 
   if (updateResult.status === 401 || updateResult.status === 403) {
-    return { status: 'failed', reason: 'WordPress did not allow Website Care to update this image.' }
+    return { status: 'failed', reason: 'WordPress did not allow webioom to update this image.' }
   }
 
   if (updateResult.status === 404) {

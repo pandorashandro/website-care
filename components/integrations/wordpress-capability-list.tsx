@@ -30,7 +30,7 @@ export default function WordPressCapabilityList({ capabilities }: { capabilities
     <div>
       <p className="text-xs font-medium uppercase tracking-wide text-subtle">What the connected account can do</p>
       <p className="mt-1 text-xs text-muted">
-        Website Care checks what the connected account is allowed to change before preparing supported
+        webioom checks what the connected account is allowed to change before preparing supported
         fixes.
       </p>
       <dl className="mt-3 space-y-1.5 text-sm">

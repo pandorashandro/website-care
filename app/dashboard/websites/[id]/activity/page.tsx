@@ -68,7 +68,7 @@ export default async function WebsiteActivityPage(props: PageProps<'/dashboard/w
         <p className="text-xs font-semibold uppercase tracking-wide text-subtle">{website.url}</p>
         <h1 className="mt-1 text-2xl font-semibold text-gray-900">Activity</h1>
         <p className="mt-2 max-w-xl text-sm text-muted">
-          Changes Website Care has applied to this website. Review supported fixes, verification results,
+          Changes webioom has applied to this website. Review supported fixes, verification results,
           and Undo availability.
         </p>
       </div>
@@ -77,7 +77,7 @@ export default async function WebsiteActivityPage(props: PageProps<'/dashboard/w
         <EmptyState
           icon={History}
           title="No changes recorded yet"
-          description="Supported fixes that Website Care applies will appear here."
+          description="Supported fixes that webioom applies will appear here."
           action={
             <Link href={`/dashboard/websites/${website.id}`} className={buttonStyles({ variant: 'outline' })}>
               Back to Website Overview
@@ -112,7 +112,7 @@ export default async function WebsiteActivityPage(props: PageProps<'/dashboard/w
           </div>
 
           <p className="mt-6 text-xs text-subtle">
-            Undo is only performed when Website Care can safely confirm the current website state.
+            Undo is only performed when webioom can safely confirm the current website state.
           </p>
 
           <div className="mt-3 space-y-3">

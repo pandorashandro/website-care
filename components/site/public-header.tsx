@@ -37,8 +37,8 @@ export default function PublicHeader() {
   return (
     <header className="border-b border-border bg-surface">
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
-        <Link href="/" className="shrink-0" aria-label="Website Care home">
-          <Logo />
+        <Link href="/" className="shrink-0" aria-label="webioom home">
+          <Logo className="h-9 sm:h-10" />
         </Link>
 
         <nav className="hidden items-center gap-6 lg:flex" aria-label="Primary">

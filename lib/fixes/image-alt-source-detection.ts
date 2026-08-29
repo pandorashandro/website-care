@@ -94,15 +94,15 @@ function extractNearbyContext(rawContent: string, matchedTag: string): string | 
 }
 
 const AMBIGUOUS_REASON =
-  'Website Care found conflicting or inconclusive information about which WordPress field controls this image’s alt text, so automatic editing is disabled.'
+  'webioom found conflicting or inconclusive information about which WordPress field controls this image’s alt text, so automatic editing is disabled.'
 
 const UNSUPPORTED_BUILDER_REASON =
-  'This image appears to be controlled by a page builder, theme, or another content layer. Website Care will not modify it automatically.'
+  'This image appears to be controlled by a page builder, theme, or another content layer. webioom will not modify it automatically.'
 
 const UNSUPPORTED_EXTERNAL_REASON =
-  'Website Care could not find this image in the connected WordPress site’s content or Media Library.'
+  'webioom could not find this image in the connected WordPress site’s content or Media Library.'
 
-const SUPPORTED_REASON = "Website Care identified this image's editable alt-text source."
+const SUPPORTED_REASON = "webioom identified this image's editable alt-text source."
 
 /** Best-effort search term only — the size-suffix/extension are stripped purely to improve WordPress's own search recall; never used to confirm identity. */
 function deriveMediaSearchTerm(normalizedImageUrl: string): string | null {

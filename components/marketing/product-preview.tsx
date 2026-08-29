@@ -4,7 +4,7 @@ import Card from '@/components/ui/card'
 /**
  * Purely illustrative marketing content — fixed numbers, never fetched from
  * Supabase or any live scan. Exists only to visually demonstrate the shape
- * of a real Website Care report (health score, categories, priority,
+ * of a real webioom report (health score, categories, priority,
  * affected page, fix state) using the actual design system, not a
  * screenshot. The "Example report" label keeps it honest in the UI itself,
  * not just in this comment.
@@ -71,7 +71,7 @@ export default function ProductPreview() {
               type="button"
               disabled
               aria-disabled="true"
-              className="mt-3 w-full cursor-default rounded-md border border-blue-300 bg-brand-subtle px-3 py-1.5 text-xs font-medium text-brand"
+              className="mt-3 w-full cursor-default rounded-md border border-brand/40 bg-brand-subtle px-3 py-1.5 text-xs font-medium text-brand"
             >
               Review Fix
             </button>

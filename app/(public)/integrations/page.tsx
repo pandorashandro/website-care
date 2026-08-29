@@ -24,7 +24,7 @@ import FlowDiagram from '@/components/ui/flow-diagram'
 export const metadata: Metadata = {
   title: 'Integrations',
   description:
-    'Website Care scans your website without any integration. Connecting a supported integration like WordPress unlocks supported direct fixes, applied only after your review and approval.',
+    'webioom scans your website without any integration. Connecting a supported integration like WordPress unlocks supported direct fixes, applied only after your review and approval.',
 }
 
 const WITHOUT_INTEGRATION = [
@@ -57,14 +57,14 @@ const FIX_WORKFLOW = [
 ]
 
 const CONNECTING_DOES = [
-  'Authorizes Website Care to access supported resources on that site',
+  'Authorizes webioom to access supported resources on that site',
   'Unlocks supported direct-fix workflows for that site',
   'Allows a fresh check right before any supported write',
   'Enables verification and history for supported changes',
 ]
 
 const CONNECTING_DOES_NOT = [
-  'Give Website Care permission to change anything whenever it wants',
+  'Give webioom permission to change anything whenever it wants',
   'Turn every report finding into an automatic fix',
   'Bypass your approval for any current supported workflow',
   'Guarantee every theme, plugin, or page-builder configuration is writable',
@@ -89,15 +89,15 @@ export default function IntegrationsPage() {
             Scan your website. Connect when you want help applying supported fixes.
           </h1>
           <p className="mx-auto mt-4 max-w-2xl text-lg text-muted">
-            Website Care can scan and report on your site without a CMS integration. Connecting a supported
-            platform allows Website Care to apply supported changes — only after your review and approval.
+            webioom can scan and report on your site without a CMS integration. Connecting a supported
+            platform allows webioom to apply supported changes — only after your review and approval.
           </p>
           <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
             <Link href="/signup" className={buttonStyles({ variant: 'primary', size: 'lg' })}>
               Get Started
             </Link>
             <Link href="/product" className={buttonStyles({ variant: 'outline', size: 'lg' })}>
-              How Website Care Works
+              How webioom Works
             </Link>
           </div>
         </Container>
@@ -142,15 +142,15 @@ export default function IntegrationsPage() {
                 <Badge tone="success">Available</Badge>
               </div>
               <p className="mt-2 text-sm text-muted">
-                Website Care can prepare and apply supported changes when it can safely confirm the target.
+                webioom can prepare and apply supported changes when it can safely confirm the target.
                 Support depends on the specific page, resource, and configuration involved.
               </p>
 
               <ul className="mt-4 space-y-2 text-sm text-gray-700">
                 <li>Page title</li>
                 <li>Meta description, where a supported SEO provider/configuration is detected</li>
-                <li>Missing H1, where Website Care can safely confirm the editable source</li>
-                <li>Missing image alt text, where Website Care can safely confirm the image and its source</li>
+                <li>Missing H1, where webioom can safely confirm the editable source</li>
+                <li>Missing image alt text, where webioom can safely confirm the image and its source</li>
               </ul>
 
               <p className="mt-4 text-sm text-muted">
@@ -198,9 +198,9 @@ export default function IntegrationsPage() {
 
           <div className="mt-8 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
             {[
-              { title: 'Prepare & Preview', description: 'Website Care checks the target and prepares exactly what would change.' },
+              { title: 'Prepare & Preview', description: 'webioom checks the target and prepares exactly what would change.' },
               { title: 'Review & Apply', description: 'You see the proposed change and choose whether to apply it.' },
-              { title: 'Verify', description: 'Website Care checks that the applied change actually appears correctly.' },
+              { title: 'Verify', description: 'webioom checks that the applied change actually appears correctly.' },
               { title: 'History & Undo', description: 'The change is recorded, and can be undone where it’s safe to do so.' },
             ].map((item) => (
               <Card key={item.title} padding="sm">
@@ -214,19 +214,19 @@ export default function IntegrationsPage() {
 
       {/* 6. WHEN WEBSITE CARE STOPS */}
       <Container size="lg" className="py-16 sm:py-20">
-        <SectionHeading eyebrow="Conservative by design" title="If Website Care can't safely confirm the change, it doesn't guess" />
+        <SectionHeading eyebrow="Conservative by design" title="If webioom can't safely confirm the change, it doesn't guess" />
 
         <div className="mt-8 grid grid-cols-1 items-start gap-8 lg:grid-cols-2">
           <div className="flex items-start gap-3">
             <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0 text-brand" aria-hidden="true" />
             <p className="text-sm leading-relaxed text-gray-700">
-              Website Care may decline to make a direct change rather than risk an incorrect one. This is a
+              webioom may decline to make a direct change rather than risk an incorrect one. This is a
               deliberate safeguard, not something to hide.
             </p>
           </div>
 
           <Card padding="sm">
-            <p className="text-xs font-medium uppercase tracking-wide text-subtle">Website Care may refuse a direct change when:</p>
+            <p className="text-xs font-medium tracking-wide text-subtle">webioom may refuse a direct change when:</p>
             <ul className="mt-3 space-y-2 text-sm text-gray-700">
               {STOP_REASONS.map((reason) => (
                 <li key={reason}>{reason}</li>
@@ -246,7 +246,7 @@ export default function IntegrationsPage() {
             <div>
               <h3 className="text-base font-semibold text-gray-900">More integrations are planned</h3>
               <p className="mt-1 text-sm text-muted">
-                Website Care&apos;s scanning and reporting layer isn&apos;t tied to WordPress, and the
+                webioom&apos;s scanning and reporting layer isn&apos;t tied to WordPress, and the
                 integration system is intended to expand over time.
               </p>
             </div>
@@ -255,7 +255,7 @@ export default function IntegrationsPage() {
           <p className="mt-8 text-center text-sm text-muted">
             Want the details behind how a connected fix is kept safe?{' '}
             <Link href="/security" className="font-medium text-brand hover:text-brand-hover">
-              Read about Website Care&apos;s trust model
+              Read about webioom&apos;s trust model
             </Link>
             .
           </p>

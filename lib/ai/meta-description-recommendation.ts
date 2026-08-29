@@ -35,7 +35,7 @@ const MAX_OUTPUT_TOKENS = 100
 const UNAVAILABLE_SENTINEL = 'UNAVAILABLE'
 
 const UNAVAILABLE_EXPLANATION =
-  'Website Care identified the editable meta description, but could not generate a smart recommendation right now.'
+  'webioom identified the editable meta description, but could not generate a smart recommendation right now.'
 
 const GENERATED_EXPLANATION =
   'Based on the content of this page, this description more accurately summarizes it for search results.'

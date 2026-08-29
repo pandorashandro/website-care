@@ -23,13 +23,13 @@ function normalizeForComparison(value: string): string {
 }
 
 /**
- * Reverses one previous Website Care WordPress title fix. The browser may
+ * Reverses one previous webioom WordPress title fix. The browser may
  * only submit `websiteId` and `fixHistoryId` (an opaque reference to a
  * fix_history row) — the restore value, resource id/type, and REST path are
  * all re-derived server-side from the trusted history row and a fresh
  * WordPress reload, exactly like applyFix. Rollback only ever proceeds if
  * the CURRENT WordPress title still exactly equals (whitespace normalized)
- * the value Website Care itself last applied — any drift (a human or plugin
+ * the value webioom itself last applied — any drift (a human or plugin
  * changing it since) aborts rather than overwriting newer content. This is
  * still a title-only write, using the same constrained writer as the
  * original fix.
@@ -42,7 +42,7 @@ export async function rollbackFix(_prevState: RollbackFixState, formData: FormDa
     return { rollbackWriteStatus: 'failed', reason: 'Missing information for this request.' }
   }
 
-  // Re-verifies Website Care session + website ownership internally before
+  // Re-verifies webioom session + website ownership internally before
   // ever touching fix_history or wordpress_connections.
   const credentials = await getConnectedWordPressCredentials(websiteId)
 
@@ -115,7 +115,7 @@ export async function rollbackFix(_prevState: RollbackFixState, formData: FormDa
   }
 
   // Current-state drift protection: only roll back if the live title still
-  // exactly matches (whitespace normalized) what Website Care itself
+  // exactly matches (whitespace normalized) what webioom itself
   // applied. Anything else — a human or plugin edit since — aborts rather
   // than silently overwriting newer content.
   const currentTitleNormalized = normalizeForComparison(content.title ?? '')

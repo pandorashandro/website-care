@@ -19,7 +19,7 @@ export type SeoMetadataProviderResult =
   | { status: 'unknown'; provider: 'unknown'; reason: string }
   | { status: 'connection_error'; reason: string }
 
-/** The only two provider-registered meta keys Website Care will ever read or write. Exported so write-meta-description.ts derives the field purely from `provider`, never from arbitrary input. */
+/** The only two provider-registered meta keys webioom will ever read or write. Exported so write-meta-description.ts derives the field purely from `provider`, never from arbitrary input. */
 export const YOAST_META_FIELD = '_yoast_wpseo_metadesc'
 export const RANK_MATH_META_FIELD = 'rank_math_description'
 
@@ -145,7 +145,7 @@ export async function detectSeoMetadataProvider(
     return {
       status: 'unknown',
       provider: 'unknown',
-      reason: 'An SEO plugin was detected, but Website Care could not confirm which metadata field it controls for this page yet.',
+      reason: 'An SEO plugin was detected, but webioom could not confirm which metadata field it controls for this page yet.',
     }
   }
 
@@ -153,7 +153,7 @@ export async function detectSeoMetadataProvider(
     return {
       status: 'unknown',
       provider: 'unknown',
-      reason: "Website Care could not confirm which SEO plugin, if any, controls this page's metadata right now.",
+      reason: "webioom could not confirm which SEO plugin, if any, controls this page's metadata right now.",
     }
   }
 

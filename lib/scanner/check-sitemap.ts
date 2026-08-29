@@ -61,7 +61,7 @@ export async function checkSitemap(
 
     if (!result.ok) {
       issues.push(
-        buildIssue('sitemap_unreachable', `Website Care could not fetch the sitemap at ${candidateUrl}.`)
+        buildIssue('sitemap_unreachable', `webioom could not fetch the sitemap at ${candidateUrl}.`)
       )
       anyNonNotFoundFailure = true
       continue
@@ -121,7 +121,7 @@ export async function checkSitemap(
     issues.push(
       buildIssue(
         'sitemap_not_found',
-        'Website Care could not find an XML sitemap from robots.txt or the standard /sitemap.xml location.'
+        'webioom could not find an XML sitemap from robots.txt or the standard /sitemap.xml location.'
       )
     )
   }

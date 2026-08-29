@@ -14,10 +14,10 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: {
-    default: "Website Care",
-    template: "%s | Website Care",
+    default: "webioom — Where Websites Bloom.",
+    template: "%s | webioom",
   },
-  description: "Website monitoring and optimization platform",
+  description: "webioom scans your website, shows what needs attention, and helps you resolve supported problems safely.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

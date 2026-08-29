@@ -73,7 +73,7 @@ export type VerificationCopy = { label: string; description: string; tone: Badge
 export const VERIFICATION_COPY: Record<string, VerificationCopy> = {
   verified: {
     label: 'Verified',
-    description: 'Website Care confirmed the expected result.',
+    description: 'webioom confirmed the expected result.',
     tone: 'success',
   },
   unavailable: {
@@ -100,7 +100,7 @@ export const VERIFICATION_COPY: Record<string, VerificationCopy> = {
 
 export const UNKNOWN_VERIFICATION_COPY: VerificationCopy = {
   label: 'Unknown',
-  description: 'Website Care could not determine the verification result for this change.',
+  description: 'webioom could not determine the verification result for this change.',
   tone: 'neutral',
 }
 

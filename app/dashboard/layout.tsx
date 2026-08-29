@@ -29,10 +29,10 @@ export default async function DashboardLayout(props: LayoutProps<'/dashboard'>) 
 
   return (
     <div className="flex min-h-screen w-full flex-col lg:flex-row">
-      <aside className="flex flex-col border-b border-border bg-surface lg:w-64 lg:shrink-0 lg:border-b-0 lg:border-r">
+      <aside className="flex flex-col border-b border-border-dark bg-brand-dark lg:w-64 lg:shrink-0 lg:border-b-0 lg:border-r">
         <div className="px-6 py-5">
-          <Link href="/dashboard" aria-label="Website Care dashboard">
-            <Logo />
+          <Link href="/dashboard" aria-label="webioom dashboard">
+            <Logo variant="dark" className="h-8" />
           </Link>
         </div>
 
@@ -43,10 +43,10 @@ export default async function DashboardLayout(props: LayoutProps<'/dashboard'>) 
               <Link
                 key={item.href}
                 href={item.href}
-                className="flex items-center gap-2 whitespace-nowrap rounded-md px-3 py-2 text-sm font-medium text-gray-600 hover:bg-surface-muted hover:text-gray-900 aria-[current=page]:bg-gray-900 aria-[current=page]:text-white"
+                className="group flex items-center gap-2 whitespace-nowrap rounded-md px-3 py-2 text-sm font-medium text-text-on-dark-muted hover:bg-brand-dark-hover hover:text-text-on-dark aria-[current=page]:bg-brand-dark-hover aria-[current=page]:text-text-on-dark"
                 aria-current={item.href === '/dashboard' ? 'page' : undefined}
               >
-                <Icon className="h-4 w-4" aria-hidden="true" />
+                <Icon className="h-4 w-4 group-aria-[current=page]:text-brand-vivid" aria-hidden="true" />
                 {item.label}
               </Link>
             )

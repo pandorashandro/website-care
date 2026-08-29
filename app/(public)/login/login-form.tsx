@@ -9,6 +9,7 @@ import Card from '@/components/ui/card'
 import { Input, Label } from '@/components/ui/input'
 import Button from '@/components/ui/button'
 import Alert from '@/components/ui/alert'
+import Logo from '@/components/brand/logo'
 
 export default function LoginForm() {
   const [email, setEmail] = useState('')
@@ -42,6 +43,10 @@ export default function LoginForm() {
 
   return (
     <Container size="sm" className="flex flex-1 flex-col items-center justify-center py-16">
+      <Link href="/" className="mb-8" aria-label="webioom home">
+        <Logo className="h-9" />
+      </Link>
+
       <Card className="w-full max-w-sm">
         <h1 className="text-xl font-semibold text-gray-900">Log in</h1>
         <p className="mt-1 text-sm text-muted">Welcome back — enter your details to continue.</p>

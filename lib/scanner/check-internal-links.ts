@@ -93,7 +93,7 @@ function classifyResult(targetUrl: string, result: FetchPageResult): IssueTempla
       title: `Internal link could not be verified: ${path}`,
       type: 'technical',
       severity: 'low',
-      description: `The internal link to ${targetUrl} returned an HTTP 403 Forbidden response, so Website Care could not confirm whether it works.`,
+      description: `The internal link to ${targetUrl} returned an HTTP 403 Forbidden response, so webioom could not confirm whether it works.`,
       recommendation: 'Manually verify this link is intentional and working as expected.',
     }
   }

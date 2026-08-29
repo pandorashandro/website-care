@@ -29,7 +29,7 @@ export default function DashboardError({ error, reset }: { error: Error & { dige
         </div>
         <h1 className="mt-4 text-lg font-semibold text-gray-900">Something went wrong</h1>
         <p className="mt-2 text-sm text-muted">
-          WEBIOOM ran into an unexpected problem loading this page. Your data hasn&apos;t been affected.
+          webioom ran into an unexpected problem loading this page. Your data hasn&apos;t been affected.
         </p>
 
         <div className="mt-6 flex flex-wrap items-center justify-center gap-2">

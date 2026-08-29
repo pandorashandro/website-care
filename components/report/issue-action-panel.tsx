@@ -7,7 +7,7 @@ import { FIXABILITY_LABELS, FIXABILITY_ICON } from './report-helpers'
  * from FIXABILITY_LABELS (assisted/manual/unavailable only — never an
  * AI-vs-deterministic claim the backend doesn't make). Supporting text is
  * the real evaluateFixability() reason string already produced server-side
- * — e.g. "Connect WordPress to let Website Care assist with this
+ * — e.g. "Connect WordPress to let webioom assist with this
  * automatically" or "Canonical tags require manual review..." — rather than
  * generic copy invented here, so the explanation always matches actual
  * backend state. `children` (the existing PrepareFixButton wiring) is only

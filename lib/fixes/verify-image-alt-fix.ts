@@ -67,14 +67,14 @@ export async function verifyPublicImageAlt(input: {
   if (occurrences.length === 0) {
     return {
       status: 'unavailable',
-      reason: 'Website Care could not find this exact image on the public page to verify it.',
+      reason: 'webioom could not find this exact image on the public page to verify it.',
     }
   }
 
   if (occurrences.length > 1) {
     return {
       status: 'unavailable',
-      reason: 'Website Care found more than one matching image on the public page and cannot verify a single target.',
+      reason: 'webioom found more than one matching image on the public page and cannot verify a single target.',
     }
   }
 
@@ -83,7 +83,7 @@ export async function verifyPublicImageAlt(input: {
   if (!occurrence.hasAltAttribute) {
     return {
       status: 'unavailable',
-      reason: 'Website Care found the image but could not read its public alt attribute.',
+      reason: 'webioom found the image but could not read its public alt attribute.',
     }
   }
 

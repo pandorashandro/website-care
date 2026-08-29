@@ -28,7 +28,7 @@ const MAX_OUTPUT_TOKENS = 60
 const UNAVAILABLE_SENTINEL = 'UNAVAILABLE'
 
 const UNAVAILABLE_EXPLANATION =
-  'Website Care identified this page as a candidate for an H1 suggestion, but could not generate a smart recommendation right now.'
+  'webioom identified this page as a candidate for an H1 suggestion, but could not generate a smart recommendation right now.'
 
 const GENERATED_EXPLANATION =
   "Based on the main content of this page, this heading reflects the page's primary topic."

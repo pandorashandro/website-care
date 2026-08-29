@@ -20,7 +20,7 @@ export type RollbackH1FixState =
   | null
 
 /**
- * Reverses one previous Website Care missing-H1 fix. The browser may only
+ * Reverses one previous webioom missing-H1 fix. The browser may only
  * submit `websiteId` and `fixHistoryId` — exactly like title/meta rollback,
  * no signed token is involved here.
  *
