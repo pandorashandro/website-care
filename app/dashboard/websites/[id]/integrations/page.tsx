@@ -7,7 +7,7 @@ import { getWordPressConnectionSummary } from '../wordpress-capabilities'
 import Container from '@/components/ui/container'
 import Card from '@/components/ui/card'
 import WebsiteSubNav from '@/components/website/website-sub-nav'
-import WordPressIntegrationCard from '@/components/integrations/wordpress-integration-card'
+import IntegrationList from '@/components/integrations/integration-list'
 
 type Website = {
   id: string
@@ -73,11 +73,7 @@ export default async function WebsiteIntegrationsPage(props: PageProps<'/dashboa
       </div>
 
       <div className="mt-6">
-        <WordPressIntegrationCard
-          websiteId={website.id}
-          wordpress={wordpress}
-          wordpressConnection={wordpressConnection}
-        />
+        <IntegrationList websiteId={website.id} wordpress={wordpress} wordpressConnection={wordpressConnection} />
       </div>
 
       <Card padding="md" className="mt-6">
