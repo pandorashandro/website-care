@@ -568,3 +568,149 @@ export function verifyImageAltPreviewToken(token: string): VerifiedImageAltPrevi
     },
   }
 }
+
+// ---------------------------------------------------------------------------
+// Shopify Title preview tokens (Phase 20.1D)
+//
+// A fifth, deliberately separate token "kind" — same signing key, same
+// HMAC-SHA256 primitive, same TTL, but its own version tag
+// (SHOPIFY_TITLE_TOKEN_VERSION) baked into the signed string, so it can
+// never be parsed as, or confused with, a WordPress title/meta/H1/image-alt
+// token (or vice versa). Nothing about those four sign/verify functions
+// changes.
+//
+// Binds every fact Phase 20.1D's Apply-time recheck needs to detect
+// substitution: the trusted issue this Prepare call started from (never a
+// browser-submitted page URL/title on its own), the server-derived Shopify
+// resource identity (resourceType + resourceGid, both from
+// resolveShopifyResource — never client-supplied), and the exact current
+// title Prepare observed (for drift detection at Apply). No Shopify
+// credentials, access token, or scopes are ever included — Apply always
+// re-derives those fresh from the ownership-verified connection, never
+// from this token.
+// ---------------------------------------------------------------------------
+
+const SHOPIFY_TITLE_TOKEN_VERSION = 'shopify-title-v1'
+
+export type ShopifyTitlePreviewTokenPayload = {
+  /** The trusted issues.id row this preview was derived from — re-fetched and re-validated (never trusted alone) at Apply time. */
+  issueId: string
+  websiteId: string
+  pageUrl: string
+  issueTitle: string
+  field: 'title'
+  resourceType: 'product' | 'collection' | 'page' | 'article'
+  /** The Shopify Admin GID resolveShopifyResource confirmed at Prepare time — re-resolved and compared fresh at Apply, never trusted from this token alone. */
+  resourceGid: string
+  /** '' represents a missing/empty current title, matching the WordPress title token's convention. */
+  expectedCurrentTitle: string
+  proposedValue: string
+  expiresAt: number
+}
+
+function canonicalShopifyTitleBody(payload: ShopifyTitlePreviewTokenPayload): string {
+  return JSON.stringify([
+    SHOPIFY_TITLE_TOKEN_VERSION,
+    payload.issueId,
+    payload.websiteId,
+    payload.pageUrl,
+    payload.issueTitle,
+    payload.field,
+    payload.resourceType,
+    payload.resourceGid,
+    payload.expectedCurrentTitle,
+    payload.proposedValue,
+    payload.expiresAt,
+  ])
+}
+
+export function signShopifyTitlePreviewToken(payload: Omit<ShopifyTitlePreviewTokenPayload, 'expiresAt'>): string {
+  const full: ShopifyTitlePreviewTokenPayload = { ...payload, expiresAt: Date.now() + TOKEN_TTL_MS }
+  const body = Buffer.from(canonicalShopifyTitleBody(full), 'utf8').toString('base64url')
+  const signature = createHmac('sha256', getSigningKey()).update(body).digest('base64url')
+  return `${SHOPIFY_TITLE_TOKEN_VERSION}.${body}.${signature}`
+}
+
+export type VerifiedShopifyTitlePreviewToken =
+  | { ok: true; payload: ShopifyTitlePreviewTokenPayload }
+  | { ok: false; reason: 'malformed' | 'invalid_signature' | 'expired' }
+
+export function verifyShopifyTitlePreviewToken(token: string): VerifiedShopifyTitlePreviewToken {
+  const parts = token.split('.')
+
+  if (parts.length !== 3 || parts[0] !== SHOPIFY_TITLE_TOKEN_VERSION) {
+    return { ok: false, reason: 'malformed' }
+  }
+
+  const [, body, signature] = parts
+
+  let expectedSignature: string
+  try {
+    expectedSignature = createHmac('sha256', getSigningKey()).update(body).digest('base64url')
+  } catch {
+    return { ok: false, reason: 'malformed' }
+  }
+
+  let signatureBuf: Buffer
+  let expectedBuf: Buffer
+  try {
+    signatureBuf = Buffer.from(signature, 'base64url')
+    expectedBuf = Buffer.from(expectedSignature, 'base64url')
+  } catch {
+    return { ok: false, reason: 'malformed' }
+  }
+
+  if (signatureBuf.length !== expectedBuf.length || !timingSafeEqual(signatureBuf, expectedBuf)) {
+    return { ok: false, reason: 'invalid_signature' }
+  }
+
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(Buffer.from(body, 'base64url').toString('utf8'))
+  } catch {
+    return { ok: false, reason: 'malformed' }
+  }
+
+  if (!Array.isArray(parsed) || parsed.length !== 11) {
+    return { ok: false, reason: 'malformed' }
+  }
+
+  const [version, issueId, websiteId, pageUrl, issueTitle, field, resourceType, resourceGid, expectedCurrentTitle, proposedValueRaw, expiresAt] =
+    parsed
+
+  if (
+    version !== SHOPIFY_TITLE_TOKEN_VERSION ||
+    typeof issueId !== 'string' ||
+    typeof websiteId !== 'string' ||
+    typeof pageUrl !== 'string' ||
+    typeof issueTitle !== 'string' ||
+    field !== 'title' ||
+    (resourceType !== 'product' && resourceType !== 'collection' && resourceType !== 'page' && resourceType !== 'article') ||
+    typeof resourceGid !== 'string' ||
+    typeof expectedCurrentTitle !== 'string' ||
+    typeof proposedValueRaw !== 'string' ||
+    typeof expiresAt !== 'number'
+  ) {
+    return { ok: false, reason: 'malformed' }
+  }
+
+  if (Date.now() > expiresAt) {
+    return { ok: false, reason: 'expired' }
+  }
+
+  return {
+    ok: true,
+    payload: {
+      issueId,
+      websiteId,
+      pageUrl,
+      issueTitle,
+      field,
+      resourceType,
+      resourceGid,
+      expectedCurrentTitle,
+      proposedValue: proposedValueRaw,
+      expiresAt,
+    },
+  }
+}
