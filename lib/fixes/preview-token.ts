@@ -714,3 +714,147 @@ export function verifyShopifyTitlePreviewToken(token: string): VerifiedShopifyTi
     },
   }
 }
+
+// ---------------------------------------------------------------------------
+// Shopify Meta Description preview tokens (Phase 20.1E)
+//
+// A sixth, deliberately separate token "kind" — same signing key, same
+// HMAC-SHA256 primitive, same TTL, but its own version tag
+// (SHOPIFY_META_TOKEN_VERSION) baked into the signed string, so it can
+// never be parsed as, or confused with, any of the five existing token
+// kinds (or vice versa). Nothing about those five sign/verify functions
+// changes — this section is purely additive.
+//
+// Deliberately does NOT carry `mechanism` ('seo_object' vs
+// 'seo_metafield') or a metafield `type` — both are either deterministic
+// from `resourceType` alone (mechanism) or must be re-derived fresh at
+// Apply time regardless (metafield type), so storing either in the token
+// would only create a second, potentially-stale source of truth for
+// something Apply always recomputes anyway. See
+// lib/integrations/shopify/meta-mutations.ts.
+// ---------------------------------------------------------------------------
+
+const SHOPIFY_META_TOKEN_VERSION = 'shopify-meta-v1'
+
+export type ShopifyMetaPreviewTokenPayload = {
+  /** The trusted issues.id row this preview was derived from — re-fetched and re-validated (never trusted alone) at Apply time. */
+  issueId: string
+  websiteId: string
+  pageUrl: string
+  issueTitle: string
+  field: 'meta_description'
+  resourceType: 'product' | 'collection' | 'page' | 'article'
+  /** The Shopify Admin GID resolveShopifyResource confirmed at Prepare time — re-resolved and compared fresh at Apply, never trusted from this token alone. */
+  resourceGid: string
+  /** '' represents a missing/empty current meta description, matching the other preview tokens' convention. */
+  expectedCurrentValue: string
+  proposedValue: string
+  expiresAt: number
+}
+
+function canonicalShopifyMetaBody(payload: ShopifyMetaPreviewTokenPayload): string {
+  return JSON.stringify([
+    SHOPIFY_META_TOKEN_VERSION,
+    payload.issueId,
+    payload.websiteId,
+    payload.pageUrl,
+    payload.issueTitle,
+    payload.field,
+    payload.resourceType,
+    payload.resourceGid,
+    payload.expectedCurrentValue,
+    payload.proposedValue,
+    payload.expiresAt,
+  ])
+}
+
+export function signShopifyMetaPreviewToken(payload: Omit<ShopifyMetaPreviewTokenPayload, 'expiresAt'>): string {
+  const full: ShopifyMetaPreviewTokenPayload = { ...payload, expiresAt: Date.now() + TOKEN_TTL_MS }
+  const body = Buffer.from(canonicalShopifyMetaBody(full), 'utf8').toString('base64url')
+  const signature = createHmac('sha256', getSigningKey()).update(body).digest('base64url')
+  return `${SHOPIFY_META_TOKEN_VERSION}.${body}.${signature}`
+}
+
+export type VerifiedShopifyMetaPreviewToken =
+  | { ok: true; payload: ShopifyMetaPreviewTokenPayload }
+  | { ok: false; reason: 'malformed' | 'invalid_signature' | 'expired' }
+
+export function verifyShopifyMetaPreviewToken(token: string): VerifiedShopifyMetaPreviewToken {
+  const parts = token.split('.')
+
+  if (parts.length !== 3 || parts[0] !== SHOPIFY_META_TOKEN_VERSION) {
+    return { ok: false, reason: 'malformed' }
+  }
+
+  const [, body, signature] = parts
+
+  let expectedSignature: string
+  try {
+    expectedSignature = createHmac('sha256', getSigningKey()).update(body).digest('base64url')
+  } catch {
+    return { ok: false, reason: 'malformed' }
+  }
+
+  let signatureBuf: Buffer
+  let expectedBuf: Buffer
+  try {
+    signatureBuf = Buffer.from(signature, 'base64url')
+    expectedBuf = Buffer.from(expectedSignature, 'base64url')
+  } catch {
+    return { ok: false, reason: 'malformed' }
+  }
+
+  if (signatureBuf.length !== expectedBuf.length || !timingSafeEqual(signatureBuf, expectedBuf)) {
+    return { ok: false, reason: 'invalid_signature' }
+  }
+
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(Buffer.from(body, 'base64url').toString('utf8'))
+  } catch {
+    return { ok: false, reason: 'malformed' }
+  }
+
+  if (!Array.isArray(parsed) || parsed.length !== 11) {
+    return { ok: false, reason: 'malformed' }
+  }
+
+  const [version, issueId, websiteId, pageUrl, issueTitle, field, resourceType, resourceGid, expectedCurrentValue, proposedValueRaw, expiresAt] =
+    parsed
+
+  if (
+    version !== SHOPIFY_META_TOKEN_VERSION ||
+    typeof issueId !== 'string' ||
+    typeof websiteId !== 'string' ||
+    typeof pageUrl !== 'string' ||
+    typeof issueTitle !== 'string' ||
+    field !== 'meta_description' ||
+    (resourceType !== 'product' && resourceType !== 'collection' && resourceType !== 'page' && resourceType !== 'article') ||
+    typeof resourceGid !== 'string' ||
+    typeof expectedCurrentValue !== 'string' ||
+    typeof proposedValueRaw !== 'string' ||
+    typeof expiresAt !== 'number'
+  ) {
+    return { ok: false, reason: 'malformed' }
+  }
+
+  if (Date.now() > expiresAt) {
+    return { ok: false, reason: 'expired' }
+  }
+
+  return {
+    ok: true,
+    payload: {
+      issueId,
+      websiteId,
+      pageUrl,
+      issueTitle,
+      field,
+      resourceType,
+      resourceGid,
+      expectedCurrentValue,
+      proposedValue: proposedValueRaw,
+      expiresAt,
+    },
+  }
+}
