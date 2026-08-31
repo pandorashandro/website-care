@@ -22,18 +22,28 @@ import { generateShopifyMetaDescriptionRecommendation } from '@/lib/ai/shopify-m
 import { signShopifyMetaPreviewToken, verifyShopifyMetaPreviewToken } from '@/lib/fixes/preview-token'
 import { SHOPIFY_PLATFORM } from '@/lib/integrations/shopify/platform'
 import { recordFixHistory, type FixHistoryInsertResult } from './fix-history'
+import { getMetaDescriptionContent } from '@/lib/scanner/checks'
+import { verifyShopifyPublicValue, type ShopifyPublicVerification } from '@/lib/fixes/verify-shopify-public-value'
 
 /**
  * Phase 20.1E — Shopify Safe Meta Description Fix backend foundation.
- * Same IMPORTANT SCOPE BOUNDARY as Phase 20.1D's Title fix (see that
- * file's module doc comment): `admin_write_succeeded` means only that the
- * Shopify Admin API confirmed the write — never that the public
- * `<meta name="description">` changed. renderControlProven is never
- * flipped to true here. Phase 20.1F adds durable fix_history recording on
- * a successful write, and safe Undo (see shopify-meta-rollback-actions.ts,
- * which reuses readCurrentMetaDescription/writeMetaDescription/
- * mappingFailureMessage/mutationFailureMessage exported below rather than
- * duplicating the resource-type dispatch). No UI trigger.
+ * `writeStatus: 'admin_write_succeeded'` means only that the Shopify Admin
+ * API confirmed the write — never, by itself, that the public
+ * `<meta name="description">` changed; that is now a SEPARATE, explicit
+ * `verification` result (Phase 20.1G), never collapsed into writeStatus.
+ * renderControlProven is never flipped to true here. Phase 20.1F added
+ * durable fix_history recording on a successful write, and safe Undo (see
+ * shopify-meta-rollback-actions.ts, which reuses
+ * readCurrentMetaDescription/writeMetaDescription/mappingFailureMessage/
+ * mutationFailureMessage exported below rather than duplicating the
+ * resource-type dispatch). Phase 20.1G adds public storefront verification
+ * (via lib/fixes/verify-shopify-public-value.ts, shared with Title and with
+ * Undo) and, for Page/Article only, compareDigest-based atomic
+ * compare-and-set protection on the metafieldsSet write (see
+ * requireProvenMetafieldWriteContext below and meta-mutations.ts's research
+ * notes — confirmed current against official Shopify Admin GraphQL API
+ * 2026-07 docs; Product/Collection has no equivalent mechanism, so its
+ * fresh-read/drift-check model is unchanged). No UI trigger.
  */
 
 // ---------------------------------------------------------------------------
@@ -87,30 +97,39 @@ export async function writeMetaDescription(
       return updateShopifyProductMetaDescription(shopDomain, accessToken, gid, value, readResult.mechanism === 'seo_object' ? readResult.currentSeoTitle : null)
     case 'collection':
       return updateShopifyCollectionMetaDescription(shopDomain, accessToken, gid, value, readResult.mechanism === 'seo_object' ? readResult.currentSeoTitle : null)
-    case 'page':
-      return updateShopifyPageMetaDescription(shopDomain, accessToken, gid, value, requireProvenMetafieldType(readResult))
-    case 'article':
-      return updateShopifyArticleMetaDescription(shopDomain, accessToken, gid, value, requireProvenMetafieldType(readResult))
+    case 'page': {
+      const writeContext = requireProvenMetafieldWriteContext(readResult)
+      return updateShopifyPageMetaDescription(shopDomain, accessToken, gid, value, writeContext.type, writeContext.compareDigest)
+    }
+    case 'article': {
+      const writeContext = requireProvenMetafieldWriteContext(readResult)
+      return updateShopifyArticleMetaDescription(shopDomain, accessToken, gid, value, writeContext.type, writeContext.compareDigest)
+    }
   }
 }
 
 /**
- * Phase 20.1E-R fail-closed gate: callers MUST confirm
- * (readResult.mechanism === 'seo_metafield' && readResult.metafieldType !== null)
- * before ever reaching writeMetaDescription for page/article — see both
- * Prepare and Apply below, which check this explicitly and return a
- * typed unavailable/failed result rather than call the writer at all when
- * it's false. This function exists only to give the writer a non-null
- * `string` at the type level once that external guarantee holds; it is
- * not itself a safety check (it throws if the guarantee was violated,
- * which should be unreachable given the guards below, not a normal
- * control-flow path).
+ * Phase 20.1E-R fail-closed gate, extended in Phase 20.1G: callers MUST
+ * confirm (readResult.mechanism === 'seo_metafield' && readResult.metafieldType
+ * !== null) before ever reaching writeMetaDescription for page/article —
+ * see both Prepare and Apply below, which check this explicitly and return
+ * a typed unavailable/failed result rather than call the writer at all
+ * when it's false. This function exists only to give the writer a
+ * non-null `{type, compareDigest}` at the type level once that external
+ * guarantee holds; it is not itself a safety check (it throws if the
+ * guarantee was violated, which should be unreachable given the guards
+ * below, not a normal control-flow path).
+ *
+ * `compareDigest` is always present exactly when `metafieldType` is (both
+ * come from the same metafield object existing or not — see
+ * meta-mutations.ts's read functions), so no separate null-check is needed
+ * for it once `metafieldType`'s is confirmed.
  */
-function requireProvenMetafieldType(readResult: Extract<ShopifyMetaDescriptionReadResult, { ok: true }>): string {
-  if (readResult.mechanism !== 'seo_metafield' || readResult.metafieldType === null) {
-    throw new Error('writeMetaDescription called for page/article without a proven metafield type.')
+function requireProvenMetafieldWriteContext(readResult: Extract<ShopifyMetaDescriptionReadResult, { ok: true }>): { type: string; compareDigest: string } {
+  if (readResult.mechanism !== 'seo_metafield' || readResult.metafieldType === null || readResult.metafieldCompareDigest === null) {
+    throw new Error('writeMetaDescription called for page/article without a proven metafield type/compareDigest.')
   }
-  return readResult.metafieldType
+  return { type: readResult.metafieldType, compareDigest: readResult.metafieldCompareDigest }
 }
 
 function pathFromUrl(url: string): string {
@@ -292,6 +311,14 @@ export type ApplyShopifyMetaFixState =
       newValue: string
       pageUrl: string
       /**
+       * Phase 20.1G: the public storefront verification result — a value
+       * fully independent of `writeStatus`. `writeStatus` here is ALWAYS
+       * 'admin_write_succeeded' regardless of what `verification.status`
+       * says; a 'mismatch' or 'unavailable' verification never downgrades
+       * this to a failure, and never triggers a second mutation.
+       */
+      verification: ShopifyPublicVerification
+      /**
        * Phase 20.1F: whether this write was durably recorded to fix_history
        * (and is therefore Undo-eligible). 'failed' here means the Shopify
        * Admin write already succeeded regardless — see this file's Apply
@@ -317,6 +344,8 @@ export function mutationFailureMessage(reason: Extract<ShopifyMetaDescriptionUpd
       return 'Shopify could not be reached to apply this update. Please try again shortly.'
     case 'malformed_response':
       return 'Shopify’s response did not confirm the meta description was updated.'
+    case 'concurrent_modification':
+      return 'This field changed in Shopify at the exact moment webioom tried to update it. Please try again.'
   }
 }
 
@@ -418,13 +447,29 @@ export async function applyShopifyMetaFix(_prevState: ApplyShopifyMetaFixState, 
     return { writeStatus: 'failed', reason: mutationFailureMessage(updateResult.reason) }
   }
 
+  // Phase 20.1G: exactly one, read-only, single-attempt public storefront
+  // check — performed only AFTER the Admin mutation above already reported
+  // success, and its result never feeds back into another mutation or
+  // rollback. Uses the SAME page URL Apply already proved (moments earlier,
+  // in this same request, via resolveShopifyResource's domain/identity
+  // checks) corresponds to this exact resource — never a client-supplied
+  // URL, never a guess for headless/uncertain cases.
+  const verification = await verifyShopifyPublicValue({
+    pageUrl: trustedIssue.issue.pageUrl,
+    expectedValue: updateResult.value,
+    valueBeforeThisWrite: currentValue,
+    extract: getMetaDescriptionContent,
+    fieldLabel: 'meta description',
+  })
+
   // Recorded only AFTER the mutation above already reported success (this
   // phase's brief: "Do NOT create a successful fix-history record before
-  // the Shopify write succeeded"). verification_status uses this file's own
-  // 'admin_write_succeeded' vocabulary rather than WordPress's
-  // verified/pending/mismatch language, since no public-page check happens
-  // here — that is Phase 20.1G's job. A history persistence failure is
-  // reported truthfully via `historyStatus` below, never silently.
+  // the Shopify write succeeded"). verification_status now stores the REAL
+  // public-verification outcome (verified/pending/mismatch/unavailable) —
+  // never a placeholder implying the Admin response alone proved public
+  // rendering. A history persistence failure is reported truthfully via
+  // `historyStatus` below, never silently, and never implies the Shopify
+  // write (or the verification attempt) itself failed.
   const historyStatus = await recordFixHistory({
     websiteId: payload.websiteId,
     platform: SHOPIFY_PLATFORM,
@@ -436,7 +481,7 @@ export async function applyShopifyMetaFix(_prevState: ApplyShopifyMetaFixState, 
     field: 'meta_description',
     previousValue: currentValue,
     appliedValue: updateResult.value,
-    verificationStatus: 'admin_write_succeeded',
+    verificationStatus: verification.status,
   })
 
   return {
@@ -447,6 +492,7 @@ export async function applyShopifyMetaFix(_prevState: ApplyShopifyMetaFixState, 
     previousValue: currentValue,
     newValue: updateResult.value,
     pageUrl: trustedIssue.issue.pageUrl,
+    verification,
     historyStatus,
   }
 }

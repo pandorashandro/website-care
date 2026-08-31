@@ -99,6 +99,16 @@ export async function fetchPage(
         return { ok: false, reason: 'blocked' }
       }
 
+      // Phase 20.1G: reject userinfo-bearing URLs (https://user:pass@host/...)
+      // outright, on every hop including redirect targets. No legitimate
+      // scanned/verified page URL is ever expected to carry credentials —
+      // this closes a class of SSRF-adjacent request-smuggling/credential-
+      // leak footguns some HTTP clients mishandle, at zero cost to any real
+      // WordPress or Shopify verification target.
+      if (parsed.username || parsed.password) {
+        return { ok: false, reason: 'blocked' }
+      }
+
       if (isBlockedHost(parsed.hostname)) {
         return { ok: false, reason: 'blocked' }
       }

@@ -8,6 +8,8 @@ import { evaluateShopifyFixCapability, type ShopifyResourceFamily } from '@/lib/
 import { executeTitleMutation, mappingFailureMessage, mutationFailureMessage } from './shopify-title-fix-actions'
 import { SHOPIFY_PLATFORM } from '@/lib/integrations/shopify/platform'
 import { getFixHistoryRowForRollback, isShopifyRollbackEligibleByShape, recordFixHistory, type FixHistoryInsertResult } from './fix-history'
+import { getTitleText } from '@/lib/scanner/checks'
+import { verifyShopifyPublicValue, type ShopifyPublicVerification } from '@/lib/fixes/verify-shopify-public-value'
 
 export type RollbackShopifyTitleFixState =
   | {
@@ -15,6 +17,15 @@ export type RollbackShopifyTitleFixState =
       resourceType: ShopifyResourceFamily
       resourceGid: string
       restoredTitle: string
+      /**
+       * Phase 20.1G: public storefront verification of the ROLLBACK,
+       * independent of `rollbackWriteStatus` (which stays 'success'
+       * regardless of what this says — see verifyShopifyPublicValue's own
+       * doc comment). Expected value = the restored (previous) title;
+       * "value before this write" = the title being undone
+       * (historyRow.applied_value).
+       */
+      verification: ShopifyPublicVerification
       historyStatus: FixHistoryInsertResult
     }
   | { rollbackWriteStatus: 'failed'; reason: string }
@@ -38,10 +49,14 @@ export type RollbackShopifyTitleFixState =
  * wordpress-rollback-actions.ts's rollbackFix exactly, adapted to Shopify's
  * GID-based identity and its four resource families.
  *
- * Deliberately does NOT call any public-page verification — Shopify public
- * verification is Phase 20.1G's job (see this file's `verificationStatus`
- * write below, which honestly records 'admin_rollback_succeeded' rather
- * than borrowing WordPress's verified/pending/mismatch language).
+ * Phase 20.1G: after an accepted Admin rollback, performs exactly one
+ * read-only public storefront check (verifyShopifyPublicValue, shared with
+ * Apply and with Meta Description Undo) and records its REAL
+ * verified/pending/mismatch/unavailable outcome to fix_history — never a
+ * placeholder implying the Admin response alone proved public rendering.
+ * The verification result never feeds back into another mutation: a
+ * mismatch or unavailable result is reported truthfully, never "repaired"
+ * by a second write.
  */
 export async function rollbackShopifyTitleFix(_prevState: RollbackShopifyTitleFixState, formData: FormData): Promise<RollbackShopifyTitleFixState> {
   const websiteId = formData.get('websiteId') as string | null
@@ -134,10 +149,27 @@ export async function rollbackShopifyTitleFix(_prevState: RollbackShopifyTitleFi
     return { rollbackWriteStatus: 'failed', reason: mutationFailureMessage(updateResult.reason) }
   }
 
+  // Phase 20.1G: exactly one, read-only, single-attempt public storefront
+  // check, performed only AFTER the Admin rollback above already reported
+  // success. Expected value is the RESTORED (previous) title; "value
+  // before this write" is the title being undone — used only to detect the
+  // 'pending' (caching) case, never to change what's expected. Uses the
+  // same page URL this Undo already proved (moments earlier, via
+  // resolveShopifyResource) corresponds to this exact resource.
+  const verification = await verifyShopifyPublicValue({
+    pageUrl: historyRow.page_url,
+    expectedValue: updateResult.title,
+    valueBeforeThisWrite: historyRow.applied_value,
+    extract: getTitleText,
+    fieldLabel: 'title',
+  })
+
   // 14. The original history row is never modified or deleted — this
   // inserts a NEW row representing the rollback as its own historical
   // event, with previous/applied values swapped relative to the original
   // fix, exactly mirroring wordpress-rollback-actions.ts's own pattern.
+  // verification_status stores the REAL public-verification outcome, never
+  // a placeholder.
   const historyStatus = await recordFixHistory({
     websiteId,
     platform: SHOPIFY_PLATFORM,
@@ -149,7 +181,7 @@ export async function rollbackShopifyTitleFix(_prevState: RollbackShopifyTitleFi
     field: 'title',
     previousValue: historyRow.applied_value,
     appliedValue: updateResult.title,
-    verificationStatus: 'admin_rollback_succeeded',
+    verificationStatus: verification.status,
   })
 
   revalidatePath(`/dashboard/websites/${websiteId}`)
@@ -159,6 +191,7 @@ export async function rollbackShopifyTitleFix(_prevState: RollbackShopifyTitleFi
     resourceType: mapping.resourceType,
     resourceGid: updateResult.gid,
     restoredTitle: updateResult.title,
+    verification,
     historyStatus,
   }
 }

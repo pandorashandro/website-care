@@ -8,6 +8,8 @@ import { evaluateShopifyFixCapability, type ShopifyResourceFamily } from '@/lib/
 import { readCurrentMetaDescription, writeMetaDescription, mappingFailureMessage, mutationFailureMessage } from './shopify-meta-fix-actions'
 import { SHOPIFY_PLATFORM } from '@/lib/integrations/shopify/platform'
 import { getFixHistoryRowForRollback, isShopifyRollbackEligibleByShape, recordFixHistory, type FixHistoryInsertResult } from './fix-history'
+import { getMetaDescriptionContent } from '@/lib/scanner/checks'
+import { verifyShopifyPublicValue, type ShopifyPublicVerification } from '@/lib/fixes/verify-shopify-public-value'
 
 export type RollbackShopifyMetaFixState =
   | {
@@ -15,6 +17,12 @@ export type RollbackShopifyMetaFixState =
       resourceType: ShopifyResourceFamily
       resourceGid: string
       restoredValue: string
+      /**
+       * Phase 20.1G: public storefront verification of the ROLLBACK,
+       * independent of `rollbackWriteStatus` (which stays 'success'
+       * regardless of what this says).
+       */
+      verification: ShopifyPublicVerification
       historyStatus: FixHistoryInsertResult
     }
   | { rollbackWriteStatus: 'failed'; reason: string }
@@ -42,6 +50,18 @@ export type RollbackShopifyMetaFixState =
  *   restoring it is always a normal metafieldsSet write onto a metafield
  *   proven to still exist right now, never a deletion. This is why no
  *   metafield-deletion semantics are implemented or needed here.
+ *
+ * Phase 20.1G: for Page/Article, writeMetaDescription now also passes a
+ * fresh compareDigest (from the same readCurrentMetaDescription call
+ * above) through to the metafieldsSet write, so Shopify itself atomically
+ * rejects the restore if the metafield changed in the narrow window
+ * between that read and this write — see meta-mutations.ts's
+ * updateShopifyPageMetaDescription/updateShopifyArticleMetaDescription and
+ * this phase's compareDigest research notes. After the Admin rollback
+ * succeeds, exactly one read-only public storefront check runs
+ * (verifyShopifyPublicValue, shared with Apply and Title Undo), whose real
+ * verified/pending/mismatch/unavailable result is recorded to fix_history
+ * — never a placeholder, and never used to trigger a second write.
  */
 export async function rollbackShopifyMetaFix(_prevState: RollbackShopifyMetaFixState, formData: FormData): Promise<RollbackShopifyMetaFixState> {
   const websiteId = formData.get('websiteId') as string | null
@@ -133,6 +153,18 @@ export async function rollbackShopifyMetaFix(_prevState: RollbackShopifyMetaFixS
     return { rollbackWriteStatus: 'failed', reason: mutationFailureMessage(updateResult.reason) }
   }
 
+  // Phase 20.1G: exactly one, read-only, single-attempt public storefront
+  // check, performed only AFTER the Admin rollback above already reported
+  // success. Expected value is the RESTORED (previous) description; "value
+  // before this write" is the description being undone.
+  const verification = await verifyShopifyPublicValue({
+    pageUrl: historyRow.page_url,
+    expectedValue: updateResult.value,
+    valueBeforeThisWrite: historyRow.applied_value,
+    extract: getMetaDescriptionContent,
+    fieldLabel: 'meta description',
+  })
+
   const historyStatus = await recordFixHistory({
     websiteId,
     platform: SHOPIFY_PLATFORM,
@@ -144,7 +176,7 @@ export async function rollbackShopifyMetaFix(_prevState: RollbackShopifyMetaFixS
     field: 'meta_description',
     previousValue: historyRow.applied_value,
     appliedValue: updateResult.value,
-    verificationStatus: 'admin_rollback_succeeded',
+    verificationStatus: verification.status,
   })
 
   revalidatePath(`/dashboard/websites/${websiteId}`)
@@ -154,6 +186,7 @@ export async function rollbackShopifyMetaFix(_prevState: RollbackShopifyMetaFixS
     resourceType: mapping.resourceType,
     resourceGid: updateResult.gid,
     restoredValue: updateResult.value,
+    verification,
     historyStatus,
   }
 }

@@ -20,22 +20,28 @@ import { generateShopifyTitleRecommendation } from '@/lib/ai/shopify-title-recom
 import { signShopifyTitlePreviewToken, verifyShopifyTitlePreviewToken } from '@/lib/fixes/preview-token'
 import { SHOPIFY_PLATFORM } from '@/lib/integrations/shopify/platform'
 import { recordFixHistory, type FixHistoryInsertResult } from './fix-history'
+import { getTitleText } from '@/lib/scanner/checks'
+import { verifyShopifyPublicValue, type ShopifyPublicVerification } from '@/lib/fixes/verify-shopify-public-value'
 
 /**
  * Phase 20.1D — Shopify Safe Title Fix backend foundation. Phase 20.1F adds
  * durable fix_history recording on a successful write, and safe Undo (see
  * shopify-title-rollback-actions.ts, which reuses executeTitleMutation and
  * mappingFailureMessage exported below rather than duplicating the
- * resource-type dispatch or failure-message mapping).
+ * resource-type dispatch or failure-message mapping). Phase 20.1G adds
+ * public storefront verification (via lib/fixes/verify-shopify-public-value.ts,
+ * shared with Meta Description and with Undo).
  *
  * IMPORTANT SCOPE BOUNDARY: a successful Apply here means the Shopify
  * Admin API confirmed the title field was updated — nothing more. It does
  * NOT mean the public storefront now shows the new title (a headless or
  * custom-themed store may render nothing from this field at all — see
  * lib/integrations/shopify/capabilities.ts's `renderControlProven: false`,
- * which this file never changes to `true`). Public verification is
- * Phase 20.1G's job. No UI trigger exists for this yet — that is
- * Phase 20.1H's job.
+ * which this file never changes to `true`). That is now a SEPARATE,
+ * explicit `verification` result on the success state below — never
+ * collapsed into `writeStatus`, which stays 'admin_write_succeeded'
+ * regardless of what verification finds. No UI trigger exists for this yet
+ * — that is Phase 20.1H's job.
  */
 
 // ---------------------------------------------------------------------------
@@ -231,6 +237,13 @@ export type ApplyShopifyTitleFixState =
       newTitle: string
       pageUrl: string
       /**
+       * Phase 20.1G: the public storefront verification result — fully
+       * independent of `writeStatus`, which stays 'admin_write_succeeded'
+       * regardless of what this says. A 'mismatch' or 'unavailable' never
+       * downgrades this to a failure, and never triggers a second mutation.
+       */
+      verification: ShopifyPublicVerification
+      /**
        * Phase 20.1F: whether this write was durably recorded to fix_history
        * (and is therefore Undo-eligible). 'failed' here means the Shopify
        * Admin write already succeeded regardless — see this file's Apply
@@ -392,18 +405,29 @@ export async function applyShopifyTitleFix(_prevState: ApplyShopifyTitleFixState
     return { writeStatus: 'failed', reason: mutationFailureMessage(updateResult.reason) }
   }
 
-  // Deliberately NOT "verified" — see this file's module doc comment.
-  // Phase 20.1G handles public verification; this history row's
-  // verification_status instead honestly records that only the Admin write
-  // itself was confirmed, mirroring this function's own `writeStatus`
-  // vocabulary rather than borrowing WordPress's verified/pending/mismatch
-  // language, which implies a public-page check that never happened here.
-  //
+  // Phase 20.1G: exactly one, read-only, single-attempt public storefront
+  // check — performed only AFTER the Admin mutation above already reported
+  // success, and its result never feeds back into another mutation or
+  // rollback. Uses the SAME page URL Apply already proved (moments earlier,
+  // in this same request, via resolveShopifyResource's domain/identity
+  // checks) corresponds to this exact resource — never a client-supplied
+  // URL, never a guess for headless/uncertain cases.
+  const verification = await verifyShopifyPublicValue({
+    pageUrl: trustedIssue.issue.pageUrl,
+    expectedValue: updateResult.title,
+    valueBeforeThisWrite: currentTitle,
+    extract: getTitleText,
+    fieldLabel: 'title',
+  })
+
   // Recorded only AFTER the mutation above already reported success — never
   // before (see this phase's brief: "Do NOT create a successful fix-history
-  // record before the Shopify write succeeded"). A failure here is reported
+  // record before the Shopify write succeeded"). verification_status now
+  // stores the REAL public-verification outcome (verified/pending/mismatch/
+  // unavailable) — never a placeholder implying the Admin response alone
+  // proved public rendering. A history persistence failure is reported
   // truthfully via `historyStatus` below, never silently, and never implies
-  // the Shopify write itself failed.
+  // the Shopify write (or the verification attempt) itself failed.
   const historyStatus = await recordFixHistory({
     websiteId: payload.websiteId,
     platform: SHOPIFY_PLATFORM,
@@ -415,7 +439,7 @@ export async function applyShopifyTitleFix(_prevState: ApplyShopifyTitleFixState
     field: 'title',
     previousValue: currentTitle,
     appliedValue: updateResult.title,
-    verificationStatus: 'admin_write_succeeded',
+    verificationStatus: verification.status,
   })
 
   return {
@@ -425,6 +449,7 @@ export async function applyShopifyTitleFix(_prevState: ApplyShopifyTitleFixState
     previousTitle: currentTitle,
     newTitle: updateResult.title,
     pageUrl: trustedIssue.issue.pageUrl,
+    verification,
     historyStatus,
   }
 }

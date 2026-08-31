@@ -65,7 +65,28 @@ function asRecord(value: unknown): Record<string, unknown> | null {
 
 export type ShopifyMetaDescriptionReadResult =
   | { ok: true; mechanism: 'seo_object'; currentValue: string | null; currentSeoTitle: string | null }
-  | { ok: true; mechanism: 'seo_metafield'; currentValue: string | null; metafieldType: string | null }
+  | {
+      ok: true
+      mechanism: 'seo_metafield'
+      currentValue: string | null
+      metafieldType: string | null
+      /**
+       * Phase 20.1G — the metafield's own `compareDigest` (Shopify's
+       * HasCompareDigest interface), read fresh in the SAME query as
+       * `currentValue`/`metafieldType`. Always non-null exactly when
+       * `metafieldType` is non-null (both come from the same metafield
+       * object existing or not — see the read functions below), and always
+       * null when the metafield doesn't exist yet, mirroring
+       * `metafieldType`'s own null-means-unproven convention. Passed
+       * through to updateShopifyPageMetaDescription/
+       * updateShopifyArticleMetaDescription so Shopify can atomically
+       * reject the write if the metafield changed since this read (see
+       * this phase's compareDigest research: confirmed current, officially
+       * supported on Metafield via metafieldsSet as of API 2024-07,
+       * continuing in 2026-07).
+       */
+      metafieldCompareDigest: string | null
+    }
   | Extract<ShopifyGraphQLResult, { ok: false }>
 
 const PRODUCT_SEO_QUERY = `query WebioomProductSeo($id: ID!) {
@@ -135,6 +156,7 @@ const PAGE_SEO_DESCRIPTION_QUERY = `query WebioomPageSeoDescription($id: ID!) {
     metafield(namespace: "${SEO_DESCRIPTION_METAFIELD_NAMESPACE}", key: "${SEO_DESCRIPTION_METAFIELD_KEY}") {
       value
       type
+      compareDigest
     }
   }
 }`
@@ -152,16 +174,17 @@ export async function readShopifyPageMetaDescription(shopDomain: string, accessT
     // a failure. There is no existing `type` to derive from, and per the
     // Phase 20.1E-R fail-closed rule, none is guessed — metafieldType is
     // null, signaling "cannot safely write yet" to the orchestration layer.
-    return { ok: true, mechanism: 'seo_metafield', currentValue: null, metafieldType: null }
+    return { ok: true, mechanism: 'seo_metafield', currentValue: null, metafieldType: null, metafieldCompareDigest: null }
   }
 
   const value = metafield.value
   const type = metafield.type
-  if (typeof value !== 'string' || typeof type !== 'string') {
+  const compareDigest = metafield.compareDigest
+  if (typeof value !== 'string' || typeof type !== 'string' || typeof compareDigest !== 'string') {
     return { ok: false, reason: 'malformed_response' }
   }
 
-  return { ok: true, mechanism: 'seo_metafield', currentValue: value, metafieldType: type }
+  return { ok: true, mechanism: 'seo_metafield', currentValue: value, metafieldType: type, metafieldCompareDigest: compareDigest }
 }
 
 const ARTICLE_SEO_DESCRIPTION_QUERY = `query WebioomArticleSeoDescription($id: ID!) {
@@ -169,6 +192,7 @@ const ARTICLE_SEO_DESCRIPTION_QUERY = `query WebioomArticleSeoDescription($id: I
     metafield(namespace: "${SEO_DESCRIPTION_METAFIELD_NAMESPACE}", key: "${SEO_DESCRIPTION_METAFIELD_KEY}") {
       value
       type
+      compareDigest
     }
   }
 }`
@@ -182,16 +206,17 @@ export async function readShopifyArticleMetaDescription(shopDomain: string, acce
 
   const metafield = asRecord(article.metafield)
   if (!metafield) {
-    return { ok: true, mechanism: 'seo_metafield', currentValue: null, metafieldType: null }
+    return { ok: true, mechanism: 'seo_metafield', currentValue: null, metafieldType: null, metafieldCompareDigest: null }
   }
 
   const value = metafield.value
   const type = metafield.type
-  if (typeof value !== 'string' || typeof type !== 'string') {
+  const compareDigest = metafield.compareDigest
+  if (typeof value !== 'string' || typeof type !== 'string' || typeof compareDigest !== 'string') {
     return { ok: false, reason: 'malformed_response' }
   }
 
-  return { ok: true, mechanism: 'seo_metafield', currentValue: value, metafieldType: type }
+  return { ok: true, mechanism: 'seo_metafield', currentValue: value, metafieldType: type, metafieldCompareDigest: compareDigest }
 }
 
 // ---------------------------------------------------------------------------
@@ -200,7 +225,30 @@ export async function readShopifyArticleMetaDescription(shopDomain: string, acce
 
 export type ShopifyMetaDescriptionUpdateResult =
   | { status: 'success'; gid: string; value: string }
-  | { status: 'failed'; reason: 'validation_failure' | 'permission_failure' | 'not_found' | 'malformed_response' | 'provider_error' }
+  | {
+      status: 'failed'
+      reason:
+        | 'validation_failure'
+        | 'permission_failure'
+        | 'not_found'
+        | 'malformed_response'
+        | 'provider_error'
+        /**
+         * Phase 20.1G — Page/Article only: Shopify's metafieldsSet rejected
+         * the write via compareDigest (userErrors code STALE_OBJECT or
+         * INVALID_COMPARE_DIGEST — confirmed against current official
+         * Shopify docs), meaning the metafield's persisted value/digest no
+         * longer matches what was read immediately before this write. This
+         * is the atomic, database-level version of the drift the caller
+         * already checks for at the application level moments earlier —
+         * reaching this path means a change landed in the narrow window
+         * between that check and this mutation actually committing. Never
+         * produced for Product/Collection, which has no compareDigest
+         * equivalent (see title-mutations.ts's and this module's own
+         * research notes).
+         */
+        | 'concurrent_modification'
+    }
 
 function graphqlFailureToMetaUpdateResult(result: Extract<ShopifyGraphQLResult, { ok: false }>): ShopifyMetaDescriptionUpdateResult {
   switch (result.reason) {
@@ -217,7 +265,22 @@ function graphqlFailureToMetaUpdateResult(result: Extract<ShopifyGraphQLResult, 
   }
 }
 
-function classifyUserErrors(userErrors: ReadonlyArray<{ field?: unknown; message?: unknown }>): 'permission_failure' | 'validation_failure' {
+/**
+ * `code` is only ever meaningfully populated for the Page/Article
+ * metafieldsSet call sites below (the only mutation in this module whose
+ * GraphQL selection asks for `userErrors { code }` at all — Product/
+ * Collection's productUpdate/collectionUpdate userErrors selection has no
+ * `code` field, since neither supports compareDigest); those callers
+ * always pass it, and the two other call sites simply omit it, so the
+ * `STALE_OBJECT`/`INVALID_COMPARE_DIGEST` branch below can never trigger
+ * for Product/Collection.
+ */
+function classifyUserErrors(
+  userErrors: ReadonlyArray<{ field?: unknown; message?: unknown; code?: unknown }>
+): 'permission_failure' | 'validation_failure' | 'concurrent_modification' {
+  const isCompareDigestConflict = userErrors.some((error) => error.code === 'STALE_OBJECT' || error.code === 'INVALID_COMPARE_DIGEST')
+  if (isCompareDigestConflict) return 'concurrent_modification'
+
   const looksLikePermission = userErrors.some((error) => typeof error.message === 'string' && /access|permission|scope/i.test(error.message))
   return looksLikePermission ? 'permission_failure' : 'validation_failure'
 }
@@ -387,16 +450,28 @@ const SET_PAGE_SEO_DESCRIPTION_MUTATION = `mutation WebioomSetPageSeoDescription
  * current docs to be a real, queryable field on Metafield — rather than
  * requiring a separate read-back call, per this phase's explicit
  * requirement to fail closed or prove identity strongly enough.
+ *
+ * Phase 20.1G: `compareDigest` MUST be the value returned by this module's
+ * OWN readShopifyPageMetaDescription, read immediately before this call —
+ * never a client-supplied value, never a value carried over from an
+ * earlier Prepare step. Shopify atomically rejects the write (userErrors
+ * code STALE_OBJECT/INVALID_COMPARE_DIGEST, surfaced here as
+ * 'concurrent_modification') if the metafield's persisted value no longer
+ * matches the digest that was read, closing the narrow race window between
+ * that read and this write actually committing.
  */
 export async function updateShopifyPageMetaDescription(
   shopDomain: string,
   accessToken: string,
   gid: string,
   description: string,
-  metafieldType: string
+  metafieldType: string,
+  compareDigest: string
 ): Promise<ShopifyMetaDescriptionUpdateResult> {
   const result = await fetchShopifyGraphQL(shopDomain, accessToken, SET_PAGE_SEO_DESCRIPTION_MUTATION, {
-    metafields: [{ ownerId: gid, namespace: SEO_DESCRIPTION_METAFIELD_NAMESPACE, key: SEO_DESCRIPTION_METAFIELD_KEY, type: metafieldType, value: description }],
+    metafields: [
+      { ownerId: gid, namespace: SEO_DESCRIPTION_METAFIELD_NAMESPACE, key: SEO_DESCRIPTION_METAFIELD_KEY, type: metafieldType, value: description, compareDigest },
+    ],
   })
   if (!result.ok) return graphqlFailureToMetaUpdateResult(result)
 
@@ -440,16 +515,24 @@ const SET_ARTICLE_SEO_DESCRIPTION_MUTATION = `mutation WebioomSetArticleSeoDescr
   }
 }`
 
-/** Updates ONLY the global.description_tag metafield on one specific, already-confirmed Shopify Article — same owner-identity-proof guarantee as updateShopifyPageMetaDescription. */
+/**
+ * Updates ONLY the global.description_tag metafield on one specific,
+ * already-confirmed Shopify Article — same owner-identity-proof guarantee
+ * and same compareDigest atomic-rejection contract as
+ * updateShopifyPageMetaDescription (see that function's doc comment).
+ */
 export async function updateShopifyArticleMetaDescription(
   shopDomain: string,
   accessToken: string,
   gid: string,
   description: string,
-  metafieldType: string
+  metafieldType: string,
+  compareDigest: string
 ): Promise<ShopifyMetaDescriptionUpdateResult> {
   const result = await fetchShopifyGraphQL(shopDomain, accessToken, SET_ARTICLE_SEO_DESCRIPTION_MUTATION, {
-    metafields: [{ ownerId: gid, namespace: SEO_DESCRIPTION_METAFIELD_NAMESPACE, key: SEO_DESCRIPTION_METAFIELD_KEY, type: metafieldType, value: description }],
+    metafields: [
+      { ownerId: gid, namespace: SEO_DESCRIPTION_METAFIELD_NAMESPACE, key: SEO_DESCRIPTION_METAFIELD_KEY, type: metafieldType, value: description, compareDigest },
+    ],
   })
   if (!result.ok) return graphqlFailureToMetaUpdateResult(result)
 
