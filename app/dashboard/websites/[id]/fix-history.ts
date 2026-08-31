@@ -1,19 +1,23 @@
 import 'server-only'
 import { createClient } from '@/lib/supabase/server'
-import type { PlatformType } from '@/lib/integrations/platform'
+import type { PlatformType, FixHistoryPlatform } from '@/lib/integrations/platform'
 
 export type FixHistoryInsertInput = {
   websiteId: string
   /**
    * The exact platform this write/rollback was performed against — always
    * the caller's own typed platform identity constant (e.g.
-   * lib/integrations/wordpress/adapter.ts's WORDPRESS_PLATFORM), never a
-   * bare string literal re-typed at the call site. This module deliberately
-   * has no WordPress-specific import of its own (it stays platform-agnostic
-   * core) — it only knows the generic PlatformType vocabulary and faithfully
-   * stores whatever typed value each platform's own orchestration provides.
+   * lib/integrations/wordpress/adapter.ts's WORDPRESS_PLATFORM, or
+   * lib/integrations/shopify/platform.ts's SHOPIFY_PLATFORM, added Phase
+   * 20.1F), never a bare string literal re-typed at the call site. This
+   * module deliberately has no WordPress- or Shopify-specific IMPORT of its
+   * own beyond this type (it stays platform-agnostic core) — it only knows
+   * the FixHistoryPlatform vocabulary and faithfully stores whatever typed
+   * value each platform's own orchestration provides. FixHistoryPlatform
+   * (not the narrower PlatformType) is used deliberately here — see that
+   * type's doc comment in lib/integrations/platform.ts.
    */
-  platform: PlatformType
+  platform: FixHistoryPlatform
   issueTitle: string
   pageUrl: string
   /** Only ever populated for field: 'image_alt' — the trusted, server-derived image URL this row's write/rollback targeted. Null for every other field. */
@@ -40,8 +44,34 @@ export type FixHistoryInsertInput = {
     | 'yoast_meta_description'
     | 'rank_math_meta_description'
     | null
-  resourceType: 'page' | 'post'
-  resourceId: number
+  /**
+   * Phase 20.1F widens this from WordPress's original 'page' | 'post' to
+   * also accept Shopify's four resource families. 'page' is a deliberate
+   * name collision between the two platforms (a WordPress Page and a
+   * Shopify Page are unrelated resource kinds) — this is safe ONLY because
+   * every rollback-eligibility check in this file gates on `platform`
+   * FIRST, before ever branching on `resourceType` (see
+   * isRollbackEligibleByShape and isShopifyRollbackEligibleByShape below).
+   */
+  resourceType: 'page' | 'post' | 'product' | 'collection' | 'article'
+  /**
+   * The WordPress numeric post/page ID. Phase 20.1F relaxes this to
+   * `number | null` — null for every Shopify row, which has no numeric
+   * identity and instead populates `resourceGid`. Every existing WordPress
+   * call site already passes a real number here, so this relaxation changes
+   * nothing about WordPress's own behavior.
+   */
+  resourceId: number | null
+  /**
+   * Phase 20.1F: the canonical Shopify Admin GraphQL GID (e.g.
+   * "gid://shopify/Product/123..."), populated ONLY for Shopify rows —
+   * always null for WordPress rows, which use `resourceId` instead. Shopify
+   * resources have no numeric identity, so this is a genuinely separate
+   * column rather than a reinterpretation of `resourceId`; see the Phase
+   * 20.1F migration note for why `resourceId` was not simply widened to a
+   * string type instead.
+   */
+  resourceGid?: string | null
   field: 'title' | 'meta_description' | 'h1' | 'image_alt'
   previousValue: string | null
   appliedValue: string
@@ -75,6 +105,7 @@ export async function recordFixHistory(input: FixHistoryInsertInput): Promise<Fi
       platform: input.platform,
       resource_type: input.resourceType,
       resource_id: input.resourceId,
+      resource_gid: input.resourceGid ?? null,
       field: input.field,
       previous_value: input.previousValue,
       applied_value: input.appliedValue,
@@ -106,6 +137,8 @@ export type FixHistoryRecord = {
   platform: string
   resource_type: string | null
   resource_id: number | null
+  /** Phase 20.1F — canonical Shopify Admin GID. Always null for WordPress rows. */
+  resource_gid: string | null
   field: string
   previous_value: string | null
   applied_value: string
@@ -116,7 +149,7 @@ export type FixHistoryRecord = {
 const RECENT_FIXES_LIMIT = 10
 
 const FIX_HISTORY_COLUMNS =
-  'id, issue_title, page_url, image_url, write_strategy, platform, resource_type, resource_id, field, previous_value, applied_value, verification_status, created_at'
+  'id, issue_title, page_url, image_url, write_strategy, platform, resource_type, resource_id, resource_gid, field, previous_value, applied_value, verification_status, created_at'
 
 /**
  * Read-only, for display in the report's "Recent Fixes" widget and the
@@ -261,5 +294,48 @@ export function isRollbackEligibleByShape(
     if (!row.image_url || typeof row.image_url !== 'string') return false
     if (!row.write_strategy || !IMAGE_ALT_WRITE_STRATEGIES.has(row.write_strategy)) return false
   }
+  return true
+}
+
+// ---------------------------------------------------------------------------
+// Shopify (Phase 20.1F)
+// ---------------------------------------------------------------------------
+
+const SHOPIFY_ROLLBACK_RESOURCE_TYPES = new Set(['product', 'collection', 'page', 'article'])
+
+/**
+ * Shape-only rollback eligibility for Shopify rows — the Shopify analogue of
+ * isRollbackEligibleByShape above, kept as a genuinely SEPARATE predicate
+ * rather than folded into it. Shopify's resource_type vocabulary
+ * (product/collection/page/article) and identity column (`resource_gid`, a
+ * string GID) are structurally different from WordPress's (page/post +
+ * numeric `resource_id`), and 'page' is a deliberate name collision between
+ * the two platforms' resource_type values (see FixHistoryRecord's doc
+ * comment) — this function's own `row.platform !== 'shopify'` check, run
+ * FIRST, is what makes that collision safe: a WordPress 'page' row can never
+ * reach the resource_type/resource_gid checks below, and a Shopify 'page'
+ * row can never reach isRollbackEligibleByShape's numeric resource_id check.
+ *
+ * Only 'title' and 'meta_description' are ever eligible — Shopify has no
+ * direct h1 or image_alt fix family (see
+ * lib/integrations/shopify/capabilities.ts's ShopifyFixFamily, which is not
+ * even the same type as WordPress's field vocabulary).
+ *
+ * A null previous_value is rejected for the same reason WordPress's version
+ * rejects it: ambiguous between "genuinely observed as empty" and "could not
+ * be read at fix time," never guessed at here. In practice neither current
+ * Shopify Title nor Meta Description Apply flow (Phase 20.1D/20.1E) ever
+ * records a null previous_value — both coerce a missing/null remote value to
+ * '' before recording it — so this is a defense-in-depth floor, not an
+ * expected trigger.
+ */
+export function isShopifyRollbackEligibleByShape(
+  row: Pick<FixHistoryRecord, 'platform' | 'field' | 'resource_type' | 'resource_gid' | 'previous_value'>
+): boolean {
+  if (row.platform !== 'shopify') return false
+  if (row.field !== 'title' && row.field !== 'meta_description') return false
+  if (!row.resource_type || !SHOPIFY_ROLLBACK_RESOURCE_TYPES.has(row.resource_type)) return false
+  if (!row.resource_gid || typeof row.resource_gid !== 'string') return false
+  if (row.previous_value === null) return false
   return true
 }

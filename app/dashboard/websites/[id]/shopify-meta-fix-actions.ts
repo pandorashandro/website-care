@@ -20,6 +20,8 @@ import {
 } from '@/lib/integrations/shopify/meta-mutations'
 import { generateShopifyMetaDescriptionRecommendation } from '@/lib/ai/shopify-meta-description-recommendation'
 import { signShopifyMetaPreviewToken, verifyShopifyMetaPreviewToken } from '@/lib/fixes/preview-token'
+import { SHOPIFY_PLATFORM } from '@/lib/integrations/shopify/platform'
+import { recordFixHistory, type FixHistoryInsertResult } from './fix-history'
 
 /**
  * Phase 20.1E — Shopify Safe Meta Description Fix backend foundation.
@@ -27,7 +29,11 @@ import { signShopifyMetaPreviewToken, verifyShopifyMetaPreviewToken } from '@/li
  * file's module doc comment): `admin_write_succeeded` means only that the
  * Shopify Admin API confirmed the write — never that the public
  * `<meta name="description">` changed. renderControlProven is never
- * flipped to true here. No fix_history write. No UI trigger.
+ * flipped to true here. Phase 20.1F adds durable fix_history recording on
+ * a successful write, and safe Undo (see shopify-meta-rollback-actions.ts,
+ * which reuses readCurrentMetaDescription/writeMetaDescription/
+ * mappingFailureMessage/mutationFailureMessage exported below rather than
+ * duplicating the resource-type dispatch). No UI trigger.
  */
 
 // ---------------------------------------------------------------------------
@@ -38,7 +44,8 @@ import { signShopifyMetaPreviewToken, verifyShopifyMetaPreviewToken } from '@/li
 // operation rather than one falsely-uniform dispatcher.
 // ---------------------------------------------------------------------------
 
-async function readCurrentMetaDescription(
+/** Exported so shopify-meta-rollback-actions.ts's Undo flow can perform the exact same fresh read (drift comparison + proven mechanism/type) rather than a second, divergable copy. */
+export async function readCurrentMetaDescription(
   resourceType: ShopifyResourceFamily,
   shopDomain: string,
   accessToken: string,
@@ -66,7 +73,8 @@ async function readCurrentMetaDescription(
  * requireProvenMetafieldType below) before ever reaching this function;
  * it is never guessed here or anywhere else.
  */
-async function writeMetaDescription(
+/** Exported so shopify-meta-rollback-actions.ts's Undo flow restores through the exact same constrained, resource-specific writer Apply used, never a generic one. Callers MUST pass a `readResult` freshly obtained immediately before this call — see requireProvenMetafieldType and the module doc comment above. */
+export async function writeMetaDescription(
   resourceType: ShopifyResourceFamily,
   shopDomain: string,
   accessToken: string,
@@ -113,7 +121,8 @@ function pathFromUrl(url: string): string {
   }
 }
 
-function mappingFailureMessage(mapping: Extract<ShopifyResourceMapping, { ok: false }>): string {
+/** Exported so shopify-meta-rollback-actions.ts can report the exact same failure wording rather than a second, divergable copy of this switch. */
+export function mappingFailureMessage(mapping: Extract<ShopifyResourceMapping, { ok: false }>): string {
   switch (mapping.reason) {
     case 'homepage_unsupported':
       return 'webioom does not yet support direct fixes for a Shopify homepage.'
@@ -282,12 +291,21 @@ export type ApplyShopifyMetaFixState =
       previousValue: string
       newValue: string
       pageUrl: string
+      /**
+       * Phase 20.1F: whether this write was durably recorded to fix_history
+       * (and is therefore Undo-eligible). 'failed' here means the Shopify
+       * Admin write already succeeded regardless — see this file's Apply
+       * doc comment — never that the meta description change should be
+       * treated as not having happened.
+       */
+      historyStatus: FixHistoryInsertResult
     }
   | { writeStatus: 'already_applied'; resourceType: ShopifyResourceFamily; resourceGid: string; currentValue: string }
   | { writeStatus: 'failed'; reason: string }
   | null
 
-function mutationFailureMessage(reason: Extract<ShopifyMetaDescriptionUpdateResult, { status: 'failed' }>['reason']): string {
+/** Exported for reuse by shopify-meta-rollback-actions.ts — same mutation result shape, same safe user-facing wording. */
+export function mutationFailureMessage(reason: Extract<ShopifyMetaDescriptionUpdateResult, { status: 'failed' }>['reason']): string {
   switch (reason) {
     case 'permission_failure':
       return 'The connected Shopify store did not allow this update (permission denied).'
@@ -400,6 +418,27 @@ export async function applyShopifyMetaFix(_prevState: ApplyShopifyMetaFixState, 
     return { writeStatus: 'failed', reason: mutationFailureMessage(updateResult.reason) }
   }
 
+  // Recorded only AFTER the mutation above already reported success (this
+  // phase's brief: "Do NOT create a successful fix-history record before
+  // the Shopify write succeeded"). verification_status uses this file's own
+  // 'admin_write_succeeded' vocabulary rather than WordPress's
+  // verified/pending/mismatch language, since no public-page check happens
+  // here — that is Phase 20.1G's job. A history persistence failure is
+  // reported truthfully via `historyStatus` below, never silently.
+  const historyStatus = await recordFixHistory({
+    websiteId: payload.websiteId,
+    platform: SHOPIFY_PLATFORM,
+    issueTitle: trustedIssue.issue.issueTitle,
+    pageUrl: trustedIssue.issue.pageUrl,
+    resourceType: mapping.resourceType,
+    resourceId: null,
+    resourceGid: updateResult.gid,
+    field: 'meta_description',
+    previousValue: currentValue,
+    appliedValue: updateResult.value,
+    verificationStatus: 'admin_write_succeeded',
+  })
+
   return {
     writeStatus: 'admin_write_succeeded',
     resourceType: mapping.resourceType,
@@ -408,5 +447,6 @@ export async function applyShopifyMetaFix(_prevState: ApplyShopifyMetaFixState, 
     previousValue: currentValue,
     newValue: updateResult.value,
     pageUrl: trustedIssue.issue.pageUrl,
+    historyStatus,
   }
 }

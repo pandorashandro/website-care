@@ -18,9 +18,15 @@ import {
 } from '@/lib/integrations/shopify/title-mutations'
 import { generateShopifyTitleRecommendation } from '@/lib/ai/shopify-title-recommendation'
 import { signShopifyTitlePreviewToken, verifyShopifyTitlePreviewToken } from '@/lib/fixes/preview-token'
+import { SHOPIFY_PLATFORM } from '@/lib/integrations/shopify/platform'
+import { recordFixHistory, type FixHistoryInsertResult } from './fix-history'
 
 /**
- * Phase 20.1D — Shopify Safe Title Fix backend foundation.
+ * Phase 20.1D — Shopify Safe Title Fix backend foundation. Phase 20.1F adds
+ * durable fix_history recording on a successful write, and safe Undo (see
+ * shopify-title-rollback-actions.ts, which reuses executeTitleMutation and
+ * mappingFailureMessage exported below rather than duplicating the
+ * resource-type dispatch or failure-message mapping).
  *
  * IMPORTANT SCOPE BOUNDARY: a successful Apply here means the Shopify
  * Admin API confirmed the title field was updated — nothing more. It does
@@ -28,10 +34,8 @@ import { signShopifyTitlePreviewToken, verifyShopifyTitlePreviewToken } from '@/
  * custom-themed store may render nothing from this field at all — see
  * lib/integrations/shopify/capabilities.ts's `renderControlProven: false`,
  * which this file never changes to `true`). Public verification is
- * Phase 20.1G's job. History/Undo is Phase 20.1F's job — this file records
- * nothing to fix_history. No UI trigger exists for this yet — that is
- * Phase 20.1H's job. This file is complete, callable, server-only backend
- * infrastructure with no current caller.
+ * Phase 20.1G's job. No UI trigger exists for this yet — that is
+ * Phase 20.1H's job.
  */
 
 // ---------------------------------------------------------------------------
@@ -59,8 +63,15 @@ function pathFromUrl(url: string): string {
   }
 }
 
-/** Translates a resource-mapping failure into a Prepare-time, user-safe diagnostic — never a guess, never a generic catch-all when a more specific reason is available. */
-function mappingFailureMessage(mapping: Extract<ShopifyResourceMapping, { ok: false }>): string {
+/**
+ * Translates a resource-mapping failure into a user-safe diagnostic — never
+ * a guess, never a generic catch-all when a more specific reason is
+ * available. Exported so shopify-title-rollback-actions.ts's Undo flow (which
+ * performs the exact same fresh resource-mapping call) can report the exact
+ * same failure wording rather than maintaining a second, divergable copy of
+ * this switch.
+ */
+export function mappingFailureMessage(mapping: Extract<ShopifyResourceMapping, { ok: false }>): string {
   switch (mapping.reason) {
     case 'homepage_unsupported':
       return 'webioom does not yet support direct fixes for a Shopify homepage.'
@@ -219,12 +230,26 @@ export type ApplyShopifyTitleFixState =
       previousTitle: string
       newTitle: string
       pageUrl: string
+      /**
+       * Phase 20.1F: whether this write was durably recorded to fix_history
+       * (and is therefore Undo-eligible). 'failed' here means the Shopify
+       * Admin write already succeeded regardless — see this file's Apply
+       * doc comment — never that the title change should be treated as not
+       * having happened.
+       */
+      historyStatus: FixHistoryInsertResult
     }
   | { writeStatus: 'already_applied'; resourceType: ShopifyResourceFamily; resourceGid: string; currentTitle: string }
   | { writeStatus: 'failed'; reason: string }
   | null
 
-async function executeTitleMutation(
+/**
+ * Resource-type dispatch for the title mutation — exported so
+ * shopify-title-rollback-actions.ts can restore a title through the exact
+ * same constrained, resource-specific writer Apply used, never a generic
+ * one.
+ */
+export async function executeTitleMutation(
   resourceType: ShopifyResourceFamily,
   shopDomain: string,
   accessToken: string,
@@ -243,7 +268,8 @@ async function executeTitleMutation(
   }
 }
 
-function mutationFailureMessage(reason: Extract<ShopifyTitleUpdateResult, { status: 'failed' }>['reason']): string {
+/** Exported for reuse by shopify-title-rollback-actions.ts — same mutation result shape, same safe user-facing wording. */
+export function mutationFailureMessage(reason: Extract<ShopifyTitleUpdateResult, { status: 'failed' }>['reason']): string {
   switch (reason) {
     case 'permission_failure':
       return 'The connected Shopify store did not allow this update (permission denied).'
@@ -367,8 +393,31 @@ export async function applyShopifyTitleFix(_prevState: ApplyShopifyTitleFixState
   }
 
   // Deliberately NOT "verified" — see this file's module doc comment.
-  // History/Undo recording is Phase 20.1F's responsibility, not this
-  // file's; nothing is written to fix_history here.
+  // Phase 20.1G handles public verification; this history row's
+  // verification_status instead honestly records that only the Admin write
+  // itself was confirmed, mirroring this function's own `writeStatus`
+  // vocabulary rather than borrowing WordPress's verified/pending/mismatch
+  // language, which implies a public-page check that never happened here.
+  //
+  // Recorded only AFTER the mutation above already reported success — never
+  // before (see this phase's brief: "Do NOT create a successful fix-history
+  // record before the Shopify write succeeded"). A failure here is reported
+  // truthfully via `historyStatus` below, never silently, and never implies
+  // the Shopify write itself failed.
+  const historyStatus = await recordFixHistory({
+    websiteId: payload.websiteId,
+    platform: SHOPIFY_PLATFORM,
+    issueTitle: trustedIssue.issue.issueTitle,
+    pageUrl: trustedIssue.issue.pageUrl,
+    resourceType: mapping.resourceType,
+    resourceId: null,
+    resourceGid: updateResult.gid,
+    field: 'title',
+    previousValue: currentTitle,
+    appliedValue: updateResult.title,
+    verificationStatus: 'admin_write_succeeded',
+  })
+
   return {
     writeStatus: 'admin_write_succeeded',
     resourceType: mapping.resourceType,
@@ -376,5 +425,6 @@ export async function applyShopifyTitleFix(_prevState: ApplyShopifyTitleFixState
     previousTitle: currentTitle,
     newTitle: updateResult.title,
     pageUrl: trustedIssue.issue.pageUrl,
+    historyStatus,
   }
 }

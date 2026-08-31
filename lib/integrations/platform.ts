@@ -36,6 +36,31 @@
 export type PlatformType = 'wordpress'
 
 /**
+ * Phase 20.1F — the platform vocabulary fix_history is actually allowed to
+ * durably record, which is deliberately WIDER than `PlatformType` above.
+ *
+ * `PlatformType` gates real, compiled, user-facing platform *adapters* —
+ * lib/integrations/registry.ts and components/integrations/integration-list.tsx
+ * both key an exhaustive `Record<PlatformType, ...>` off it specifically so
+ * that widening it forces a real decision about dashboard/registry exposure
+ * at the moment a platform actually gains one (see those files' own doc
+ * comments). Shopify's OAuth/resource-mapping/capability/Title/Meta-write
+ * foundation (Phases 20.1A-20.1E) is real and compiled, but Shopify is
+ * deliberately NOT yet exposed in the dashboard/registry (that is Phase
+ * 20.1H's job) — so widening `PlatformType` itself here would force that
+ * exposure decision early, for the wrong reason (a history-table column
+ * value), which is exactly what this phase's brief asks NOT to do.
+ *
+ * `FixHistoryPlatform` exists so `fix_history`'s `platform` column — a
+ * durable audit/Undo value, not a dashboard-registry key — can honestly
+ * record `'shopify'` today without disturbing that unrelated gate. Every
+ * other module keeps using `PlatformType` exactly as before; only
+ * app/dashboard/websites/[id]/fix-history.ts (and the Shopify fix/rollback
+ * actions that call into it) use this type.
+ */
+export type FixHistoryPlatform = PlatformType | 'shopify'
+
+/**
  * The generic three-state result of checking whether an integration can do
  * something. Extracted from the WordPress capability model
  * (lib/integrations/wordpress/capabilities.ts's `CapabilityValue`), which
