@@ -1,7 +1,9 @@
 import Card from '@/components/ui/card'
 import Badge from '@/components/ui/badge'
 import { ISSUE_DEFINITIONS } from '@/lib/scanner/issue-definitions'
+import { getTitleIssueKind, getMetaDescriptionIssueKind } from '@/lib/fixes/fix-preview'
 import PrepareFixButton from '@/app/dashboard/websites/[id]/prepare-fix-button'
+import ShopifyPrepareFixButton from '@/app/dashboard/websites/[id]/shopify-prepare-fix-button'
 import AffectedPages from './affected-pages'
 import IssueActionPanel from './issue-action-panel'
 import {
@@ -45,9 +47,20 @@ export default function IssueGroup({
   websiteId: string
   missingImageAltInstances: MissingImageAltInstance[]
 }) {
+  const shopifyFixKind = getTitleIssueKind(issue.title) ? 'title' : getMetaDescriptionIssueKind(issue.title) ? 'meta_description' : null
+
   const fixButtons =
     issue.fixability.level === 'assisted' ? (
-      issue.title === ISSUE_DEFINITIONS.missing_image_alt.title ? (
+      issue.fixProvider === 'shopify' ? (
+        issue.shopifyIssueId && issue.affectedPageUrls[0] && shopifyFixKind && (
+          <ShopifyPrepareFixButton
+            websiteId={websiteId}
+            pageLabel={formatPageLabel(issue.affectedPageUrls[0])}
+            issueId={issue.shopifyIssueId}
+            fixKind={shopifyFixKind}
+          />
+        )
+      ) : issue.title === ISSUE_DEFINITIONS.missing_image_alt.title ? (
         missingImageAltInstances.length > 0 && (
           <div className="space-y-2">
             <p className="text-xs font-medium uppercase tracking-wide text-subtle">Images missing alt text</p>

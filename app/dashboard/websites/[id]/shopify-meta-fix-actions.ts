@@ -2,7 +2,7 @@
 
 import { getValidShopifyAccessToken } from './shopify-credentials'
 import { getTrustedShopifyMetaIssue } from './shopify-meta-issue'
-import { resolveShopifyResource, type ShopifyResourceMapping } from '@/lib/integrations/shopify/resource-mapping'
+import { resolveShopifyResource, mappingFailureMessage } from '@/lib/integrations/shopify/resource-mapping'
 import { getGrantedShopifyScopes } from '@/lib/integrations/shopify/scopes'
 import { evaluateShopifyFixCapability, type ShopifyResourceFamily } from '@/lib/integrations/shopify/capabilities'
 import { validateShopifyMetaDescription } from '@/lib/integrations/shopify/meta-proposal'
@@ -15,6 +15,7 @@ import {
   updateShopifyCollectionMetaDescription,
   updateShopifyPageMetaDescription,
   updateShopifyArticleMetaDescription,
+  mutationFailureMessage,
   type ShopifyMetaDescriptionReadResult,
   type ShopifyMetaDescriptionUpdateResult,
 } from '@/lib/integrations/shopify/meta-mutations'
@@ -140,30 +141,6 @@ function pathFromUrl(url: string): string {
   }
 }
 
-/** Exported so shopify-meta-rollback-actions.ts can report the exact same failure wording rather than a second, divergable copy of this switch. */
-export function mappingFailureMessage(mapping: Extract<ShopifyResourceMapping, { ok: false }>): string {
-  switch (mapping.reason) {
-    case 'homepage_unsupported':
-      return 'webioom does not yet support direct fixes for a Shopify homepage.'
-    case 'localized_route_unsupported':
-      return 'This page appears to use a localized or market-specific storefront URL, which webioom does not yet support for direct fixes.'
-    case 'unsupported_route':
-    case 'invalid_url':
-      return 'webioom does not recognize this page as a supported Shopify resource.'
-    case 'domain_mismatch':
-      return 'This page does not appear to belong to the connected Shopify store.'
-    case 'resource_not_found':
-      return 'webioom could not find a matching resource in your connected Shopify store.'
-    case 'ambiguous_resource':
-      return 'webioom found more than one possible match for this page and cannot safely proceed.'
-    case 'unauthorized':
-      return 'The connected Shopify store did not accept webioom’s access. Please reconnect Shopify.'
-    case 'connection_error':
-      return 'webioom could not reach the connected Shopify store right now. Please try again shortly.'
-    case 'malformed_response':
-      return 'The connected Shopify store returned an unexpected response.'
-  }
-}
 
 // ---------------------------------------------------------------------------
 // Prepare
@@ -330,24 +307,6 @@ export type ApplyShopifyMetaFixState =
   | { writeStatus: 'already_applied'; resourceType: ShopifyResourceFamily; resourceGid: string; currentValue: string }
   | { writeStatus: 'failed'; reason: string }
   | null
-
-/** Exported for reuse by shopify-meta-rollback-actions.ts — same mutation result shape, same safe user-facing wording. */
-export function mutationFailureMessage(reason: Extract<ShopifyMetaDescriptionUpdateResult, { status: 'failed' }>['reason']): string {
-  switch (reason) {
-    case 'permission_failure':
-      return 'The connected Shopify store did not allow this update (permission denied).'
-    case 'validation_failure':
-      return 'Shopify rejected this meta description update.'
-    case 'not_found':
-      return 'This Shopify resource could not be found.'
-    case 'provider_error':
-      return 'Shopify could not be reached to apply this update. Please try again shortly.'
-    case 'malformed_response':
-      return 'Shopify’s response did not confirm the meta description was updated.'
-    case 'concurrent_modification':
-      return 'This field changed in Shopify at the exact moment webioom tried to update it. Please try again.'
-  }
-}
 
 /**
  * Applies a previously-previewed Shopify meta-description fix. Mirrors

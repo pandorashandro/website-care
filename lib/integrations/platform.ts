@@ -29,34 +29,34 @@
  */
 
 /**
- * Every platform webioom can integrate with. Today there is exactly one
- * implemented platform. Future adapters extend this union when they are
- * actually built — never in advance of a real implementation.
+ * Every platform webioom can integrate with, AND that is exposed as a real,
+ * user-facing dashboard integration (registry entry, connect/disconnect UX,
+ * issue-action wiring). 'shopify' was added here in Phase 20.1H, once
+ * Shopify had both a real, committed adapter surface (lib/integrations/shopify/*,
+ * connection/auth, Safe Title + Safe Meta Description fixes, fix_history +
+ * rollback support, and public verification — Phases 20.1A-20.1G) AND was
+ * deliberately exposed in lib/integrations/registry.ts and
+ * components/integrations/integration-list.tsx. This union only ever grows
+ * when both conditions hold, never in advance of them.
  */
-export type PlatformType = 'wordpress'
+export type PlatformType = 'wordpress' | 'shopify'
 
 /**
  * Phase 20.1F — the platform vocabulary fix_history is actually allowed to
- * durably record, which is deliberately WIDER than `PlatformType` above.
- *
- * `PlatformType` gates real, compiled, user-facing platform *adapters* —
- * lib/integrations/registry.ts and components/integrations/integration-list.tsx
- * both key an exhaustive `Record<PlatformType, ...>` off it specifically so
- * that widening it forces a real decision about dashboard/registry exposure
- * at the moment a platform actually gains one (see those files' own doc
- * comments). Shopify's OAuth/resource-mapping/capability/Title/Meta-write
- * foundation (Phases 20.1A-20.1E) is real and compiled, but Shopify is
- * deliberately NOT yet exposed in the dashboard/registry (that is Phase
- * 20.1H's job) — so widening `PlatformType` itself here would force that
- * exposure decision early, for the wrong reason (a history-table column
- * value), which is exactly what this phase's brief asks NOT to do.
- *
- * `FixHistoryPlatform` exists so `fix_history`'s `platform` column — a
- * durable audit/Undo value, not a dashboard-registry key — can honestly
- * record `'shopify'` today without disturbing that unrelated gate. Every
- * other module keeps using `PlatformType` exactly as before; only
- * app/dashboard/websites/[id]/fix-history.ts (and the Shopify fix/rollback
- * actions that call into it) use this type.
+ * durably record. Introduced back when Shopify's backend (20.1A-20.1E) was
+ * real and compiled but deliberately NOT yet exposed in the dashboard
+ * registry (that exposure was Phase 20.1H's job, now done) — at that point
+ * `FixHistoryPlatform` needed to be WIDER than `PlatformType` so fix_history
+ * could honestly record 'shopify' rows without forcing the registry
+ * exposure decision early. Now that Phase 20.1H has actually widened
+ * `PlatformType` to include 'shopify', the two types are equivalent in
+ * practice — `FixHistoryPlatform` is kept as its own named type (rather
+ * than replaced everywhere with `PlatformType`) only so
+ * app/dashboard/websites/[id]/fix-history.ts and
+ * lib/integrations/shopify/platform.ts don't need an unrelated import
+ * churn, and so a FUTURE platform can repeat this same
+ * backend-before-registry-exposure sequence without fix-history.ts needing
+ * another type change at that point.
  */
 export type FixHistoryPlatform = PlatformType | 'shopify'
 

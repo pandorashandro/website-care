@@ -4,8 +4,10 @@ import { Hand, Lock, ShieldCheck, Puzzle } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { detectWordPress } from '@/lib/integrations/wordpress/detect-wordpress'
 import { getWordPressConnectionSummary } from '../wordpress-capabilities'
+import { getShopifyConnectionStatus } from '../shopify-connection-status'
 import Container from '@/components/ui/container'
 import Card from '@/components/ui/card'
+import Alert from '@/components/ui/alert'
 import WebsiteSubNav from '@/components/website/website-sub-nav'
 import IntegrationList from '@/components/integrations/integration-list'
 
@@ -23,6 +25,7 @@ const TRUST_POINTS = [
 
 export default async function WebsiteIntegrationsPage(props: PageProps<'/dashboard/websites/[id]/integrations'>) {
   const { id } = await props.params
+  const searchParams = await props.searchParams
 
   const supabase = await createClient()
 
@@ -48,12 +51,19 @@ export default async function WebsiteIntegrationsPage(props: PageProps<'/dashboa
     notFound()
   }
 
-  // getWordPressConnectionSummary independently re-verifies session +
-  // ownership itself — it never trusts this page's earlier check.
-  const [wordpress, wordpressConnection] = await Promise.all([
+  // getWordPressConnectionSummary/getShopifyConnectionStatus each
+  // independently re-verify session + ownership themselves — neither trusts
+  // this page's earlier check.
+  const [wordpress, wordpressConnection, shopifyConnection] = await Promise.all([
     detectWordPress(website.url),
     getWordPressConnectionSummary(website.id),
+    getShopifyConnectionStatus(website.id),
   ])
+
+  // Set only by the Shopify OAuth callback route
+  // (app/api/integrations/shopify/callback/route.ts) redirecting back here —
+  // a one-time, read-only banner, never trusted for anything beyond display.
+  const shopifyOAuthResult = typeof searchParams.shopify === 'string' ? searchParams.shopify : null
 
   return (
     <Container size="md" className="py-10">
@@ -72,8 +82,24 @@ export default async function WebsiteIntegrationsPage(props: PageProps<'/dashboa
         </p>
       </div>
 
+      {shopifyOAuthResult === 'connected' && (
+        <Alert tone="success" className="mt-6">
+          Shopify connected successfully.
+        </Alert>
+      )}
+      {shopifyOAuthResult === 'error' && (
+        <Alert tone="danger" className="mt-6">
+          webioom could not connect Shopify. Please try again.
+        </Alert>
+      )}
+
       <div className="mt-6">
-        <IntegrationList websiteId={website.id} wordpress={wordpress} wordpressConnection={wordpressConnection} />
+        <IntegrationList
+          websiteId={website.id}
+          wordpress={wordpress}
+          wordpressConnection={wordpressConnection}
+          shopifyConnection={shopifyConnection}
+        />
       </div>
 
       <Card padding="md" className="mt-6">

@@ -3,24 +3,38 @@ import Card from '@/components/ui/card'
 import Badge from '@/components/ui/badge'
 import { formatPageLabel } from '@/components/report/report-helpers'
 import type { FixHistoryRecord } from '@/app/dashboard/websites/[id]/fix-history'
-import { isRollbackEligibleByShape } from '@/app/dashboard/websites/[id]/fix-history'
+import { isRollbackEligibleByShape, isShopifyRollbackEligibleByShape } from '@/app/dashboard/websites/[id]/fix-history'
 import UndoFixButton from '@/app/dashboard/websites/[id]/undo-fix-button'
 import UndoMetaFixButton from '@/app/dashboard/websites/[id]/undo-meta-fix-button'
 import UndoH1FixButton from '@/app/dashboard/websites/[id]/undo-h1-fix-button'
 import UndoImageAltFixButton from '@/app/dashboard/websites/[id]/undo-image-alt-fix-button'
+import UndoShopifyTitleFixButton from '@/app/dashboard/websites/[id]/undo-shopify-title-fix-button'
+import UndoShopifyMetaFixButton from '@/app/dashboard/websites/[id]/undo-shopify-meta-fix-button'
 import { getActionLabel, isUndoRow, formatPreviousValue, formatDateTime, formatImageLabel, getVerificationCopy } from './activity-helpers'
 
+const SHOPIFY_RESOURCE_LABELS: Record<string, string> = {
+  product: 'Product',
+  collection: 'Collection',
+  page: 'Page',
+  article: 'Article',
+}
+
 /**
- * One fix_history row, translated into product language. Reuses the exact
- * same Undo components and isRollbackEligibleByShape gate the report page's
- * Recent Fixes widget already used — no rollback logic is reimplemented
- * here, and eligibility (including for rollback rows themselves, which the
- * existing gate does not exclude) behaves identically to before.
+ * One fix_history row, translated into product language. WordPress rows
+ * keep reusing the exact same Undo components and isRollbackEligibleByShape
+ * gate this component always used. Shopify rows (platform === 'shopify')
+ * are routed to a genuinely separate eligibility check
+ * (isShopifyRollbackEligibleByShape) and their own Undo components — the
+ * two platforms' resource_type vocabularies collide on the literal string
+ * 'page' (a WordPress Page vs. a Shopify Page are unrelated resources), so
+ * `platform` is checked FIRST, before any field/resource_type branching,
+ * exactly mirroring fix-history.ts's own eligibility functions.
  */
 export default function ActivityItem({ fix, websiteId }: { fix: FixHistoryRecord; websiteId: string }) {
   const undo = isUndoRow(fix)
   const verification = getVerificationCopy(fix.verification_status)
-  const eligible = isRollbackEligibleByShape(fix)
+  const isShopify = fix.platform === 'shopify'
+  const eligible = isShopify ? isShopifyRollbackEligibleByShape(fix) : isRollbackEligibleByShape(fix)
 
   return (
     <Card padding="md">
@@ -36,6 +50,11 @@ export default function ActivityItem({ fix, websiteId }: { fix: FixHistoryRecord
         <p className="truncate font-mono text-xs text-muted">Page · {formatPageLabel(fix.page_url)}</p>
         {fix.field === 'image_alt' && fix.image_url && (
           <p className="truncate font-mono text-xs text-muted">Image · {formatImageLabel(fix.image_url)}</p>
+        )}
+        {isShopify && (
+          <p className="truncate font-mono text-xs text-muted">
+            Shopify · {(fix.resource_type && SHOPIFY_RESOURCE_LABELS[fix.resource_type]) || 'Resource'}
+          </p>
         )}
       </div>
 
@@ -54,7 +73,23 @@ export default function ActivityItem({ fix, websiteId }: { fix: FixHistoryRecord
 
       <p className="mt-3 text-xs text-subtle">{formatDateTime(fix.created_at)}</p>
 
-      {eligible && fix.field === 'title' && (
+      {eligible && isShopify && fix.field === 'title' && (
+        <UndoShopifyTitleFixButton
+          websiteId={websiteId}
+          fixHistoryId={fix.id}
+          previousValue={fix.previous_value ?? ''}
+          appliedValue={fix.applied_value}
+        />
+      )}
+      {eligible && isShopify && fix.field === 'meta_description' && (
+        <UndoShopifyMetaFixButton
+          websiteId={websiteId}
+          fixHistoryId={fix.id}
+          previousValue={fix.previous_value ?? ''}
+          appliedValue={fix.applied_value}
+        />
+      )}
+      {eligible && !isShopify && fix.field === 'title' && (
         <UndoFixButton
           websiteId={websiteId}
           fixHistoryId={fix.id}
@@ -62,7 +97,7 @@ export default function ActivityItem({ fix, websiteId }: { fix: FixHistoryRecord
           appliedValue={fix.applied_value}
         />
       )}
-      {eligible && fix.field === 'meta_description' && (
+      {eligible && !isShopify && fix.field === 'meta_description' && (
         <UndoMetaFixButton
           websiteId={websiteId}
           fixHistoryId={fix.id}
@@ -70,10 +105,10 @@ export default function ActivityItem({ fix, websiteId }: { fix: FixHistoryRecord
           appliedValue={fix.applied_value}
         />
       )}
-      {eligible && fix.field === 'h1' && (
+      {eligible && !isShopify && fix.field === 'h1' && (
         <UndoH1FixButton websiteId={websiteId} fixHistoryId={fix.id} appliedValue={fix.applied_value} />
       )}
-      {eligible && fix.field === 'image_alt' && (
+      {eligible && !isShopify && fix.field === 'image_alt' && (
         <UndoImageAltFixButton
           websiteId={websiteId}
           fixHistoryId={fix.id}

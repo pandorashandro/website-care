@@ -5,16 +5,28 @@ import type { FixabilityLevel, FixabilityResult } from '@/lib/fixes/fixability'
 import type { BadgeTone } from '@/components/ui/badge'
 
 /**
- * An aggregated issue decorated once, server-side, with the two facts every
+ * An aggregated issue decorated once, server-side, with the facts every
  * report component needs but neither aggregateIssues nor evaluateFixability
  * knows how to produce on their own: a stable anchor id (so "Needs your
- * attention" can link straight to the full card below) and its precomputed
- * fixability result. No new business logic — both values are computed once
- * in the page and passed down as plain data.
+ * attention" can link straight to the full card below), its precomputed
+ * fixability result, and — Phase 20.1H — which connected platform (if any)
+ * is the one actually offering that fixability result. `fixability` itself
+ * (lib/fixes/fixability.ts) stays completely platform-agnostic and
+ * untouched; `fixProvider` is computed alongside it, in the page, purely to
+ * let IssueGroup decide which Prepare-Fix component to render (WordPress's
+ * existing one, or Shopify's) without lib/fixes/fixability.ts ever needing
+ * to know a second platform exists. `fixProvider` is null whenever no
+ * platform is offering an assisted fix for this issue (fixability.level !==
+ * 'assisted'), and also null for every issue type Shopify has no opinion on
+ * (H1, Image Alt, everything else) even when Shopify is connected — see
+ * lib/integrations/shopify/issue-fixability.ts.
  */
 export type DecoratedIssue = AggregatedIssue & {
   anchorId: string
   fixability: FixabilityResult
+  fixProvider: 'wordpress' | 'shopify' | null
+  /** Only set when fixProvider === 'shopify' — the trusted issue row id Shopify's Prepare-Fix flow requires (see shopify-title-issue.ts/shopify-meta-issue.ts). WordPress's own fix flow never needs this. */
+  shopifyIssueId?: string
 }
 
 /**

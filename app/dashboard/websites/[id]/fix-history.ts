@@ -256,22 +256,37 @@ const META_DESCRIPTION_WRITE_STRATEGIES = new Set(['yoast_meta_description', 'ra
 
 /**
  * Platform-compatibility gate for rollback, kept as a single named source of
- * truth rather than a bare string comparison. `Record<PlatformType, true>`
- * is deliberately used instead of a plain array/Set: if PlatformType ever
- * gains a second member, this object literal fails to type-check until a
- * decision is made for that platform too, so a future platform can never be
- * silently treated as rollback-compatible by omission. This is an allowlist
+ * truth rather than a bare string comparison. `Record<PlatformType, boolean>`
+ * is deliberate: if PlatformType ever gains a new member, this object
+ * literal fails to type-check until an explicit true/false decision is made
+ * for that platform too, so a future platform can never be silently treated
+ * as rollback-compatible (or incompatible) by omission. This is an allowlist
  * check, not a dispatcher — it says nothing about HOW to roll a platform
  * back, only whether this row's platform is one any current rollback
  * implementation is entitled to touch. Every fix-family rollback action
  * (wordpress-*-rollback-actions.ts) reverses WordPress content specifically;
  * a row from any other/unknown platform value must fail closed here rather
  * than be guessed at downstream.
+ *
+ * `shopify: false` is a deliberate, explicit statement, not a stale
+ * placeholder: it means "this WordPress-specific eligibility function is
+ * not the one that governs Shopify rows" — NOT "Shopify has no rollback
+ * support." Shopify rows ARE rollback-eligible, but through their own,
+ * genuinely separate predicate (isShopifyRollbackEligibleByShape, below),
+ * because Shopify's resource_type vocabulary and identity column
+ * (resource_gid, a string GID) are structurally different from WordPress's
+ * (numeric resource_id) — folding them into one function/one allowlist
+ * would either force Shopify through WordPress-shaped checks that don't
+ * apply to it, or weaken WordPress's own numeric-resource_id assumption.
+ * Every caller must therefore branch on `platform` FIRST and call the
+ * matching eligibility function for that platform (see ActivityItem in
+ * components/activity/activity-item.tsx) — this Record only ever gates
+ * WordPress's own isRollbackEligibleByShape below, never Shopify rows.
  */
-const ROLLBACK_COMPATIBLE_PLATFORMS: Record<PlatformType, true> = { wordpress: true }
+const ROLLBACK_COMPATIBLE_PLATFORMS: Record<PlatformType, boolean> = { wordpress: true, shopify: false }
 
 function isRollbackCompatiblePlatform(platform: string): platform is PlatformType {
-  return Object.prototype.hasOwnProperty.call(ROLLBACK_COMPATIBLE_PLATFORMS, platform)
+  return Object.prototype.hasOwnProperty.call(ROLLBACK_COMPATIBLE_PLATFORMS, platform) && ROLLBACK_COMPATIBLE_PLATFORMS[platform as PlatformType]
 }
 
 export function isRollbackEligibleByShape(

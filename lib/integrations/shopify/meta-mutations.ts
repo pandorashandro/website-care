@@ -557,3 +557,27 @@ export async function updateShopifyArticleMetaDescription(
 
   return { status: 'success', gid, value: returnedValue }
 }
+
+/**
+ * Same safe user-facing wording used by Meta Description Apply and Undo —
+ * moved here (from shopify-meta-fix-actions.ts, a `'use server'` file,
+ * where a synchronous, non-Server-Action export is not permitted) so both
+ * shopify-meta-fix-actions.ts and shopify-meta-rollback-actions.ts can
+ * import a single shared implementation from a plain `server-only` module.
+ */
+export function mutationFailureMessage(reason: Extract<ShopifyMetaDescriptionUpdateResult, { status: 'failed' }>['reason']): string {
+  switch (reason) {
+    case 'permission_failure':
+      return 'The connected Shopify store did not allow this update (permission denied).'
+    case 'validation_failure':
+      return 'Shopify rejected this meta description update.'
+    case 'not_found':
+      return 'This Shopify resource could not be found.'
+    case 'provider_error':
+      return 'Shopify could not be reached to apply this update. Please try again shortly.'
+    case 'malformed_response':
+      return 'Shopify’s response did not confirm the meta description was updated.'
+    case 'concurrent_modification':
+      return 'This field changed in Shopify at the exact moment webioom tried to update it. Please try again.'
+  }
+}

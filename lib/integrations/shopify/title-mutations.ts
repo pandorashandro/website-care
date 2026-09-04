@@ -197,3 +197,25 @@ export async function updateShopifyArticleTitle(shopDomain: string, accessToken:
   if (!result.ok) return graphqlFailureToTitleUpdateResult(result)
   return validateTitleMutationPayload(result.data.articleUpdate, 'article', gid, title)
 }
+
+/**
+ * Same safe user-facing wording used by Title Apply and Title Undo — moved
+ * here (from shopify-title-fix-actions.ts, a `'use server'` file, where a
+ * synchronous, non-Server-Action export is not permitted) so both
+ * shopify-title-fix-actions.ts and shopify-title-rollback-actions.ts can
+ * import a single shared implementation from a plain `server-only` module.
+ */
+export function mutationFailureMessage(reason: Extract<ShopifyTitleUpdateResult, { status: 'failed' }>['reason']): string {
+  switch (reason) {
+    case 'permission_failure':
+      return 'The connected Shopify store did not allow this update (permission denied).'
+    case 'validation_failure':
+      return 'Shopify rejected this title update.'
+    case 'not_found':
+      return 'This Shopify resource could not be found.'
+    case 'provider_error':
+      return 'Shopify could not be reached to apply this update. Please try again shortly.'
+    case 'malformed_response':
+      return 'Shopify’s response did not confirm the title was updated.'
+  }
+}

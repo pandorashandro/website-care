@@ -2,10 +2,11 @@
 
 import { revalidatePath } from 'next/cache'
 import { getValidShopifyAccessToken } from './shopify-credentials'
-import { resolveShopifyResource } from '@/lib/integrations/shopify/resource-mapping'
+import { resolveShopifyResource, mappingFailureMessage } from '@/lib/integrations/shopify/resource-mapping'
 import { getGrantedShopifyScopes } from '@/lib/integrations/shopify/scopes'
 import { evaluateShopifyFixCapability, type ShopifyResourceFamily } from '@/lib/integrations/shopify/capabilities'
-import { executeTitleMutation, mappingFailureMessage, mutationFailureMessage } from './shopify-title-fix-actions'
+import { mutationFailureMessage } from '@/lib/integrations/shopify/title-mutations'
+import { executeTitleMutation } from './shopify-title-fix-actions'
 import { SHOPIFY_PLATFORM } from '@/lib/integrations/shopify/platform'
 import { getFixHistoryRowForRollback, isShopifyRollbackEligibleByShape, recordFixHistory, type FixHistoryInsertResult } from './fix-history'
 import { getTitleText } from '@/lib/scanner/checks'

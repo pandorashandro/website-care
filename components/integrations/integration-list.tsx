@@ -2,13 +2,16 @@ import type { ReactNode } from 'react'
 import type { PlatformType } from '@/lib/integrations/platform'
 import type { WordPressDetectionResult } from '@/lib/integrations/wordpress/detect-wordpress'
 import type { WordPressConnectionSummary } from '@/app/dashboard/websites/[id]/wordpress-capabilities'
+import type { ShopifyConnectionStatus } from '@/app/dashboard/websites/[id]/shopify-connection-status'
 import { INTEGRATIONS } from '@/lib/integrations/registry'
 import WordPressIntegrationCard from './wordpress-integration-card'
+import ShopifyIntegrationCard from './shopify-integration-card'
 
 type IntegrationListProps = {
   websiteId: string
   wordpress: WordPressDetectionResult
   wordpressConnection: WordPressConnectionSummary
+  shopifyConnection: ShopifyConnectionStatus
 }
 
 /**
@@ -31,6 +34,9 @@ type IntegrationListProps = {
 const INTEGRATION_CARD_RENDERERS: Record<PlatformType, (props: IntegrationListProps) => ReactNode> = {
   wordpress: ({ websiteId, wordpress, wordpressConnection }) => (
     <WordPressIntegrationCard websiteId={websiteId} wordpress={wordpress} wordpressConnection={wordpressConnection} />
+  ),
+  shopify: ({ websiteId, shopifyConnection }) => (
+    <ShopifyIntegrationCard websiteId={websiteId} shopifyConnection={shopifyConnection} />
   ),
 }
 

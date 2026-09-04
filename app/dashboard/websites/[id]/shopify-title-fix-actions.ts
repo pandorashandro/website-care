@@ -2,7 +2,7 @@
 
 import { getValidShopifyAccessToken } from './shopify-credentials'
 import { getTrustedShopifyTitleIssue } from './shopify-title-issue'
-import { resolveShopifyResource, type ShopifyResourceMapping } from '@/lib/integrations/shopify/resource-mapping'
+import { resolveShopifyResource, mappingFailureMessage } from '@/lib/integrations/shopify/resource-mapping'
 import { getGrantedShopifyScopes } from '@/lib/integrations/shopify/scopes'
 import { evaluateShopifyFixCapability, type ShopifyResourceFamily } from '@/lib/integrations/shopify/capabilities'
 import {
@@ -14,6 +14,7 @@ import {
   updateShopifyCollectionTitle,
   updateShopifyPageTitle,
   updateShopifyArticleTitle,
+  mutationFailureMessage,
   type ShopifyTitleUpdateResult,
 } from '@/lib/integrations/shopify/title-mutations'
 import { generateShopifyTitleRecommendation } from '@/lib/ai/shopify-title-recommendation'
@@ -66,38 +67,6 @@ function pathFromUrl(url: string): string {
     return new URL(url).pathname
   } catch {
     return url
-  }
-}
-
-/**
- * Translates a resource-mapping failure into a user-safe diagnostic — never
- * a guess, never a generic catch-all when a more specific reason is
- * available. Exported so shopify-title-rollback-actions.ts's Undo flow (which
- * performs the exact same fresh resource-mapping call) can report the exact
- * same failure wording rather than maintaining a second, divergable copy of
- * this switch.
- */
-export function mappingFailureMessage(mapping: Extract<ShopifyResourceMapping, { ok: false }>): string {
-  switch (mapping.reason) {
-    case 'homepage_unsupported':
-      return 'webioom does not yet support direct fixes for a Shopify homepage.'
-    case 'localized_route_unsupported':
-      return 'This page appears to use a localized or market-specific storefront URL, which webioom does not yet support for direct fixes.'
-    case 'unsupported_route':
-    case 'invalid_url':
-      return 'webioom does not recognize this page as a supported Shopify resource.'
-    case 'domain_mismatch':
-      return 'This page does not appear to belong to the connected Shopify store.'
-    case 'resource_not_found':
-      return 'webioom could not find a matching resource in your connected Shopify store.'
-    case 'ambiguous_resource':
-      return 'webioom found more than one possible match for this page and cannot safely proceed.'
-    case 'unauthorized':
-      return 'The connected Shopify store did not accept webioom’s access. Please reconnect Shopify.'
-    case 'connection_error':
-      return 'webioom could not reach the connected Shopify store right now. Please try again shortly.'
-    case 'malformed_response':
-      return 'The connected Shopify store returned an unexpected response.'
   }
 }
 
@@ -278,22 +247,6 @@ export async function executeTitleMutation(
       return updateShopifyPageTitle(shopDomain, accessToken, gid, title)
     case 'article':
       return updateShopifyArticleTitle(shopDomain, accessToken, gid, title)
-  }
-}
-
-/** Exported for reuse by shopify-title-rollback-actions.ts — same mutation result shape, same safe user-facing wording. */
-export function mutationFailureMessage(reason: Extract<ShopifyTitleUpdateResult, { status: 'failed' }>['reason']): string {
-  switch (reason) {
-    case 'permission_failure':
-      return 'The connected Shopify store did not allow this update (permission denied).'
-    case 'validation_failure':
-      return 'Shopify rejected this title update.'
-    case 'not_found':
-      return 'This Shopify resource could not be found.'
-    case 'provider_error':
-      return 'Shopify could not be reached to apply this update. Please try again shortly.'
-    case 'malformed_response':
-      return 'Shopify’s response did not confirm the title was updated.'
   }
 }
 

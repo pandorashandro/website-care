@@ -345,3 +345,39 @@ export async function resolveShopifyResource(
       return resolveArticle(shopDomain, accessToken, route.blogHandle, route.articleHandle)
   }
 }
+
+/**
+ * Translates a resource-mapping failure into a user-safe diagnostic — never
+ * a guess, never a generic catch-all when a more specific reason is
+ * available. A single shared implementation (moved here from
+ * shopify-title-fix-actions.ts/shopify-meta-fix-actions.ts, which had two
+ * byte-identical copies) so Title Prepare/Apply, Meta Prepare/Apply, and
+ * both rollback actions all report the exact same wording for the exact
+ * same failure, and so it can live in a plain `server-only` module rather
+ * than a `'use server'` Server Actions file — Next.js requires every export
+ * from a `'use server'` file to itself be an async Server Action, which this
+ * synchronous helper never was.
+ */
+export function mappingFailureMessage(mapping: Extract<ShopifyResourceMapping, { ok: false }>): string {
+  switch (mapping.reason) {
+    case 'homepage_unsupported':
+      return 'webioom does not yet support direct fixes for a Shopify homepage.'
+    case 'localized_route_unsupported':
+      return 'This page appears to use a localized or market-specific storefront URL, which webioom does not yet support for direct fixes.'
+    case 'unsupported_route':
+    case 'invalid_url':
+      return 'webioom does not recognize this page as a supported Shopify resource.'
+    case 'domain_mismatch':
+      return 'This page does not appear to belong to the connected Shopify store.'
+    case 'resource_not_found':
+      return 'webioom could not find a matching resource in your connected Shopify store.'
+    case 'ambiguous_resource':
+      return 'webioom found more than one possible match for this page and cannot safely proceed.'
+    case 'unauthorized':
+      return 'The connected Shopify store did not accept webioom’s access. Please reconnect Shopify.'
+    case 'connection_error':
+      return 'webioom could not reach the connected Shopify store right now. Please try again shortly.'
+    case 'malformed_response':
+      return 'The connected Shopify store returned an unexpected response.'
+  }
+}
