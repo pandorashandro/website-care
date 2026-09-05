@@ -72,7 +72,11 @@ export async function createWixAccessToken(instanceId: string): Promise<WixAcces
 
 export type WixApiResult =
   | { ok: true; status: number; data: Record<string, unknown> }
-  | { ok: false; reason: 'unauthorized' | 'forbidden' | 'not_found' | 'blocked' | 'timeout' | 'network' | 'malformed_response' | 'unexpected_status'; status?: number }
+  | {
+      ok: false
+      reason: 'unauthorized' | 'forbidden' | 'not_found' | 'invalid_request' | 'blocked' | 'timeout' | 'network' | 'malformed_response' | 'unexpected_status'
+      status?: number
+    }
 
 /**
  * Sole HTTP primitive for authenticated Wix REST API calls. Deliberately
@@ -86,7 +90,7 @@ export type WixApiResult =
 export async function fetchWixApi(
   path: string,
   accessToken: string,
-  init?: { method?: 'GET' | 'POST' | 'PUT' | 'DELETE'; body?: unknown }
+  init?: { method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'; body?: unknown }
 ): Promise<WixApiResult> {
   const controller = new AbortController()
   const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS)
@@ -113,6 +117,13 @@ export async function fetchWixApi(
   if (response.status === 401) return { ok: false, reason: 'unauthorized', status: response.status }
   if (response.status === 403) return { ok: false, reason: 'forbidden', status: response.status }
   if (response.status === 404) return { ok: false, reason: 'not_found', status: response.status }
+  // 400 is distinguished from other non-2xx statuses specifically so
+  // write callers (lib/integrations/wix/seo-tags.ts) can report a
+  // validation failure (Wix rejected the proposed tag content/shape, e.g.
+  // INVALID_TAGS) rather than a generic provider error — Wix's own docs
+  // confirm a 400 here never partially applies a change ("a request that
+  // contains an invalid tag changes nothing").
+  if (response.status === 400) return { ok: false, reason: 'invalid_request', status: response.status }
 
   if (response.status < 200 || response.status >= 300) {
     return { ok: false, reason: 'unexpected_status', status: response.status }

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { isRollbackEligibleByShape, isShopifyRollbackEligibleByShape } from '@/app/dashboard/websites/[id]/fix-history'
+import { isRollbackEligibleByShape, isShopifyRollbackEligibleByShape, isWixRollbackEligibleByShape } from '@/app/dashboard/websites/[id]/fix-history'
 
 /**
  * Phase 21 — permanent regression coverage for the single most dangerous
@@ -119,5 +119,82 @@ describe('Shopify rollback eligibility (isShopifyRollbackEligibleByShape)', () =
 
   it('rejects a null previous_value', () => {
     expect(isShopifyRollbackEligibleByShape({ ...baseShopifyRow, previous_value: null })).toBe(false)
+  })
+})
+
+/**
+ * Wix V1 Prompt 2 — same platform-isolation invariant, extended to a third
+ * platform. Covers items U (history shape platform isolation) and V
+ * (wrong-platform history cannot rollback) of that phase's test
+ * checklist. Wix's own resource_type vocabulary (blog_post/stores_product)
+ * doesn't collide with either existing platform's on the literal string
+ * level, but the platform-first gate is still what actually protects
+ * against cross-platform Undo, not the absence of a collision — these
+ * tests fail loudly if that gate were ever weakened for any of the three
+ * platforms.
+ */
+const baseWixRow = {
+  platform: 'wix',
+  field: 'title' as const,
+  resource_type: 'blog_post',
+  resource_gid: 'c1dmp',
+  previous_value: 'Old Title',
+}
+
+describe('Wix rollback eligibility (isWixRollbackEligibleByShape)', () => {
+  it('accepts a well-formed Wix title row', () => {
+    expect(isWixRollbackEligibleByShape(baseWixRow)).toBe(true)
+  })
+
+  it('accepts a well-formed Wix meta_description row', () => {
+    expect(isWixRollbackEligibleByShape({ ...baseWixRow, field: 'meta_description' })).toBe(true)
+  })
+
+  it('rejects a WordPress row even with a Wix-looking resource_gid present', () => {
+    expect(
+      isWixRollbackEligibleByShape({
+        platform: 'wordpress',
+        field: 'title',
+        resource_type: 'blog_post',
+        resource_gid: 'c1dmp',
+        previous_value: 'Old Title',
+      })
+    ).toBe(false)
+  })
+
+  it('rejects a Shopify row (cross-platform isolation, item V)', () => {
+    expect(
+      isWixRollbackEligibleByShape({
+        platform: 'shopify',
+        field: 'title',
+        resource_type: 'blog_post',
+        resource_gid: 'gid://shopify/Product/123',
+        previous_value: 'Old Title',
+      })
+    ).toBe(false)
+  })
+
+  it('rejects h1 and image_alt fields — Wix has no direct fix for either', () => {
+    expect(isWixRollbackEligibleByShape({ ...baseWixRow, field: 'h1' })).toBe(false)
+    expect(isWixRollbackEligibleByShape({ ...baseWixRow, field: 'image_alt' })).toBe(false)
+  })
+
+  it('accepts both supported Wix resource types', () => {
+    expect(isWixRollbackEligibleByShape({ ...baseWixRow, resource_type: 'blog_post' })).toBe(true)
+    expect(isWixRollbackEligibleByShape({ ...baseWixRow, resource_type: 'stores_product' })).toBe(true)
+  })
+
+  it('rejects an unsupported resource_type, including a WordPress/Shopify-shaped one', () => {
+    for (const resourceType of ['page', 'post', 'product', 'collection', 'article']) {
+      expect(isWixRollbackEligibleByShape({ ...baseWixRow, resource_type: resourceType })).toBe(false)
+    }
+  })
+
+  it('rejects a missing/null resource_gid', () => {
+    expect(isWixRollbackEligibleByShape({ ...baseWixRow, resource_gid: null })).toBe(false)
+  })
+
+  it('rejects a null previous_value', () => {
+    expect(isWixRollbackEligibleByShape({ ...baseWixRow, previous_value: null })).toBe(false)
   })
 })

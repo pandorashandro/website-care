@@ -42,23 +42,24 @@
 export type PlatformType = 'wordpress' | 'shopify'
 
 /**
- * Phase 20.1F — the platform vocabulary fix_history is actually allowed to
- * durably record. Introduced back when Shopify's backend (20.1A-20.1E) was
- * real and compiled but deliberately NOT yet exposed in the dashboard
- * registry (that exposure was Phase 20.1H's job, now done) — at that point
- * `FixHistoryPlatform` needed to be WIDER than `PlatformType` so fix_history
- * could honestly record 'shopify' rows without forcing the registry
- * exposure decision early. Now that Phase 20.1H has actually widened
- * `PlatformType` to include 'shopify', the two types are equivalent in
- * practice — `FixHistoryPlatform` is kept as its own named type (rather
- * than replaced everywhere with `PlatformType`) only so
- * app/dashboard/websites/[id]/fix-history.ts and
- * lib/integrations/shopify/platform.ts don't need an unrelated import
- * churn, and so a FUTURE platform can repeat this same
+ * The platform vocabulary fix_history is actually allowed to durably
+ * record — deliberately WIDER than `PlatformType` whenever a platform's
+ * backend is real and compiled but not yet exposed in the dashboard
+ * registry. This is now proven twice: Shopify's 20.1A-20.1E backend
+ * predated its own `PlatformType`/registry exposure this way, and Wix's
+ * Safe Fix backend (this phase) is in exactly that position now — Wix
+ * fix/rollback actions record real `platform: 'wix'` history rows despite
+ * `PlatformType` itself still being `'wordpress' | 'shopify'` (see that
+ * type's own doc comment for why registry exposure is deliberately
+ * deferred). `FixHistoryPlatform` is kept as its own named type (rather
+ * than replaced everywhere with `PlatformType`) so
+ * app/dashboard/websites/[id]/fix-history.ts and each platform's own
+ * `<platform>/platform.ts` constant don't need an unrelated import churn,
+ * and so a future platform can repeat this same
  * backend-before-registry-exposure sequence without fix-history.ts needing
  * another type change at that point.
  */
-export type FixHistoryPlatform = PlatformType | 'shopify'
+export type FixHistoryPlatform = PlatformType | 'wix'
 
 /**
  * The generic three-state result of checking whether an integration can do

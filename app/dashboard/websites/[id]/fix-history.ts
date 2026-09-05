@@ -45,31 +45,35 @@ export type FixHistoryInsertInput = {
     | 'rank_math_meta_description'
     | null
   /**
-   * Phase 20.1F widens this from WordPress's original 'page' | 'post' to
-   * also accept Shopify's four resource families. 'page' is a deliberate
-   * name collision between the two platforms (a WordPress Page and a
-   * Shopify Page are unrelated resource kinds) — this is safe ONLY because
-   * every rollback-eligibility check in this file gates on `platform`
-   * FIRST, before ever branching on `resourceType` (see
-   * isRollbackEligibleByShape and isShopifyRollbackEligibleByShape below).
+   * Phase 20.1F widened this from WordPress's original 'page' | 'post' to
+   * also accept Shopify's four resource families; Wix V1 Prompt 2 widens
+   * it again to add Wix's two resource families ('blog_post',
+   * 'stores_product'). 'page' is a deliberate name collision between
+   * WordPress and Shopify (a WordPress Page and a Shopify Page are
+   * unrelated resource kinds) — this is safe ONLY because every
+   * rollback-eligibility check in this file gates on `platform` FIRST,
+   * before ever branching on `resourceType` (see isRollbackEligibleByShape,
+   * isShopifyRollbackEligibleByShape, and isWixRollbackEligibleByShape
+   * below).
    */
-  resourceType: 'page' | 'post' | 'product' | 'collection' | 'article'
+  resourceType: 'page' | 'post' | 'product' | 'collection' | 'article' | 'blog_post' | 'stores_product'
   /**
    * The WordPress numeric post/page ID. Phase 20.1F relaxes this to
-   * `number | null` — null for every Shopify row, which has no numeric
-   * identity and instead populates `resourceGid`. Every existing WordPress
-   * call site already passes a real number here, so this relaxation changes
-   * nothing about WordPress's own behavior.
+   * `number | null` — null for every Shopify or Wix row, neither of which
+   * has a numeric identity and instead populates `resourceGid`. Every
+   * existing WordPress call site already passes a real number here, so
+   * this relaxation changes nothing about WordPress's own behavior.
    */
   resourceId: number | null
   /**
    * Phase 20.1F: the canonical Shopify Admin GraphQL GID (e.g.
-   * "gid://shopify/Product/123..."), populated ONLY for Shopify rows —
-   * always null for WordPress rows, which use `resourceId` instead. Shopify
-   * resources have no numeric identity, so this is a genuinely separate
-   * column rather than a reinterpretation of `resourceId`; see the Phase
-   * 20.1F migration note for why `resourceId` was not simply widened to a
-   * string type instead.
+   * "gid://shopify/Product/123..."), populated for Shopify rows. Wix V1
+   * Prompt 2 reuses this same column for Wix's item GUID (e.g.
+   * "c1dmp") — a plain string identifier, not a GID URI, but the column
+   * itself is untyped `text` with no format constraint beyond "a string
+   * identity for a non-numeric-ID platform," which both shapes fit
+   * equally well. Always null for WordPress rows, which use `resourceId`
+   * instead.
    */
   resourceGid?: string | null
   field: 'title' | 'meta_description' | 'h1' | 'image_alt'
@@ -350,6 +354,42 @@ export function isShopifyRollbackEligibleByShape(
   if (row.platform !== 'shopify') return false
   if (row.field !== 'title' && row.field !== 'meta_description') return false
   if (!row.resource_type || !SHOPIFY_ROLLBACK_RESOURCE_TYPES.has(row.resource_type)) return false
+  if (!row.resource_gid || typeof row.resource_gid !== 'string') return false
+  if (row.previous_value === null) return false
+  return true
+}
+
+// ---------------------------------------------------------------------------
+// Wix (Wix V1 Prompt 2)
+// ---------------------------------------------------------------------------
+
+const WIX_ROLLBACK_RESOURCE_TYPES = new Set(['blog_post', 'stores_product'])
+
+/**
+ * Shape-only rollback eligibility for Wix rows — the Wix analogue of
+ * isShopifyRollbackEligibleByShape above, kept as a genuinely SEPARATE
+ * predicate rather than folded into either existing one, exactly per
+ * docs/integration-kit.md §9: Wix's resource_type vocabulary
+ * (blog_post/stores_product) and identity column (`resource_gid`, a plain
+ * Wix item GUID string — not a GID URI the way Shopify's is, but the same
+ * underlying `text` column) are structurally different enough from both
+ * WordPress's and Shopify's own shapes to warrant their own predicate, and
+ * this function's own `row.platform !== 'wix'` check, run FIRST, is what
+ * keeps Wix rows from ever being considered by WordPress's or Shopify's
+ * eligibility functions (and vice versa) despite all three sharing the
+ * same underlying columns.
+ *
+ * Only 'title' and 'meta_description' are ever eligible — Wix has no
+ * direct H1 or Image Alt fix family (see
+ * lib/integrations/wix/capabilities.ts's WixFixFamily, which does not
+ * even include either).
+ */
+export function isWixRollbackEligibleByShape(
+  row: Pick<FixHistoryRecord, 'platform' | 'field' | 'resource_type' | 'resource_gid' | 'previous_value'>
+): boolean {
+  if (row.platform !== 'wix') return false
+  if (row.field !== 'title' && row.field !== 'meta_description') return false
+  if (!row.resource_type || !WIX_ROLLBACK_RESOURCE_TYPES.has(row.resource_type)) return false
   if (!row.resource_gid || typeof row.resource_gid !== 'string') return false
   if (row.previous_value === null) return false
   return true

@@ -858,3 +858,277 @@ export function verifyShopifyMetaPreviewToken(token: string): VerifiedShopifyMet
     },
   }
 }
+
+// ---------------------------------------------------------------------------
+// Wix Title preview tokens (Wix V1 Prompt 2)
+//
+// A seventh, deliberately separate token "kind" — same signing key, same
+// HMAC-SHA256 primitive, same TTL, but its own version tag
+// (WIX_TITLE_TOKEN_VERSION) baked into the signed string, so it can never
+// be parsed as, or confused with, any of the six existing token kinds (or
+// vice versa). Nothing about those six sign/verify functions changes.
+//
+// Binds every fact Apply-time rechecking needs to detect substitution: the
+// trusted issue this Prepare call started from, the server-derived Wix
+// resource identity (itemType + itemId, both from resolveWixResource —
+// never client-supplied), and the exact current title Prepare observed
+// (for drift detection at Apply). No Wix access token, instanceId, app
+// secret, or the item's full tag array is ever included — Apply always
+// re-derives those fresh, never from this token.
+// ---------------------------------------------------------------------------
+
+const WIX_TITLE_TOKEN_VERSION = 'wix-title-v1'
+
+export type WixTitlePreviewTokenPayload = {
+  /** The trusted issues.id row this preview was derived from — re-fetched and re-validated (never trusted alone) at Apply time. */
+  issueId: string
+  websiteId: string
+  pageUrl: string
+  issueTitle: string
+  field: 'title'
+  itemType: 'blog_post' | 'stores_product'
+  /** The Wix item GUID resolveWixResource confirmed at Prepare time — re-resolved and compared fresh at Apply, never trusted from this token alone. */
+  itemId: string
+  /** '' represents a missing/empty current title, matching the Shopify/WordPress title token convention. */
+  expectedCurrentTitle: string
+  proposedValue: string
+  expiresAt: number
+}
+
+function canonicalWixTitleBody(payload: WixTitlePreviewTokenPayload): string {
+  return JSON.stringify([
+    WIX_TITLE_TOKEN_VERSION,
+    payload.issueId,
+    payload.websiteId,
+    payload.pageUrl,
+    payload.issueTitle,
+    payload.field,
+    payload.itemType,
+    payload.itemId,
+    payload.expectedCurrentTitle,
+    payload.proposedValue,
+    payload.expiresAt,
+  ])
+}
+
+export function signWixTitlePreviewToken(payload: Omit<WixTitlePreviewTokenPayload, 'expiresAt'>): string {
+  const full: WixTitlePreviewTokenPayload = { ...payload, expiresAt: Date.now() + TOKEN_TTL_MS }
+  const body = Buffer.from(canonicalWixTitleBody(full), 'utf8').toString('base64url')
+  const signature = createHmac('sha256', getSigningKey()).update(body).digest('base64url')
+  return `${WIX_TITLE_TOKEN_VERSION}.${body}.${signature}`
+}
+
+export type VerifiedWixTitlePreviewToken =
+  | { ok: true; payload: WixTitlePreviewTokenPayload }
+  | { ok: false; reason: 'malformed' | 'invalid_signature' | 'expired' }
+
+export function verifyWixTitlePreviewToken(token: string): VerifiedWixTitlePreviewToken {
+  const parts = token.split('.')
+
+  if (parts.length !== 3 || parts[0] !== WIX_TITLE_TOKEN_VERSION) {
+    return { ok: false, reason: 'malformed' }
+  }
+
+  const [, body, signature] = parts
+
+  let expectedSignature: string
+  try {
+    expectedSignature = createHmac('sha256', getSigningKey()).update(body).digest('base64url')
+  } catch {
+    return { ok: false, reason: 'malformed' }
+  }
+
+  let signatureBuf: Buffer
+  let expectedBuf: Buffer
+  try {
+    signatureBuf = Buffer.from(signature, 'base64url')
+    expectedBuf = Buffer.from(expectedSignature, 'base64url')
+  } catch {
+    return { ok: false, reason: 'malformed' }
+  }
+
+  if (signatureBuf.length !== expectedBuf.length || !timingSafeEqual(signatureBuf, expectedBuf)) {
+    return { ok: false, reason: 'invalid_signature' }
+  }
+
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(Buffer.from(body, 'base64url').toString('utf8'))
+  } catch {
+    return { ok: false, reason: 'malformed' }
+  }
+
+  if (!Array.isArray(parsed) || parsed.length !== 11) {
+    return { ok: false, reason: 'malformed' }
+  }
+
+  const [version, issueId, websiteId, pageUrl, issueTitle, field, itemType, itemId, expectedCurrentTitle, proposedValueRaw, expiresAt] = parsed
+
+  if (
+    version !== WIX_TITLE_TOKEN_VERSION ||
+    typeof issueId !== 'string' ||
+    typeof websiteId !== 'string' ||
+    typeof pageUrl !== 'string' ||
+    typeof issueTitle !== 'string' ||
+    field !== 'title' ||
+    (itemType !== 'blog_post' && itemType !== 'stores_product') ||
+    typeof itemId !== 'string' ||
+    typeof expectedCurrentTitle !== 'string' ||
+    typeof proposedValueRaw !== 'string' ||
+    typeof expiresAt !== 'number'
+  ) {
+    return { ok: false, reason: 'malformed' }
+  }
+
+  if (Date.now() > expiresAt) {
+    return { ok: false, reason: 'expired' }
+  }
+
+  return {
+    ok: true,
+    payload: {
+      issueId,
+      websiteId,
+      pageUrl,
+      issueTitle,
+      field,
+      itemType,
+      itemId,
+      expectedCurrentTitle,
+      proposedValue: proposedValueRaw,
+      expiresAt,
+    },
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Wix Meta Description preview tokens (Wix V1 Prompt 2)
+//
+// An eighth, deliberately separate token "kind" — same signing key, same
+// HMAC-SHA256 primitive, same TTL, but its own version tag
+// (WIX_META_TOKEN_VERSION) baked into the signed string. Structurally
+// identical to the Wix title token above except for `field` and the
+// current-value field name, mirroring the Shopify title/meta token pair's
+// own precedent of two near-identical but separately-versioned kinds.
+// ---------------------------------------------------------------------------
+
+const WIX_META_TOKEN_VERSION = 'wix-meta-v1'
+
+export type WixMetaPreviewTokenPayload = {
+  issueId: string
+  websiteId: string
+  pageUrl: string
+  issueTitle: string
+  field: 'meta_description'
+  itemType: 'blog_post' | 'stores_product'
+  itemId: string
+  expectedCurrentValue: string
+  proposedValue: string
+  expiresAt: number
+}
+
+function canonicalWixMetaBody(payload: WixMetaPreviewTokenPayload): string {
+  return JSON.stringify([
+    WIX_META_TOKEN_VERSION,
+    payload.issueId,
+    payload.websiteId,
+    payload.pageUrl,
+    payload.issueTitle,
+    payload.field,
+    payload.itemType,
+    payload.itemId,
+    payload.expectedCurrentValue,
+    payload.proposedValue,
+    payload.expiresAt,
+  ])
+}
+
+export function signWixMetaPreviewToken(payload: Omit<WixMetaPreviewTokenPayload, 'expiresAt'>): string {
+  const full: WixMetaPreviewTokenPayload = { ...payload, expiresAt: Date.now() + TOKEN_TTL_MS }
+  const body = Buffer.from(canonicalWixMetaBody(full), 'utf8').toString('base64url')
+  const signature = createHmac('sha256', getSigningKey()).update(body).digest('base64url')
+  return `${WIX_META_TOKEN_VERSION}.${body}.${signature}`
+}
+
+export type VerifiedWixMetaPreviewToken =
+  | { ok: true; payload: WixMetaPreviewTokenPayload }
+  | { ok: false; reason: 'malformed' | 'invalid_signature' | 'expired' }
+
+export function verifyWixMetaPreviewToken(token: string): VerifiedWixMetaPreviewToken {
+  const parts = token.split('.')
+
+  if (parts.length !== 3 || parts[0] !== WIX_META_TOKEN_VERSION) {
+    return { ok: false, reason: 'malformed' }
+  }
+
+  const [, body, signature] = parts
+
+  let expectedSignature: string
+  try {
+    expectedSignature = createHmac('sha256', getSigningKey()).update(body).digest('base64url')
+  } catch {
+    return { ok: false, reason: 'malformed' }
+  }
+
+  let signatureBuf: Buffer
+  let expectedBuf: Buffer
+  try {
+    signatureBuf = Buffer.from(signature, 'base64url')
+    expectedBuf = Buffer.from(expectedSignature, 'base64url')
+  } catch {
+    return { ok: false, reason: 'malformed' }
+  }
+
+  if (signatureBuf.length !== expectedBuf.length || !timingSafeEqual(signatureBuf, expectedBuf)) {
+    return { ok: false, reason: 'invalid_signature' }
+  }
+
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(Buffer.from(body, 'base64url').toString('utf8'))
+  } catch {
+    return { ok: false, reason: 'malformed' }
+  }
+
+  if (!Array.isArray(parsed) || parsed.length !== 11) {
+    return { ok: false, reason: 'malformed' }
+  }
+
+  const [version, issueId, websiteId, pageUrl, issueTitle, field, itemType, itemId, expectedCurrentValue, proposedValueRaw, expiresAt] = parsed
+
+  if (
+    version !== WIX_META_TOKEN_VERSION ||
+    typeof issueId !== 'string' ||
+    typeof websiteId !== 'string' ||
+    typeof pageUrl !== 'string' ||
+    typeof issueTitle !== 'string' ||
+    field !== 'meta_description' ||
+    (itemType !== 'blog_post' && itemType !== 'stores_product') ||
+    typeof itemId !== 'string' ||
+    typeof expectedCurrentValue !== 'string' ||
+    typeof proposedValueRaw !== 'string' ||
+    typeof expiresAt !== 'number'
+  ) {
+    return { ok: false, reason: 'malformed' }
+  }
+
+  if (Date.now() > expiresAt) {
+    return { ok: false, reason: 'expired' }
+  }
+
+  return {
+    ok: true,
+    payload: {
+      issueId,
+      websiteId,
+      pageUrl,
+      issueTitle,
+      field,
+      itemType,
+      itemId,
+      expectedCurrentValue,
+      proposedValue: proposedValueRaw,
+      expiresAt,
+    },
+  }
+}
