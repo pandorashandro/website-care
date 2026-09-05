@@ -9,6 +9,22 @@ import { checkRobots } from '@/lib/scanner/check-robots'
 import { checkSitemap } from '@/lib/scanner/check-sitemap'
 import { checkInternalLinks } from '@/lib/scanner/check-internal-links'
 import type { ScanIssue } from '@/lib/scanner/issue-definitions'
+import { canAddWebsite, canRunManualScan, verifyWebsiteCountAfterInsert, type EntitlementFailureReason } from '@/lib/entitlements'
+
+/** Shared, user-safe copy for every entitlement denial this file can produce — never a raw DB error or plan internals. */
+function entitlementErrorMessage(reason: EntitlementFailureReason): string {
+  switch (reason) {
+    case 'website_limit_reached':
+      return 'You have reached the website limit for your plan.'
+    case 'subscription_inactive':
+      return 'Your subscription is no longer active for this feature.'
+    case 'feature_not_in_plan':
+      return 'This feature is not included in your current plan.'
+    case 'not_authenticated':
+    default:
+      return 'You must be logged in to do that.'
+  }
+}
 
 export async function logout() {
   const supabase = await createClient()
@@ -18,7 +34,7 @@ export async function logout() {
   redirect('/login')
 }
 
-export type AddWebsiteState = { error?: string } | null
+export type AddWebsiteState = { error?: string; reason?: EntitlementFailureReason } | null
 
 export async function addWebsite(
   _prevState: AddWebsiteState,
@@ -32,6 +48,14 @@ export async function addWebsite(
 
   if (!user) {
     return { error: 'You must be logged in to add a website.' }
+  }
+
+  // Phase 23.1: server-derived, plan-based website-count limit. Never
+  // trusts anything from the browser — canAddWebsite re-establishes the
+  // current session itself and counts this user's own websites row.
+  const entitlementCheck = await canAddWebsite()
+  if (!entitlementCheck.allowed) {
+    return { error: entitlementErrorMessage(entitlementCheck.reason), reason: entitlementCheck.reason }
   }
 
   const name = (formData.get('name') as string | null)?.trim() ?? ''
@@ -72,6 +96,19 @@ export async function addWebsite(
     return { error: 'Could not save the website. Please try again.' }
   }
 
+  // Race mitigation: two concurrent addWebsite calls (a double submit, two
+  // open tabs) could both pass the pre-insert canAddWebsite check before
+  // either commits. Re-verify post-insert and roll back this exact row if
+  // the limit was exceeded, rather than silently allowing an overage — see
+  // verifyWebsiteCountAfterInsert's own doc comment for the accepted
+  // (conservative) failure mode this leaves in the rare case both requests
+  // genuinely race.
+  const postInsertCheck = await verifyWebsiteCountAfterInsert()
+  if (!postInsertCheck.allowed) {
+    await supabase.from('websites').delete().eq('id', inserted.id)
+    return { error: entitlementErrorMessage(postInsertCheck.reason), reason: postInsertCheck.reason }
+  }
+
   revalidatePath('/dashboard')
 
   // Straight to the new website's Overview, where the "no scan yet" state
@@ -81,7 +118,7 @@ export async function addWebsite(
   redirect(`/dashboard/websites/${inserted.id}`)
 }
 
-export type ScanWebsiteState = { error?: string } | null
+export type ScanWebsiteState = { error?: string; reason?: EntitlementFailureReason } | null
 
 export async function scanWebsite(
   _prevState: ScanWebsiteState,
@@ -95,6 +132,16 @@ export async function scanWebsite(
 
   if (!user) {
     return { error: 'You must be logged in to scan a website.' }
+  }
+
+  // Phase 23.1: both plans currently allow manual scans (see
+  // lib/entitlements/plans.ts), so this can never actually deny a scan
+  // today — it exists as the one centralized call site Phase 24 will
+  // tighten once a real scan-frequency rule is designed, rather than
+  // requiring every scan call site to be found and edited later.
+  const entitlementCheck = await canRunManualScan()
+  if (!entitlementCheck.allowed) {
+    return { error: entitlementErrorMessage(entitlementCheck.reason), reason: entitlementCheck.reason }
   }
 
   const websiteId = formData.get('websiteId') as string | null
