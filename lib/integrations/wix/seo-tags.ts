@@ -134,6 +134,27 @@ export type WixSeoTagsUpdateResult =
   | { status: 'failed'; reason: 'validation_failure' | 'not_found' | 'permission_failure' | 'provider_error' | 'malformed_response' }
 
 /**
+ * Lives here (not in a 'use server' action file) for the same reason
+ * mappingFailureMessage lives in resource-mapping.ts — a plain synchronous
+ * formatter must never be exported from a 'use server' file, which Next.js
+ * requires to export only async Server Actions.
+ */
+export function mutationFailureMessage(reason: Extract<WixSeoTagsUpdateResult, { status: 'failed' }>['reason']): string {
+  switch (reason) {
+    case 'validation_failure':
+      return 'Wix rejected this title update.'
+    case 'not_found':
+      return 'This Wix resource could not be found.'
+    case 'permission_failure':
+      return 'The connected Wix site did not allow this update (permission denied).'
+    case 'provider_error':
+      return 'Wix could not be reached to apply this update. Please try again shortly.'
+    case 'malformed_response':
+      return 'Wix’s response did not confirm the title was updated.'
+  }
+}
+
+/**
  * Replaces every tag of the given predicate's type with `newTag`, keeping
  * every other tag byte-for-byte as read — this is the ENTIRE
  * "preserve unrelated tags" mechanism this phase's brief requires, made

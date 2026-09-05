@@ -2,9 +2,9 @@
 
 import { getValidWixAccessToken } from './wix-credentials'
 import { getTrustedWixMetaIssue } from './wix-meta-issue'
-import { resolveWixResource, type WixResourceFamily } from '@/lib/integrations/wix/resource-mapping'
+import { resolveWixResource, mappingFailureMessage, type WixResourceFamily } from '@/lib/integrations/wix/resource-mapping'
 import { getWixSiteIdentity } from '@/lib/integrations/wix/site-identity'
-import { evaluateWixFixCapability, type WixFixCapabilityContext } from '@/lib/integrations/wix/capabilities'
+import { evaluateWixFixCapability, capabilityFailureMessage, type WixFixCapabilityContext } from '@/lib/integrations/wix/capabilities'
 import { validateWixMetaDescription } from '@/lib/integrations/wix/meta-proposal'
 import {
   readWixItemSeoTags,
@@ -12,6 +12,7 @@ import {
   extractResolvedMetaDescription,
   updateWixBlogPostMetaDescription,
   updateWixStoresProductMetaDescription,
+  mutationFailureMessage,
   type WixSeoTagsUpdateResult,
   type WixSeoTag,
 } from '@/lib/integrations/wix/seo-tags'
@@ -21,7 +22,6 @@ import { WIX_PLATFORM } from '@/lib/integrations/wix/platform'
 import { recordFixHistory, type FixHistoryInsertResult } from './fix-history'
 import { getMetaDescriptionContent } from '@/lib/scanner/checks'
 import { verifyWixPublicValue, type WixPublicVerification } from '@/lib/fixes/verify-wix-public-value'
-import { mappingFailureMessage, capabilityFailureMessage, mutationFailureMessage } from './wix-title-fix-actions'
 
 /**
  * Wix V1 Prompt 2 — Safe Meta Description Fix for Blog Post and Stores
@@ -30,8 +30,8 @@ import { mappingFailureMessage, capabilityFailureMessage, mutationFailureMessage
  * confirmation, fresh capability, exact-value drift check, already-applied
  * idempotency), differing only in field and shared-helper reuse
  * (mappingFailureMessage/capabilityFailureMessage/mutationFailureMessage
- * are imported from wix-title-fix-actions.ts rather than duplicated —
- * their wording is field-agnostic).
+ * are imported from their respective lib/integrations/wix/ modules rather
+ * than duplicated — their wording is field-agnostic).
  */
 
 function itemTypeToWixSeoItemType(resourceType: WixResourceFamily): 'BLOG_POST' | 'STORES_PRODUCT' {

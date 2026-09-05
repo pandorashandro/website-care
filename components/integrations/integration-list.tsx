@@ -3,15 +3,18 @@ import type { PlatformType } from '@/lib/integrations/platform'
 import type { WordPressDetectionResult } from '@/lib/integrations/wordpress/detect-wordpress'
 import type { WordPressConnectionSummary } from '@/app/dashboard/websites/[id]/wordpress-capabilities'
 import type { ShopifyConnectionStatus } from '@/app/dashboard/websites/[id]/shopify-connection-status'
+import type { WixConnectionStatus } from '@/app/dashboard/websites/[id]/wix-connection-status'
 import { INTEGRATIONS } from '@/lib/integrations/registry'
 import WordPressIntegrationCard from './wordpress-integration-card'
 import ShopifyIntegrationCard from './shopify-integration-card'
+import WixIntegrationCard from './wix-integration-card'
 
 type IntegrationListProps = {
   websiteId: string
   wordpress: WordPressDetectionResult
   wordpressConnection: WordPressConnectionSummary
   shopifyConnection: ShopifyConnectionStatus
+  wixConnection: WixConnectionStatus
 }
 
 /**
@@ -38,6 +41,7 @@ const INTEGRATION_CARD_RENDERERS: Record<PlatformType, (props: IntegrationListPr
   shopify: ({ websiteId, shopifyConnection }) => (
     <ShopifyIntegrationCard websiteId={websiteId} shopifyConnection={shopifyConnection} />
   ),
+  wix: ({ websiteId, wixConnection }) => <WixIntegrationCard websiteId={websiteId} wixConnection={wixConnection} />,
 }
 
 export default function IntegrationList(props: IntegrationListProps) {

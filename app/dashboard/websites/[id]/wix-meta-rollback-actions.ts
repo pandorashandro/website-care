@@ -2,17 +2,22 @@
 
 import { revalidatePath } from 'next/cache'
 import { getValidWixAccessToken } from './wix-credentials'
-import { resolveWixResource } from '@/lib/integrations/wix/resource-mapping'
+import { resolveWixResource, mappingFailureMessage, type WixResourceFamily } from '@/lib/integrations/wix/resource-mapping'
 import { getWixSiteIdentity } from '@/lib/integrations/wix/site-identity'
-import { evaluateWixFixCapability } from '@/lib/integrations/wix/capabilities'
-import { readWixItemSeoTags, extractResolvedMetaDescription, updateWixBlogPostMetaDescription, updateWixStoresProductMetaDescription } from '@/lib/integrations/wix/seo-tags'
+import { evaluateWixFixCapability, capabilityFailureMessage } from '@/lib/integrations/wix/capabilities'
+import {
+  readWixItemSeoTags,
+  extractResolvedMetaDescription,
+  updateWixBlogPostMetaDescription,
+  updateWixStoresProductMetaDescription,
+  mutationFailureMessage,
+  type WixSeoTag,
+  type WixSeoTagsUpdateResult,
+} from '@/lib/integrations/wix/seo-tags'
 import { WIX_PLATFORM } from '@/lib/integrations/wix/platform'
 import { getFixHistoryRowForRollback, isWixRollbackEligibleByShape, recordFixHistory, type FixHistoryInsertResult } from './fix-history'
 import { getMetaDescriptionContent } from '@/lib/scanner/checks'
 import { verifyWixPublicValue, type WixPublicVerification } from '@/lib/fixes/verify-wix-public-value'
-import { mappingFailureMessage, mutationFailureMessage } from './wix-title-fix-actions'
-import type { WixResourceFamily } from '@/lib/integrations/wix/resource-mapping'
-import type { WixSeoTagsUpdateResult } from '@/lib/integrations/wix/seo-tags'
 
 export type RollbackWixMetaFixState =
   | {
@@ -20,17 +25,22 @@ export type RollbackWixMetaFixState =
       resourceType: WixResourceFamily
       itemId: string
       restoredValue: string
+      /** Public-site verification of the ROLLBACK, independent of `rollbackWriteStatus`. */
       verification: WixPublicVerification
       historyStatus: FixHistoryInsertResult
     }
   | { rollbackWriteStatus: 'failed'; reason: string }
   | null
 
+function itemTypeToWixSeoItemType(resourceType: WixResourceFamily): 'BLOG_POST' | 'STORES_PRODUCT' {
+  return resourceType === 'blog_post' ? 'BLOG_POST' : 'STORES_PRODUCT'
+}
+
 async function executeWixMetaMutation(
   resourceType: WixResourceFamily,
   accessToken: string,
   itemId: string,
-  currentOwnTags: Parameters<typeof updateWixBlogPostMetaDescription>[2],
+  currentOwnTags: WixSeoTag[],
   description: string
 ): Promise<WixSeoTagsUpdateResult> {
   return resourceType === 'blog_post'
@@ -39,9 +49,14 @@ async function executeWixMetaMutation(
 }
 
 /**
- * Wix V1 Prompt 2 — reverses one previous webioom Wix Meta Description
- * fix (Blog Post or Stores Product). Mirrors
- * wix-title-rollback-actions.ts's rechecking sequence exactly.
+ * Wix V1 Prompt 3 — reverses one previous webioom Wix Meta Description fix
+ * (Blog Post or Stores Product). Mirrors wix-title-rollback-actions.ts's
+ * rechecking sequence exactly (fresh ownership/token, fresh resource
+ * re-resolution, identity confirmation, fresh capability, exact-value drift
+ * check), differing only in field and shared-helper reuse
+ * (mappingFailureMessage/capabilityFailureMessage/mutationFailureMessage are
+ * imported from their respective lib/integrations/wix/ modules rather than
+ * duplicated).
  */
 export async function rollbackWixMetaFix(_prevState: RollbackWixMetaFixState, formData: FormData): Promise<RollbackWixMetaFixState> {
   const websiteId = formData.get('websiteId') as string | null
@@ -80,7 +95,7 @@ export async function rollbackWixMetaFix(_prevState: RollbackWixMetaFixState, fo
     return { rollbackWriteStatus: 'failed', reason: 'This fix no longer matches the current Wix resource and cannot be undone safely.' }
   }
 
-  const itemType = mapping.resourceType === 'blog_post' ? 'BLOG_POST' : 'STORES_PRODUCT'
+  const itemType = itemTypeToWixSeoItemType(mapping.resourceType)
 
   const readResult = await readWixItemSeoTags(accessToken, itemType, mapping.itemId)
   if (!readResult.ok) {
@@ -93,7 +108,7 @@ export async function rollbackWixMetaFix(_prevState: RollbackWixMetaFixState, fo
 
   const capability = evaluateWixFixCapability('meta_description', { resourceType: mapping.resourceType, isPrimaryLanguage })
   if (capability.status !== 'supported') {
-    return { rollbackWriteStatus: 'failed', reason: 'webioom could not confirm permission to undo this update.' }
+    return { rollbackWriteStatus: 'failed', reason: capabilityFailureMessage(capability) }
   }
 
   const currentValue = extractResolvedMetaDescription(readResult.resolvedTags) ?? ''

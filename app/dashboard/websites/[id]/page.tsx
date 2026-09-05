@@ -9,8 +9,10 @@ import { ISSUE_DEFINITIONS } from '@/lib/scanner/issue-definitions'
 import { detectWordPress } from '@/lib/integrations/wordpress/detect-wordpress'
 import { getWordPressConnectionSummary, toIntegrationFixabilityInputs } from './wordpress-capabilities'
 import { getShopifyConnectionStatus, toShopifyIssueFixabilityInputs } from './shopify-connection-status'
+import { getWixConnectionStatus, toWixIssueFixabilityInputs } from './wix-connection-status'
 import { evaluateFixability, type FixabilityResult } from '@/lib/fixes/fixability'
 import { evaluateShopifyIssueFixability } from '@/lib/integrations/shopify/issue-fixability'
+import { evaluateWixIssueFixability } from '@/lib/integrations/wix/issue-fixability'
 import RecentFixes from './recent-fixes'
 import Container from '@/components/ui/container'
 import Card from '@/components/ui/card'
@@ -77,15 +79,16 @@ export default async function WebsiteReportPage(props: PageProps<'/dashboard/web
     notFound()
   }
 
-  // All three kicked off early so they run concurrently with the Supabase
+  // All four kicked off early so they run concurrently with the Supabase
   // queries below rather than adding their network latency on top of them.
   // None is persisted (no schema change) — all are recomputed live on every
-  // report render. getWordPressConnectionSummary/getShopifyConnectionStatus
-  // each independently re-verify session + ownership themselves; neither
-  // trusts this page's earlier check.
+  // report render. getWordPressConnectionSummary/getShopifyConnectionStatus/
+  // getWixConnectionStatus each independently re-verify session + ownership
+  // themselves; none trusts this page's earlier check.
   const wordpressPromise = detectWordPress(website.url)
   const wordpressConnectionPromise = getWordPressConnectionSummary(website.id)
   const shopifyConnectionPromise = getShopifyConnectionStatus(website.id)
+  const wixConnectionPromise = getWixConnectionStatus(website.id)
 
   const { data: latestScan } = await supabase
     .from('scans')
@@ -163,6 +166,7 @@ export default async function WebsiteReportPage(props: PageProps<'/dashboard/web
   const wordpress = await wordpressPromise
   const wordpressConnection = await wordpressConnectionPromise
   const shopifyConnection = await shopifyConnectionPromise
+  const wixConnection = await wixConnectionPromise
 
   // Centralizes fixability evaluation — pure, deterministic, and does not
   // affect priority ranking or health scoring, which are computed
@@ -172,21 +176,22 @@ export default async function WebsiteReportPage(props: PageProps<'/dashboard/web
   // knows anything WordPress-specific.
   const { connectionState, capabilities } = toIntegrationFixabilityInputs(wordpressConnection)
   const shopifyFixabilityInputs = toShopifyIssueFixabilityInputs(shopifyConnection)
+  const wixFixabilityInputs = toWixIssueFixabilityInputs(wixConnection)
 
   /**
-   * Phase 20.1H: WordPress's own evaluateFixability result is computed
-   * first and completely untouched — when it already resolves 'assisted',
-   * it is returned exactly as-is, with fixProvider 'wordpress', so every
-   * existing WordPress-connected website's report renders byte-for-byte the
-   * same as before this phase. Only when WordPress does NOT offer an
-   * assisted fix (not connected, needs attention, or this issue simply
-   * isn't title/meta_description) does Shopify get a chance to offer one
-   * instead — and evaluateShopifyIssueFixability returns null for every
-   * issue type Shopify has no opinion on (H1, Image Alt, everything else),
-   * so those always keep WordPress's own reasoning regardless of whether
-   * Shopify is connected.
+   * Phase 20.1H (Shopify) / Wix V1 Prompt 3: WordPress's own
+   * evaluateFixability result is computed first and completely untouched —
+   * when it already resolves 'assisted', it is returned exactly as-is, with
+   * fixProvider 'wordpress', so every existing WordPress-connected
+   * website's report renders byte-for-byte the same as before either
+   * platform existed. Only when WordPress does NOT offer an assisted fix
+   * does Shopify get a chance, then Wix — and both
+   * evaluateShopifyIssueFixability and evaluateWixIssueFixability return
+   * null for every issue type they have no opinion on (H1, Image Alt,
+   * everything else), so those always keep WordPress's own reasoning
+   * regardless of whether Shopify or Wix is connected.
    */
-  function getFixability(issueTitle: string): { fixability: FixabilityResult; fixProvider: 'wordpress' | 'shopify' | null } {
+  function getFixability(issueTitle: string): { fixability: FixabilityResult; fixProvider: 'wordpress' | 'shopify' | 'wix' | null } {
     const wordpressResult = evaluateFixability({
       issueTitle,
       integrationDetected: wordpress.status !== 'unknown',
@@ -208,27 +213,38 @@ export default async function WebsiteReportPage(props: PageProps<'/dashboard/web
       return { fixability: shopifyResult, fixProvider: 'shopify' }
     }
 
-    // Neither platform can currently assist. When Shopify is the actually
-    // connected platform, its reasoning is more relevant to this merchant
-    // than WordPress's generic "not connected" message — but only for the
-    // title/meta_description issues Shopify has an opinion on at all
-    // (shopifyResult is null otherwise, e.g. H1/Image Alt), and only when
-    // Shopify is connected/needs_attention, never when it's simply
-    // not_connected (which would otherwise change existing WordPress-only
-    // websites' wording for no reason).
+    const wixResult = evaluateWixIssueFixability({
+      issueTitle,
+      connectionState: wixFixabilityInputs.connectionState,
+    })
+
+    if (wixResult && wixResult.level === 'assisted') {
+      return { fixability: wixResult, fixProvider: 'wix' }
+    }
+
+    // No platform can currently assist. Prefer whichever CONNECTED
+    // platform's reasoning is most relevant to this merchant — but only
+    // for the title/meta_description issues that platform has an opinion
+    // on at all (both results are null otherwise, e.g. H1/Image Alt), and
+    // only when that platform is connected/needs_attention, never when
+    // it's simply not_connected (which would otherwise change existing
+    // WordPress-only websites' wording for no reason).
     if (shopifyResult && shopifyFixabilityInputs.connectionState !== 'not_connected') {
       return { fixability: shopifyResult, fixProvider: null }
+    }
+    if (wixResult && wixFixabilityInputs.connectionState !== 'not_connected') {
+      return { fixability: wixResult, fixProvider: null }
     }
 
     return { fixability: wordpressResult, fixProvider: null }
   }
 
   // (pageUrl -> earliest matching raw issue id) per issue title, used only
-  // to give Shopify's Prepare-Fix flow the trusted issueId it requires
-  // (unlike WordPress's title/meta fix, which resolves purely from
-  // pageUrl — see shopify-title-issue.ts/shopify-meta-issue.ts). Built the
-  // same way missingImageAltInstances already derives per-instance identity
-  // aggregateIssues itself throws away.
+  // to give Shopify's/Wix's Prepare-Fix flow the trusted issueId it
+  // requires (unlike WordPress's title/meta fix, which resolves purely
+  // from pageUrl — see shopify-title-issue.ts/wix-title-issue.ts). Built
+  // the same way missingImageAltInstances already derives per-instance
+  // identity aggregateIssues itself throws away.
   const firstIssueIdByTitleAndPage = new Map<string, string>()
   for (const raw of issues) {
     const key = `${raw.title}|${raw.page_url ?? website.url}`
@@ -240,15 +256,17 @@ export default async function WebsiteReportPage(props: PageProps<'/dashboard/web
   // Decorated once, server-side, with a stable anchor id (so "Needs your
   // attention" can link straight to a card below), its fixability result,
   // which platform (if any) is offering that result, and — only when
-  // Shopify is the provider — the trusted issue id Shopify's Prepare-Fix
-  // flow requires. Neither aggregateIssues nor evaluateFixability is
-  // changed by this.
+  // Shopify or Wix is the provider — the trusted issue id that platform's
+  // Prepare-Fix flow requires. Neither aggregateIssues nor
+  // evaluateFixability is changed by this.
   const decoratedIssues: DecoratedIssue[] = aggregatedIssues.map((issue, index) => {
     const { fixability, fixProvider } = getFixability(issue.title)
-    const shopifyIssueId =
-      fixProvider === 'shopify' && issue.affectedPageUrls[0]
+    const trustedIssueId =
+      (fixProvider === 'shopify' || fixProvider === 'wix') && issue.affectedPageUrls[0]
         ? firstIssueIdByTitleAndPage.get(`${issue.title}|${issue.affectedPageUrls[0]}`)
         : undefined
+    const shopifyIssueId = fixProvider === 'shopify' ? trustedIssueId : undefined
+    const wixIssueId = fixProvider === 'wix' ? trustedIssueId : undefined
 
     return {
       ...issue,
@@ -256,6 +274,7 @@ export default async function WebsiteReportPage(props: PageProps<'/dashboard/web
       fixability,
       fixProvider,
       shopifyIssueId,
+      wixIssueId,
     }
   })
 
@@ -454,14 +473,27 @@ export default async function WebsiteReportPage(props: PageProps<'/dashboard/web
               <Badge tone="warning">Needs attention</Badge>
             )}
           </div>
+
+          <div className="flex items-center gap-2">
+            <span className="text-base font-semibold text-gray-900">Wix</span>
+            {!wixConnection.connected ? (
+              <Badge tone="neutral">Not connected</Badge>
+            ) : wixConnection.connectionValid ? (
+              <Badge tone="success">Connected</Badge>
+            ) : (
+              <Badge tone="warning">Needs attention</Badge>
+            )}
+          </div>
         </div>
 
         <p className="mt-3 text-sm text-muted">
           {(wordpressConnection.connected && wordpressConnection.connectionValid) ||
-          (shopifyConnection.connected && shopifyConnection.connectionValid)
+          (shopifyConnection.connected && shopifyConnection.connectionValid) ||
+          (wixConnection.connected && wixConnection.connectionValid)
             ? 'webioom can use your connected integration for supported fix workflows.'
             : (wordpressConnection.connected && !wordpressConnection.connectionValid) ||
-                (shopifyConnection.connected && !shopifyConnection.connectionValid)
+                (shopifyConnection.connected && !shopifyConnection.connectionValid) ||
+                (wixConnection.connected && !wixConnection.connectionValid)
               ? 'A connection needs attention before webioom can use it.'
               : latestScan?.status === 'completed'
                 ? 'Want webioom to help apply supported changes? Connect a supported integration.'

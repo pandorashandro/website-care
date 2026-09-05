@@ -4,6 +4,7 @@ import { ISSUE_DEFINITIONS } from '@/lib/scanner/issue-definitions'
 import { getTitleIssueKind, getMetaDescriptionIssueKind } from '@/lib/fixes/fix-preview'
 import PrepareFixButton from '@/app/dashboard/websites/[id]/prepare-fix-button'
 import ShopifyPrepareFixButton from '@/app/dashboard/websites/[id]/shopify-prepare-fix-button'
+import WixPrepareFixButton from '@/app/dashboard/websites/[id]/wix-prepare-fix-button'
 import AffectedPages from './affected-pages'
 import IssueActionPanel from './issue-action-panel'
 import {
@@ -27,12 +28,14 @@ export type MissingImageAltInstance = { issueId: string; pageUrl: string; imageU
 
 /**
  * One aggregated issue's full card in the Detailed Report. This is the only
- * place PrepareFixButton is rendered, and the exact same two branches used
+ * place PrepareFixButton is rendered, and the original two branches used
  * since Phase 18.9 are preserved byte-for-byte: missing image alt text
  * renders one PrepareFixButton per exact affected image (never "the first
  * image"), everything else renders a single button against the issue's
  * first affected page. Neither PrepareFixButton's props nor its own internal
- * workflow logic are touched — only what surrounds it changed.
+ * workflow logic are touched — only what surrounds it changed. Shopify and
+ * Wix each get their own earlier-checked branch (via fixProvider) before
+ * falling through to those original two.
  *
  * Hierarchy: title -> quick-scan meta (severity/priority/pages/fixability)
  * -> why this matters -> affected pages -> recommended action -> one action
@@ -47,17 +50,29 @@ export default function IssueGroup({
   websiteId: string
   missingImageAltInstances: MissingImageAltInstance[]
 }) {
-  const shopifyFixKind = getTitleIssueKind(issue.title) ? 'title' : getMetaDescriptionIssueKind(issue.title) ? 'meta_description' : null
+  // Title/meta_description detection is platform-agnostic (based purely on
+  // issue title text), so the same result is reused for whichever of
+  // Shopify/Wix is actually offering the assisted fix below.
+  const platformFixKind = getTitleIssueKind(issue.title) ? 'title' : getMetaDescriptionIssueKind(issue.title) ? 'meta_description' : null
 
   const fixButtons =
     issue.fixability.level === 'assisted' ? (
       issue.fixProvider === 'shopify' ? (
-        issue.shopifyIssueId && issue.affectedPageUrls[0] && shopifyFixKind && (
+        issue.shopifyIssueId && issue.affectedPageUrls[0] && platformFixKind && (
           <ShopifyPrepareFixButton
             websiteId={websiteId}
             pageLabel={formatPageLabel(issue.affectedPageUrls[0])}
             issueId={issue.shopifyIssueId}
-            fixKind={shopifyFixKind}
+            fixKind={platformFixKind}
+          />
+        )
+      ) : issue.fixProvider === 'wix' ? (
+        issue.wixIssueId && issue.affectedPageUrls[0] && platformFixKind && (
+          <WixPrepareFixButton
+            websiteId={websiteId}
+            pageLabel={formatPageLabel(issue.affectedPageUrls[0])}
+            issueId={issue.wixIssueId}
+            fixKind={platformFixKind}
           />
         )
       ) : issue.title === ISSUE_DEFINITIONS.missing_image_alt.title ? (

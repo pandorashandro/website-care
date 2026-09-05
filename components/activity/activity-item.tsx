@@ -3,13 +3,15 @@ import Card from '@/components/ui/card'
 import Badge from '@/components/ui/badge'
 import { formatPageLabel } from '@/components/report/report-helpers'
 import type { FixHistoryRecord } from '@/app/dashboard/websites/[id]/fix-history'
-import { isRollbackEligibleByShape, isShopifyRollbackEligibleByShape } from '@/app/dashboard/websites/[id]/fix-history'
+import { isRollbackEligibleByShape, isShopifyRollbackEligibleByShape, isWixRollbackEligibleByShape } from '@/app/dashboard/websites/[id]/fix-history'
 import UndoFixButton from '@/app/dashboard/websites/[id]/undo-fix-button'
 import UndoMetaFixButton from '@/app/dashboard/websites/[id]/undo-meta-fix-button'
 import UndoH1FixButton from '@/app/dashboard/websites/[id]/undo-h1-fix-button'
 import UndoImageAltFixButton from '@/app/dashboard/websites/[id]/undo-image-alt-fix-button'
 import UndoShopifyTitleFixButton from '@/app/dashboard/websites/[id]/undo-shopify-title-fix-button'
 import UndoShopifyMetaFixButton from '@/app/dashboard/websites/[id]/undo-shopify-meta-fix-button'
+import UndoWixTitleFixButton from '@/app/dashboard/websites/[id]/undo-wix-title-fix-button'
+import UndoWixMetaFixButton from '@/app/dashboard/websites/[id]/undo-wix-meta-fix-button'
 import { getActionLabel, isUndoRow, formatPreviousValue, formatDateTime, formatImageLabel, getVerificationCopy } from './activity-helpers'
 
 const SHOPIFY_RESOURCE_LABELS: Record<string, string> = {
@@ -19,22 +21,36 @@ const SHOPIFY_RESOURCE_LABELS: Record<string, string> = {
   article: 'Article',
 }
 
+const WIX_RESOURCE_LABELS: Record<string, string> = {
+  blog_post: 'Blog Post',
+  stores_product: 'Store Product',
+}
+
 /**
  * One fix_history row, translated into product language. WordPress rows
  * keep reusing the exact same Undo components and isRollbackEligibleByShape
  * gate this component always used. Shopify rows (platform === 'shopify')
- * are routed to a genuinely separate eligibility check
- * (isShopifyRollbackEligibleByShape) and their own Undo components — the
- * two platforms' resource_type vocabularies collide on the literal string
- * 'page' (a WordPress Page vs. a Shopify Page are unrelated resources), so
+ * and Wix rows (platform === 'wix') are each routed to their own genuinely
+ * separate eligibility check (isShopifyRollbackEligibleByShape /
+ * isWixRollbackEligibleByShape) and their own Undo components — all three
+ * platforms' resource_type vocabularies collide on shared literal strings
+ * (e.g. a WordPress Page vs. a Shopify Page are unrelated resources), so
  * `platform` is checked FIRST, before any field/resource_type branching,
- * exactly mirroring fix-history.ts's own eligibility functions.
+ * exactly mirroring fix-history.ts's own eligibility functions. This is why
+ * every WordPress-specific branch below guards on `!isShopify && !isWix`
+ * rather than just `!isShopify` — a Wix title/meta_description row must
+ * never reach WordPress's own Undo buttons merely because it isn't Shopify.
  */
 export default function ActivityItem({ fix, websiteId }: { fix: FixHistoryRecord; websiteId: string }) {
   const undo = isUndoRow(fix)
   const verification = getVerificationCopy(fix.verification_status)
   const isShopify = fix.platform === 'shopify'
-  const eligible = isShopify ? isShopifyRollbackEligibleByShape(fix) : isRollbackEligibleByShape(fix)
+  const isWix = fix.platform === 'wix'
+  const eligible = isShopify
+    ? isShopifyRollbackEligibleByShape(fix)
+    : isWix
+      ? isWixRollbackEligibleByShape(fix)
+      : isRollbackEligibleByShape(fix)
 
   return (
     <Card padding="md">
@@ -54,6 +70,11 @@ export default function ActivityItem({ fix, websiteId }: { fix: FixHistoryRecord
         {isShopify && (
           <p className="truncate font-mono text-xs text-muted">
             Shopify · {(fix.resource_type && SHOPIFY_RESOURCE_LABELS[fix.resource_type]) || 'Resource'}
+          </p>
+        )}
+        {isWix && (
+          <p className="truncate font-mono text-xs text-muted">
+            Wix · {(fix.resource_type && WIX_RESOURCE_LABELS[fix.resource_type]) || 'Resource'}
           </p>
         )}
       </div>
@@ -89,7 +110,23 @@ export default function ActivityItem({ fix, websiteId }: { fix: FixHistoryRecord
           appliedValue={fix.applied_value}
         />
       )}
-      {eligible && !isShopify && fix.field === 'title' && (
+      {eligible && isWix && fix.field === 'title' && (
+        <UndoWixTitleFixButton
+          websiteId={websiteId}
+          fixHistoryId={fix.id}
+          previousValue={fix.previous_value ?? ''}
+          appliedValue={fix.applied_value}
+        />
+      )}
+      {eligible && isWix && fix.field === 'meta_description' && (
+        <UndoWixMetaFixButton
+          websiteId={websiteId}
+          fixHistoryId={fix.id}
+          previousValue={fix.previous_value ?? ''}
+          appliedValue={fix.applied_value}
+        />
+      )}
+      {eligible && !isShopify && !isWix && fix.field === 'title' && (
         <UndoFixButton
           websiteId={websiteId}
           fixHistoryId={fix.id}
@@ -97,7 +134,7 @@ export default function ActivityItem({ fix, websiteId }: { fix: FixHistoryRecord
           appliedValue={fix.applied_value}
         />
       )}
-      {eligible && !isShopify && fix.field === 'meta_description' && (
+      {eligible && !isShopify && !isWix && fix.field === 'meta_description' && (
         <UndoMetaFixButton
           websiteId={websiteId}
           fixHistoryId={fix.id}
@@ -105,10 +142,10 @@ export default function ActivityItem({ fix, websiteId }: { fix: FixHistoryRecord
           appliedValue={fix.applied_value}
         />
       )}
-      {eligible && !isShopify && fix.field === 'h1' && (
+      {eligible && !isShopify && !isWix && fix.field === 'h1' && (
         <UndoH1FixButton websiteId={websiteId} fixHistoryId={fix.id} appliedValue={fix.applied_value} />
       )}
-      {eligible && !isShopify && fix.field === 'image_alt' && (
+      {eligible && !isShopify && !isWix && fix.field === 'image_alt' && (
         <UndoImageAltFixButton
           websiteId={websiteId}
           fixHistoryId={fix.id}

@@ -9,24 +9,28 @@ import type { BadgeTone } from '@/components/ui/badge'
  * report component needs but neither aggregateIssues nor evaluateFixability
  * knows how to produce on their own: a stable anchor id (so "Needs your
  * attention" can link straight to the full card below), its precomputed
- * fixability result, and — Phase 20.1H — which connected platform (if any)
- * is the one actually offering that fixability result. `fixability` itself
+ * fixability result, and which connected platform (if any) is the one
+ * actually offering that fixability result. `fixability` itself
  * (lib/fixes/fixability.ts) stays completely platform-agnostic and
  * untouched; `fixProvider` is computed alongside it, in the page, purely to
  * let IssueGroup decide which Prepare-Fix component to render (WordPress's
- * existing one, or Shopify's) without lib/fixes/fixability.ts ever needing
- * to know a second platform exists. `fixProvider` is null whenever no
- * platform is offering an assisted fix for this issue (fixability.level !==
- * 'assisted'), and also null for every issue type Shopify has no opinion on
- * (H1, Image Alt, everything else) even when Shopify is connected — see
- * lib/integrations/shopify/issue-fixability.ts.
+ * existing one, Shopify's, or Wix's) without lib/fixes/fixability.ts ever
+ * needing to know a second or third platform exists. `fixProvider` is null
+ * whenever no platform is offering an assisted fix for this issue
+ * (fixability.level !== 'assisted'), and also null for every issue type
+ * Shopify/Wix have no opinion on (H1, Image Alt, everything else) even
+ * when that platform is connected — see
+ * lib/integrations/shopify/issue-fixability.ts and
+ * lib/integrations/wix/issue-fixability.ts.
  */
 export type DecoratedIssue = AggregatedIssue & {
   anchorId: string
   fixability: FixabilityResult
-  fixProvider: 'wordpress' | 'shopify' | null
+  fixProvider: 'wordpress' | 'shopify' | 'wix' | null
   /** Only set when fixProvider === 'shopify' — the trusted issue row id Shopify's Prepare-Fix flow requires (see shopify-title-issue.ts/shopify-meta-issue.ts). WordPress's own fix flow never needs this. */
   shopifyIssueId?: string
+  /** Only set when fixProvider === 'wix' — the trusted issue row id Wix's Prepare-Fix flow requires (see wix-title-issue.ts/wix-meta-issue.ts). */
+  wixIssueId?: string
 }
 
 /**

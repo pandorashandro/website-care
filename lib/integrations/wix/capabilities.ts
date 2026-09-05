@@ -61,3 +61,16 @@ export function evaluateWixFixCapability(fixFamily: WixFixFamily, context: WixFi
 
   return { status: 'supported', fixFamily, resourceType: context.resourceType }
 }
+
+/**
+ * Lives here (not in a 'use server' action file) for the same reason
+ * mappingFailureMessage lives in resource-mapping.ts — a plain synchronous
+ * formatter must never be exported from a 'use server' file, which Next.js
+ * requires to export only async Server Actions.
+ */
+export function capabilityFailureMessage(capability: WixFixCapability): string {
+  if (capability.status === 'language_not_supported') {
+    return 'This resource is not in your Wix site’s primary language, which webioom cannot currently edit safely.'
+  }
+  return 'webioom cannot safely prepare this fix right now.'
+}

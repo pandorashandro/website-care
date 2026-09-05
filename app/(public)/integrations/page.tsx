@@ -11,6 +11,8 @@ import {
   ShieldCheck,
   History,
   Plug,
+  Store,
+  Globe,
   Puzzle,
   ShieldAlert,
 } from 'lucide-react'
@@ -24,7 +26,7 @@ import FlowDiagram from '@/components/ui/flow-diagram'
 export const metadata: Metadata = {
   title: 'Integrations',
   description:
-    'webioom scans your website without any integration. Connecting a supported integration like WordPress unlocks supported direct fixes, applied only after your review and approval.',
+    'webioom scans your website without any integration. Connecting a supported integration — WordPress, Shopify, or Wix — unlocks selected direct fixes, applied only after your review and approval.',
 }
 
 const WITHOUT_INTEGRATION = [
@@ -155,6 +157,74 @@ export default function IntegrationsPage() {
 
               <p className="mt-4 text-sm text-muted">
                 Every other report finding still gets a clear recommendation, whether or not WordPress is
+                connected.
+              </p>
+            </div>
+          </Card>
+        </Container>
+      </div>
+
+      {/* 3B. SHOPIFY — AVAILABLE */}
+      <Container size="lg" className="py-16 sm:py-20">
+        <SectionHeading eyebrow="Available now" title="Shopify" />
+
+        <Card className="mt-6 sm:flex sm:items-start sm:gap-6">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-md bg-brand-subtle text-brand">
+            <Store className="h-6 w-6" aria-hidden="true" />
+          </div>
+
+          <div className="mt-4 sm:mt-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <h3 className="text-lg font-semibold text-gray-900">Shopify</h3>
+              <Badge tone="brand">Integration #2</Badge>
+              <Badge tone="success">Available</Badge>
+            </div>
+            <p className="mt-2 text-sm text-muted">
+              webioom can prepare and apply supported changes when it can safely confirm the target.
+              Support depends on the specific resource and permissions involved.
+            </p>
+
+            <ul className="mt-4 space-y-2 text-sm text-gray-700">
+              <li>Product, collection, page, and article title</li>
+              <li>Product, collection, page, and article meta description</li>
+            </ul>
+
+            <p className="mt-4 text-sm text-muted">
+              Every other report finding still gets a clear recommendation, whether or not Shopify is
+              connected.
+            </p>
+          </div>
+        </Card>
+      </Container>
+
+      {/* 3C. WIX — AVAILABLE */}
+      <div className="border-t border-border bg-surface-muted">
+        <Container size="lg" className="py-16 sm:py-20">
+          <SectionHeading eyebrow="Available now" title="Wix" />
+
+          <Card className="mt-6 sm:flex sm:items-start sm:gap-6">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-md bg-brand-subtle text-brand">
+              <Globe className="h-6 w-6" aria-hidden="true" />
+            </div>
+
+            <div className="mt-4 sm:mt-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <h3 className="text-lg font-semibold text-gray-900">Wix</h3>
+                <Badge tone="brand">Integration #3</Badge>
+                <Badge tone="success">Available</Badge>
+              </div>
+              <p className="mt-2 text-sm text-muted">
+                webioom can prepare and apply supported changes when it can safely confirm the target.
+                Support depends on the specific resource and permissions involved.
+              </p>
+
+              <ul className="mt-4 space-y-2 text-sm text-gray-700">
+                <li>Blog post title and meta description</li>
+                <li>Store product title and meta description</li>
+              </ul>
+
+              <p className="mt-4 text-sm text-muted">
+                Every other report finding still gets a clear recommendation, whether or not Wix is
                 connected.
               </p>
             </div>

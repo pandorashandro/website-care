@@ -44,6 +44,7 @@ export type IntegrationRegistryEntry = {
 export const INTEGRATION_REGISTRY: Record<PlatformType, IntegrationRegistryEntry> = {
   wordpress: { platform: 'wordpress', name: 'WordPress' },
   shopify: { platform: 'shopify', name: 'Shopify' },
+  wix: { platform: 'wix', name: 'Wix' },
 }
 
 /** Iteration-friendly view of the registry, for generic listing UI. */

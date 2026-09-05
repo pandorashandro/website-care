@@ -31,31 +31,36 @@
 /**
  * Every platform webioom can integrate with, AND that is exposed as a real,
  * user-facing dashboard integration (registry entry, connect/disconnect UX,
- * issue-action wiring). 'shopify' was added here in Phase 20.1H, once
- * Shopify had both a real, committed adapter surface (lib/integrations/shopify/*,
- * connection/auth, Safe Title + Safe Meta Description fixes, fix_history +
- * rollback support, and public verification — Phases 20.1A-20.1G) AND was
- * deliberately exposed in lib/integrations/registry.ts and
- * components/integrations/integration-list.tsx. This union only ever grows
- * when both conditions hold, never in advance of them.
+ * issue-action wiring). 'shopify' was added in Phase 20.1H, once Shopify
+ * had both a real, committed adapter surface (connection/auth, Safe Title +
+ * Safe Meta Description fixes, fix_history + rollback support, and public
+ * verification) AND was deliberately exposed in
+ * lib/integrations/registry.ts and
+ * components/integrations/integration-list.tsx. 'wix' is added here in Wix
+ * V1 Prompt 3, on the same basis: its backend (connection/auth, Blog
+ * Post/Stores Product resource mapping, Safe Title + Safe Meta Description
+ * fixes, fix_history + rollback support, public verification — Wix V1
+ * Prompts 1-2) was already real and compiled, and this phase is the one
+ * that deliberately exposes it in the registry/UI. This union only ever
+ * grows when both conditions hold, never in advance of them — Webflow,
+ * Squarespace, and any other not-yet-implemented platform stay absent
+ * until the same bar is met for them.
  */
-export type PlatformType = 'wordpress' | 'shopify'
+export type PlatformType = 'wordpress' | 'shopify' | 'wix'
 
 /**
  * The platform vocabulary fix_history is actually allowed to durably
  * record — deliberately WIDER than `PlatformType` whenever a platform's
  * backend is real and compiled but not yet exposed in the dashboard
- * registry. This is now proven twice: Shopify's 20.1A-20.1E backend
- * predated its own `PlatformType`/registry exposure this way, and Wix's
- * Safe Fix backend (this phase) is in exactly that position now — Wix
- * fix/rollback actions record real `platform: 'wix'` history rows despite
- * `PlatformType` itself still being `'wordpress' | 'shopify'` (see that
- * type's own doc comment for why registry exposure is deliberately
- * deferred). `FixHistoryPlatform` is kept as its own named type (rather
- * than replaced everywhere with `PlatformType`) so
- * app/dashboard/websites/[id]/fix-history.ts and each platform's own
- * `<platform>/platform.ts` constant don't need an unrelated import churn,
- * and so a future platform can repeat this same
+ * registry. This has now been proven twice (Shopify's 20.1A-20.1E backend,
+ * then Wix's Prompt 1/2 backend) and, as of this phase, `PlatformType`
+ * itself has caught up to include every platform `FixHistoryPlatform` ever
+ * needed to — so the two types are currently equivalent in practice, just
+ * as they were after Shopify's own registry exposure. `FixHistoryPlatform`
+ * is kept as its own named type (rather than replaced everywhere with
+ * `PlatformType`) so app/dashboard/websites/[id]/fix-history.ts and each
+ * platform's own `<platform>/platform.ts` constant don't need an unrelated
+ * import churn, and so a FUTURE platform can repeat this same
  * backend-before-registry-exposure sequence without fix-history.ts needing
  * another type change at that point.
  */

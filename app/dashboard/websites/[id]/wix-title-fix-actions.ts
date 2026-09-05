@@ -2,15 +2,16 @@
 
 import { getValidWixAccessToken } from './wix-credentials'
 import { getTrustedWixTitleIssue } from './wix-title-issue'
-import { resolveWixResource, type WixResourceMapping } from '@/lib/integrations/wix/resource-mapping'
+import { resolveWixResource, mappingFailureMessage } from '@/lib/integrations/wix/resource-mapping'
 import { getWixSiteIdentity } from '@/lib/integrations/wix/site-identity'
-import { evaluateWixFixCapability, type WixFixCapabilityContext } from '@/lib/integrations/wix/capabilities'
+import { evaluateWixFixCapability, capabilityFailureMessage, type WixFixCapabilityContext } from '@/lib/integrations/wix/capabilities'
 import { generateWixTitleProposal, validateWixTitle } from '@/lib/integrations/wix/title-proposal'
 import {
   readWixItemSeoTags,
   extractResolvedTitle,
   updateWixBlogPostTitle,
   updateWixStoresProductTitle,
+  mutationFailureMessage,
   type WixSeoItemType,
   type WixSeoTag,
   type WixSeoTagsUpdateResult,
@@ -44,34 +45,6 @@ function pathFromUrl(url: string): string {
   } catch {
     return url
   }
-}
-
-/** Translates a resource-mapping failure into a user-safe diagnostic — never a guess. Exported so wix-title-rollback-actions.ts can report identical wording. */
-export function mappingFailureMessage(mapping: Extract<WixResourceMapping, { ok: false }>): string {
-  switch (mapping.reason) {
-    case 'invalid_url':
-      return 'webioom does not recognize this page as a supported Wix resource.'
-    case 'homepage_unsupported':
-      return 'webioom does not yet support direct fixes for a Wix homepage.'
-    case 'resource_not_found':
-      return 'webioom could not find a matching resource in your connected Wix site. This may be a static page, which webioom does not yet support for direct fixes.'
-    case 'ambiguous_resource':
-      return 'webioom found more than one possible match for this page and cannot safely proceed.'
-    case 'unauthorized':
-      return 'The connected Wix site did not accept webioom’s access. Please reconnect Wix.'
-    case 'connection_error':
-      return 'webioom could not reach the connected Wix site right now. Please try again shortly.'
-    case 'malformed_response':
-      return 'The connected Wix site returned an unexpected response.'
-  }
-}
-
-/** Exported so wix-title-rollback-actions.ts can report identical wording for a failed capability re-check. */
-export function capabilityFailureMessage(capability: ReturnType<typeof evaluateWixFixCapability>): string {
-  if (capability.status === 'language_not_supported') {
-    return 'This resource is not in your Wix site’s primary language, which webioom cannot currently edit safely.'
-  }
-  return 'webioom cannot safely prepare this fix right now.'
 }
 
 // ---------------------------------------------------------------------------
@@ -225,22 +198,6 @@ export type ApplyWixTitleFixState =
   | { writeStatus: 'already_applied'; resourceType: WixResourceFamily; itemId: string; currentTitle: string }
   | { writeStatus: 'failed'; reason: string }
   | null
-
-/** Exported so wix-title-rollback-actions.ts can report identical wording. */
-export function mutationFailureMessage(reason: Extract<WixSeoTagsUpdateResult, { status: 'failed' }>['reason']): string {
-  switch (reason) {
-    case 'validation_failure':
-      return 'Wix rejected this title update.'
-    case 'not_found':
-      return 'This Wix resource could not be found.'
-    case 'permission_failure':
-      return 'The connected Wix site did not allow this update (permission denied).'
-    case 'provider_error':
-      return 'Wix could not be reached to apply this update. Please try again shortly.'
-    case 'malformed_response':
-      return 'Wix’s response did not confirm the title was updated.'
-  }
-}
 
 /**
  * Resource-type dispatch for the title mutation — exported so

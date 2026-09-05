@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/server'
 import { detectWordPress } from '@/lib/integrations/wordpress/detect-wordpress'
 import { getWordPressConnectionSummary } from '../wordpress-capabilities'
 import { getShopifyConnectionStatus } from '../shopify-connection-status'
+import { getWixConnectionStatus } from '../wix-connection-status'
 import Container from '@/components/ui/container'
 import Card from '@/components/ui/card'
 import Alert from '@/components/ui/alert'
@@ -54,16 +55,20 @@ export default async function WebsiteIntegrationsPage(props: PageProps<'/dashboa
   // getWordPressConnectionSummary/getShopifyConnectionStatus each
   // independently re-verify session + ownership themselves — neither trusts
   // this page's earlier check.
-  const [wordpress, wordpressConnection, shopifyConnection] = await Promise.all([
+  const [wordpress, wordpressConnection, shopifyConnection, wixConnection] = await Promise.all([
     detectWordPress(website.url),
     getWordPressConnectionSummary(website.id),
     getShopifyConnectionStatus(website.id),
+    getWixConnectionStatus(website.id),
   ])
 
   // Set only by the Shopify OAuth callback route
   // (app/api/integrations/shopify/callback/route.ts) redirecting back here —
   // a one-time, read-only banner, never trusted for anything beyond display.
   const shopifyOAuthResult = typeof searchParams.shopify === 'string' ? searchParams.shopify : null
+  // Same pattern for the Wix External Install Flow callback
+  // (app/api/integrations/wix/callback/route.ts).
+  const wixOAuthResult = typeof searchParams.wix === 'string' ? searchParams.wix : null
 
   return (
     <Container size="md" className="py-10">
@@ -92,6 +97,16 @@ export default async function WebsiteIntegrationsPage(props: PageProps<'/dashboa
           webioom could not connect Shopify. Please try again.
         </Alert>
       )}
+      {wixOAuthResult === 'connected' && (
+        <Alert tone="success" className="mt-6">
+          Wix connected successfully.
+        </Alert>
+      )}
+      {wixOAuthResult === 'error' && (
+        <Alert tone="danger" className="mt-6">
+          webioom could not connect Wix. Please try again.
+        </Alert>
+      )}
 
       <div className="mt-6">
         <IntegrationList
@@ -99,6 +114,7 @@ export default async function WebsiteIntegrationsPage(props: PageProps<'/dashboa
           wordpress={wordpress}
           wordpressConnection={wordpressConnection}
           shopifyConnection={shopifyConnection}
+          wixConnection={wixConnection}
         />
       </div>
 

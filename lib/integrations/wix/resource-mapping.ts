@@ -182,3 +182,31 @@ export async function resolveWixResource(accessToken: string, pageUrl: string): 
 
   return { ok: false, reason: 'resource_not_found' }
 }
+
+/**
+ * Translates a resource-mapping failure into a user-safe diagnostic — never
+ * a guess. Lives here (not in a 'use server' action file) so it can be
+ * imported by any Wix fix/rollback action without ever being treated as a
+ * Server Action itself — Next.js requires every export of a 'use server'
+ * file to be async, and this is a plain synchronous formatter, exactly
+ * mirroring where Shopify's own mappingFailureMessage lives in
+ * lib/integrations/shopify/resource-mapping.ts.
+ */
+export function mappingFailureMessage(mapping: Extract<WixResourceMapping, { ok: false }>): string {
+  switch (mapping.reason) {
+    case 'invalid_url':
+      return 'webioom does not recognize this page as a supported Wix resource.'
+    case 'homepage_unsupported':
+      return 'webioom does not yet support direct fixes for a Wix homepage.'
+    case 'resource_not_found':
+      return 'webioom could not find a matching resource in your connected Wix site. This may be a static page, which webioom does not yet support for direct fixes.'
+    case 'ambiguous_resource':
+      return 'webioom found more than one possible match for this page and cannot safely proceed.'
+    case 'unauthorized':
+      return 'The connected Wix site did not accept webioom’s access. Please reconnect Wix.'
+    case 'connection_error':
+      return 'webioom could not reach the connected Wix site right now. Please try again shortly.'
+    case 'malformed_response':
+      return 'The connected Wix site returned an unexpected response.'
+  }
+}

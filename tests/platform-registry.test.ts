@@ -10,13 +10,13 @@ import { INTEGRATION_REGISTRY, INTEGRATIONS } from '@/lib/integrations/registry'
  * PlatformType.
  */
 describe('integration registry', () => {
-  it('registers exactly wordpress and shopify — no more, no fewer', () => {
-    expect(Object.keys(INTEGRATION_REGISTRY).sort()).toEqual(['shopify', 'wordpress'])
+  it('registers exactly wordpress, shopify, and wix — no more, no fewer', () => {
+    expect(Object.keys(INTEGRATION_REGISTRY).sort()).toEqual(['shopify', 'wix', 'wordpress'])
   })
 
   it('does not register any planned-but-not-implemented platform', () => {
     const registeredPlatforms = Object.keys(INTEGRATION_REGISTRY)
-    for (const planned of ['wix', 'webflow', 'squarespace']) {
+    for (const planned of ['webflow', 'squarespace']) {
       expect(registeredPlatforms).not.toContain(planned)
     }
   })
@@ -45,7 +45,7 @@ describe('integration registry', () => {
     // versa), this Record literal fails to type-check — the assertion below
     // only runs if the file already compiled, so a passing test run is
     // itself part of the proof.
-    const exhaustive: Record<PlatformType, true> = { wordpress: true, shopify: true }
-    expect(Object.keys(exhaustive).sort()).toEqual(['shopify', 'wordpress'])
+    const exhaustive: Record<PlatformType, true> = { wordpress: true, shopify: true, wix: true }
+    expect(Object.keys(exhaustive).sort()).toEqual(['shopify', 'wix', 'wordpress'])
   })
 })

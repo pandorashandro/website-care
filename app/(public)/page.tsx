@@ -38,7 +38,7 @@ export const metadata: Metadata = {
     'webioom scans your website, shows what needs attention across SEO, technical, accessibility, performance and content, and helps you resolve supported problems safely.',
 }
 
-const HERO_TRUST_POINTS = ['No credit card required', 'WordPress integration available', 'You approve every change']
+const HERO_TRUST_POINTS = ['No credit card required', 'WordPress, Shopify & Wix integrations available', 'You approve every change']
 
 const CORE_VALUE_STEPS = [
   {
@@ -300,12 +300,12 @@ export default function Home() {
           </div>
           <div className="mt-4 sm:mt-0">
             <div className="flex flex-wrap items-center gap-2">
-              <h3 className="text-lg font-semibold text-gray-900">WordPress</h3>
+              <h3 className="text-lg font-semibold text-gray-900">WordPress, Shopify &amp; Wix</h3>
               <Badge tone="success">Available</Badge>
             </div>
             <p className="mt-2 text-sm text-muted">
-              Connect a WordPress site to unlock supported direct fixes. Every supported change still goes
-              through your review and approval before anything is applied.
+              Connect a supported site to unlock selected direct fixes for that platform. Every supported
+              change still goes through your review and approval before anything is applied.
             </p>
           </div>
         </Card>
