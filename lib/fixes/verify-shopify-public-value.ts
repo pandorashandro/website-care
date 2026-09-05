@@ -1,5 +1,6 @@
 import 'server-only'
 import { fetchPage } from '@/lib/scanner/checks'
+import type { PublicVerificationStatus } from './verification-status'
 
 /**
  * Phase 20.1G — the single, generic public-verification primitive used by
@@ -57,10 +58,10 @@ import { fetchPage } from '@/lib/scanner/checks'
  * timeout, HTTP(S)-only). Nothing here duplicates or weakens that.
  */
 export type ShopifyPublicVerification =
-  | { status: 'verified'; liveValue: string; reason: string }
-  | { status: 'pending'; liveValue: string | null; reason: string }
-  | { status: 'mismatch'; liveValue: string | null; reason: string }
-  | { status: 'unavailable'; reason: string }
+  | { status: Extract<PublicVerificationStatus, 'verified'>; liveValue: string; reason: string }
+  | { status: Extract<PublicVerificationStatus, 'pending'>; liveValue: string | null; reason: string }
+  | { status: Extract<PublicVerificationStatus, 'mismatch'>; liveValue: string | null; reason: string }
+  | { status: Extract<PublicVerificationStatus, 'unavailable'>; reason: string }
 
 function normalizeForComparison(value: string): string {
   return value.replace(/\s+/g, ' ').trim()
@@ -92,7 +93,8 @@ function normalizeForComparison(value: string): string {
  * either signal above is treated as a normal, successfully fetched target
  * page, exactly as before this correction.
  */
-function isShopifyPasswordOrAccessPage(finalUrl: string, html: string): boolean {
+/** Exported (Phase 21) so this pure, deterministic, security-relevant detector has direct permanent test coverage (tests/shopify-verification.test.ts) without needing to mock fetchPage or perform a live request. Not otherwise called from outside this module. */
+export function isShopifyPasswordOrAccessPage(finalUrl: string, html: string): boolean {
   try {
     if (new URL(finalUrl).pathname === '/password') return true
   } catch {

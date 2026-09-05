@@ -1,13 +1,19 @@
-import type { FixHistoryPlatform } from '@/lib/integrations/platform'
+import type { PlatformType } from '@/lib/integrations/platform'
 
 /**
- * Phase 20.1F — the exact typed platform identity Shopify fix/rollback
- * actions must pass to fix-history.ts's recordFixHistory, mirroring
- * lib/integrations/wordpress/adapter.ts's WORDPRESS_PLATFORM constant.
- * Typed as `FixHistoryPlatform` (not `PlatformType` — see that type's doc
- * comment in lib/integrations/platform.ts for why) so this constant can
- * exist without implying Shopify is registered in
- * lib/integrations/registry.ts or components/integrations/integration-list.tsx,
- * which remains Phase 20.1H's job.
+ * The exact typed platform identity Shopify fix/rollback actions pass to
+ * fix-history.ts's recordFixHistory, mirroring
+ * lib/integrations/wordpress/adapter.ts's WORDPRESS_PLATFORM constant —
+ * every platform declares exactly one such constant, typed as
+ * `PlatformType`, as its single source of truth for "which platform am I."
+ *
+ * Originally typed as the wider `FixHistoryPlatform` (Phase 20.1F), back
+ * when Shopify's backend was real but deliberately not yet registered in
+ * lib/integrations/registry.ts (that registration was Phase 20.1H's job).
+ * Now that Phase 20.1H has registered Shopify, `PlatformType` itself
+ * includes 'shopify', so this is retyped to match WORDPRESS_PLATFORM
+ * exactly (Phase 21) — a type-only change, `FixHistoryPlatform` remains a
+ * valid (now equivalent) type for this value, so nothing downstream needed
+ * to change.
  */
-export const SHOPIFY_PLATFORM: FixHistoryPlatform = 'shopify'
+export const SHOPIFY_PLATFORM: PlatformType = 'shopify'
