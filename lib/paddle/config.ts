@@ -1,4 +1,5 @@
 import 'server-only'
+import { createHash } from 'node:crypto'
 import type { PaddlePriceMapping } from './plan-mapping'
 
 export type PaddleEnvironment = 'sandbox' | 'production'
@@ -64,5 +65,37 @@ export function getPaddlePriceMapping(): PaddlePriceMapping {
   return {
     bloom: process.env.PADDLE_BLOOM_PRICE_ID || null,
     bloom_pro: process.env.PADDLE_BLOOM_PRO_PRICE_ID || null,
+  }
+}
+
+export type PaddleKeyDiagnostics = {
+  /** First 8 hex characters of a SHA-256 hash of the raw key value — a one-way fingerprint. Recovering the original key from this is not computationally feasible; it exists only to let production logs prove whether the key actually in use changed across a rotation, without ever revealing what it is. */
+  fingerprint: string
+  trimmedLength: number
+  hasWhitespace: boolean
+  /** Whether the raw value contains "sdbx_" — Paddle's own documented substring for sandbox keys created after May 6, 2025 (live keys instead contain "live_"). A `false` here for a key that was just created in the Sandbox dashboard would itself be a strong, distinct finding. */
+  looksLikeSandboxFormat: boolean
+}
+
+/**
+ * TEMPORARY (Phase 23.3 — second-level 403 diagnosis). Computes facts
+ * about the CURRENT `PADDLE_API_KEY` value that are safe to log — never
+ * the key itself, never any substring of it, never anything reversible.
+ * Reads `process.env.PADDLE_API_KEY` directly (not through
+ * `getPaddleConfig()`) so this can still report *something* useful (e.g.
+ * `trimmedLength: 0`) even in the hypothetical case the variable is unset
+ * — though in production this is only ever called from
+ * lib/paddle/client.ts, downstream of `getPaddleConfig()` already having
+ * succeeded, so that case does not arise in practice.
+ */
+export function getPaddleKeyDiagnostics(): PaddleKeyDiagnostics {
+  const raw = process.env.PADDLE_API_KEY ?? ''
+  const trimmed = raw.trim()
+
+  return {
+    fingerprint: createHash('sha256').update(raw).digest('hex').slice(0, 8),
+    trimmedLength: trimmed.length,
+    hasWhitespace: raw !== trimmed,
+    looksLikeSandboxFormat: raw.includes('sdbx_'),
   }
 }

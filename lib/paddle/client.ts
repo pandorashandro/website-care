@@ -1,5 +1,5 @@
 import 'server-only'
-import { getPaddleConfig } from './config'
+import { getPaddleConfig, getPaddleKeyDiagnostics } from './config'
 
 const REQUEST_TIMEOUT_MS = 10_000
 
@@ -14,33 +14,77 @@ export type PaddleApiResult =
 /**
  * TEMPORARY diagnostic logging (Phase 23.3 checkout-start-failure
  * investigation) — remove once the live production cause is confirmed
- * and fixed. Logs only the HTTP status Paddle returned plus, where
- * present, the short `error.code`/`error.type` strings from Paddle's own
- * error response body (e.g. distinguishing a 403 from a missing
- * `transaction.write` permission scope from a 400 from a sandbox/live
- * price-ID mismatch) — never the API key, Authorization header, client
- * token, webhook secret, or the full raw response body/`detail` text.
+ * and fixed. Logs only:
+ * - the HTTP status Paddle returned
+ * - the short `error.code`/`error.type` strings from Paddle's own error
+ *   response body (e.g. distinguishing a 403 from a missing
+ *   `transaction.write` permission scope from a 400 from a sandbox/live
+ *   price-ID mismatch)
+ * - `meta.request_id` — Paddle's own opaque tracking ID, which Paddle's
+ *   docs describe as the value to provide to Paddle support when a 403
+ *   remains unexplained; not a secret, and not reversible to one
+ * - a one-way SHA-256 fingerprint (first 8 hex chars) of the CURRENT
+ *   `PADDLE_API_KEY`, plus its trimmed length and two booleans (whether it
+ *   has leading/trailing whitespace, whether it matches Paddle's
+ *   documented sandbox-key substring) — added specifically to let
+ *   production logs prove whether the key actually in use changed after
+ *   a dashboard rotation, without ever logging the key itself
+ * - the API hostname actually contacted
+ *
+ * NEVER logs: the API key, the Authorization header, the client token,
+ * the webhook secret, `error.detail`, or the full raw response body.
  * `response.clone()` is used so this never consumes the body a caller
  * might otherwise want to read.
  */
 async function logPaddleApiFailure(response: Response, path: string, method: string, environment: string): Promise<void> {
   let errorCode: string | null = null
   let errorType: string | null = null
+  let requestId: string | null = null
 
   try {
     const body: unknown = await response.clone().json()
-    const error = body && typeof body === 'object' ? (body as Record<string, unknown>).error : null
+    const bodyObj = body && typeof body === 'object' ? (body as Record<string, unknown>) : null
+
+    const error = bodyObj?.error
     if (error && typeof error === 'object') {
       const codeValue = (error as Record<string, unknown>).code
       const typeValue = (error as Record<string, unknown>).type
       errorCode = typeof codeValue === 'string' ? codeValue : null
       errorType = typeof typeValue === 'string' ? typeValue : null
     }
+
+    const meta = bodyObj?.meta
+    if (meta && typeof meta === 'object') {
+      const requestIdValue = (meta as Record<string, unknown>).request_id
+      requestId = typeof requestIdValue === 'string' ? requestIdValue : null
+    }
   } catch {
     // Body wasn't JSON, or empty — nothing more to safely extract.
   }
 
-  console.error('[paddle][diagnostic] API request failed', { method, path, environment, status: response.status, errorCode, errorType })
+  let hostname = 'unknown'
+  try {
+    hostname = new URL(response.url).hostname
+  } catch {
+    // response.url was empty/unparsable — not worth failing diagnostics over.
+  }
+
+  const keyDiagnostics = getPaddleKeyDiagnostics()
+
+  console.error('[paddle][diagnostic] API request failed', {
+    method,
+    path,
+    environment,
+    hostname,
+    status: response.status,
+    errorCode,
+    errorType,
+    requestId,
+    keyFingerprint: keyDiagnostics.fingerprint,
+    keyTrimmedLength: keyDiagnostics.trimmedLength,
+    keyHasWhitespace: keyDiagnostics.hasWhitespace,
+    keyLooksLikeSandboxFormat: keyDiagnostics.looksLikeSandboxFormat,
+  })
 }
 
 /**
@@ -77,7 +121,17 @@ export async function fetchPaddleApi(path: string, init?: { method?: 'GET' | 'PO
     })
   } catch {
     const reason = controller.signal.aborted ? 'timeout' : 'network'
-    console.error('[paddle][diagnostic] API request threw before a response was received', { method, path, environment, reason })
+    const keyDiagnostics = getPaddleKeyDiagnostics()
+    console.error('[paddle][diagnostic] API request threw before a response was received', {
+      method,
+      path,
+      environment,
+      reason,
+      keyFingerprint: keyDiagnostics.fingerprint,
+      keyTrimmedLength: keyDiagnostics.trimmedLength,
+      keyHasWhitespace: keyDiagnostics.hasWhitespace,
+      keyLooksLikeSandboxFormat: keyDiagnostics.looksLikeSandboxFormat,
+    })
     return { ok: false, reason }
   } finally {
     clearTimeout(timeout)
@@ -119,6 +173,42 @@ export async function fetchPaddleApi(path: string, init?: { method?: 'GET' | 'PO
   return { ok: true, status: response.status, data: (parsed as Record<string, unknown>).data }
 }
 
+/**
+ * TEMPORARY (Phase 23.3 — second-level 403 diagnosis), safe, read-only
+ * auth probe. `GET /event-types` creates, updates, or deletes nothing,
+ * and — confirmed by inspecting developer.paddle.com's full permissions
+ * table (Products/Prices/Discounts/Customers/Addresses/Businesses/
+ * Payment methods/Checkout domains/Customer authentication tokens/
+ * Customer portal sessions/Transactions/Subscriptions/Subscription
+ * history/Adjustments/Pricing preview/Reports/Metrics/Events/
+ * Notification settings/Notifications/Notification logs/Simulations/
+ * Simulation runs/Simulation run events/Client-side tokens) — "Event
+ * types" has NO entry in it at all, meaning it requires no specific
+ * resource permission scope, only a valid, correctly-authenticated
+ * request for the right environment.
+ *
+ * This makes it the cleanest possible way to distinguish two very
+ * different production problems that both surface as a 403 on
+ * `POST /transactions`:
+ *   A. the key/environment/Authorization construction itself is wrong
+ *      (wrong key, wrong environment, a malformed header) — this probe
+ *      would ALSO fail (401/403/other), regardless of any permission
+ *      scope, since it fails before any permission is even checked.
+ *   B. the key is valid and correctly authenticated, but specifically
+ *      lacks the `transaction.write` permission scope — this probe would
+ *      SUCCEED even though `/transactions` still fails.
+ * Called automatically, once, whenever createPaddleTransaction's own
+ * request fails — never on the happy path, so normal-operation log
+ * volume is unaffected.
+ */
+export async function probePaddleAuthentication(): Promise<void> {
+  const result = await fetchPaddleApi('/event-types')
+  console.error('[paddle][diagnostic] auth probe (GET /event-types — no permission scope required)', {
+    ok: result.ok,
+    outcome: result.ok ? 'success' : result.reason,
+  })
+}
+
 export type CreatePaddleTransactionResult =
   | { ok: true; transactionId: string; checkoutUrl: string | null }
   | { ok: false; reason: 'invalid_request' | 'provider_error' }
@@ -150,6 +240,10 @@ export async function createPaddleTransaction(params: {
   })
 
   if (!result.ok) {
+    // TEMPORARY (Phase 23.3 diagnosis): fire the read-only auth probe
+    // only on a real failure, correlating its outcome (logged separately
+    // above) with this exact failed attempt.
+    await probePaddleAuthentication()
     return { ok: false, reason: result.reason === 'invalid_request' ? 'invalid_request' : 'provider_error' }
   }
 
