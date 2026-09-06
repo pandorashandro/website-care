@@ -1,10 +1,9 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
-import { LayoutDashboard, CreditCard } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import Logo from '@/components/brand/logo'
 import { buttonStyles } from '@/components/ui/button'
-import SidebarNav from '@/components/dashboard/sidebar-nav'
+import SidebarNav, { type SidebarNavItem } from '@/components/dashboard/sidebar-nav'
 import { logout } from './actions'
 
 /**
@@ -14,10 +13,18 @@ import { logout } from './actions'
  * three ghost items for a nav that currently has exactly one real
  * destination, they're removed outright. This array is the only place a
  * future destination needs to be added. Billing added Phase 23.3.
+ *
+ * `icon` is a serializable string key (SidebarNavIconKey), never a Lucide
+ * component reference — this file is a Server Component, and SidebarNav
+ * (below) is a Client Component; passing an actual component/function
+ * across that boundary as a prop is exactly what produced a production
+ * runtime error ("Functions cannot be passed directly to Client
+ * Components") once the second nav item was added. The icon lookup itself
+ * now happens entirely inside sidebar-nav.tsx.
  */
-const navItems = [
-  { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/dashboard/billing', label: 'Billing', icon: CreditCard },
+const navItems: SidebarNavItem[] = [
+  { href: '/dashboard', label: 'Dashboard', icon: 'dashboard' },
+  { href: '/dashboard/billing', label: 'Billing', icon: 'billing' },
 ]
 
 export default async function DashboardLayout(props: LayoutProps<'/dashboard'>) {

@@ -2,9 +2,28 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import type { ComponentType } from 'react'
+import { LayoutDashboard, CreditCard } from 'lucide-react'
 
-export type SidebarNavItem = { href: string; label: string; icon: ComponentType<{ className?: string }> }
+/**
+ * Every icon this nav can show. A CLOSED set of serializable string keys —
+ * never a component reference — is what crosses the server/client
+ * boundary (see SidebarNavItem below); the actual Lucide component
+ * functions are only ever imported and used HERE, inside this Client
+ * Component, where doing so is unproblematic. There is no serialization
+ * rule against a Client Component importing and using a function
+ * internally — only against a Server Component passing one to a Client
+ * Component as a prop, which is exactly the bug this file fixes (a
+ * production runtime error: "Functions cannot be passed directly to
+ * Client Components").
+ */
+const ICONS = {
+  dashboard: LayoutDashboard,
+  billing: CreditCard,
+} as const
+
+export type SidebarNavIconKey = keyof typeof ICONS
+
+export type SidebarNavItem = { href: string; label: string; icon: SidebarNavIconKey }
 
 /**
  * Extracted from app/dashboard/layout.tsx (Phase 23.3) once a second nav
@@ -21,7 +40,7 @@ export default function SidebarNav({ items }: { items: SidebarNavItem[] }) {
   return (
     <nav className="flex gap-1 overflow-x-auto px-3 pb-3 lg:flex-col lg:overflow-visible lg:px-3 lg:pb-0" aria-label="Primary">
       {items.map((item) => {
-        const Icon = item.icon
+        const Icon = ICONS[item.icon]
         const isActive = item.href === '/dashboard' ? pathname === '/dashboard' : pathname.startsWith(item.href)
 
         return (
