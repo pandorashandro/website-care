@@ -12,6 +12,38 @@ export type PaddleApiResult =
     }
 
 /**
+ * TEMPORARY diagnostic logging (Phase 23.3 checkout-start-failure
+ * investigation) — remove once the live production cause is confirmed
+ * and fixed. Logs only the HTTP status Paddle returned plus, where
+ * present, the short `error.code`/`error.type` strings from Paddle's own
+ * error response body (e.g. distinguishing a 403 from a missing
+ * `transaction.write` permission scope from a 400 from a sandbox/live
+ * price-ID mismatch) — never the API key, Authorization header, client
+ * token, webhook secret, or the full raw response body/`detail` text.
+ * `response.clone()` is used so this never consumes the body a caller
+ * might otherwise want to read.
+ */
+async function logPaddleApiFailure(response: Response, path: string, method: string, environment: string): Promise<void> {
+  let errorCode: string | null = null
+  let errorType: string | null = null
+
+  try {
+    const body: unknown = await response.clone().json()
+    const error = body && typeof body === 'object' ? (body as Record<string, unknown>).error : null
+    if (error && typeof error === 'object') {
+      const codeValue = (error as Record<string, unknown>).code
+      const typeValue = (error as Record<string, unknown>).type
+      errorCode = typeof codeValue === 'string' ? codeValue : null
+      errorType = typeof typeValue === 'string' ? typeValue : null
+    }
+  } catch {
+    // Body wasn't JSON, or empty — nothing more to safely extract.
+  }
+
+  console.error('[paddle][diagnostic] API request failed', { method, path, environment, status: response.status, errorCode, errorType })
+}
+
+/**
  * Sole HTTP primitive for authenticated Paddle REST API calls. Mirrors
  * lib/integrations/wix/client.ts's fetchWixApi structure exactly (same
  * timeout/abort handling, same structured failure reasons, same
@@ -24,7 +56,8 @@ export type PaddleApiResult =
  * itself, never the wrapper.
  */
 export async function fetchPaddleApi(path: string, init?: { method?: 'GET' | 'POST' | 'PATCH'; body?: unknown }): Promise<PaddleApiResult> {
-  const { apiKey, baseUrl } = getPaddleConfig()
+  const { apiKey, baseUrl, environment } = getPaddleConfig()
+  const method = init?.method ?? 'GET'
 
   const controller = new AbortController()
   const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS)
@@ -32,7 +65,7 @@ export async function fetchPaddleApi(path: string, init?: { method?: 'GET' | 'PO
   let response: Response
   try {
     response = await fetch(`${baseUrl}${path}`, {
-      method: init?.method ?? 'GET',
+      method,
       redirect: 'error',
       signal: controller.signal,
       headers: {
@@ -43,17 +76,32 @@ export async function fetchPaddleApi(path: string, init?: { method?: 'GET' | 'PO
       body: init?.body !== undefined ? JSON.stringify(init.body) : undefined,
     })
   } catch {
-    return { ok: false, reason: controller.signal.aborted ? 'timeout' : 'network' }
+    const reason = controller.signal.aborted ? 'timeout' : 'network'
+    console.error('[paddle][diagnostic] API request threw before a response was received', { method, path, environment, reason })
+    return { ok: false, reason }
   } finally {
     clearTimeout(timeout)
   }
 
-  if (response.status === 401) return { ok: false, reason: 'unauthorized', status: response.status }
-  if (response.status === 403) return { ok: false, reason: 'forbidden', status: response.status }
-  if (response.status === 404) return { ok: false, reason: 'not_found', status: response.status }
-  if (response.status === 400) return { ok: false, reason: 'invalid_request', status: response.status }
+  if (response.status === 401) {
+    await logPaddleApiFailure(response, path, method, environment)
+    return { ok: false, reason: 'unauthorized', status: response.status }
+  }
+  if (response.status === 403) {
+    await logPaddleApiFailure(response, path, method, environment)
+    return { ok: false, reason: 'forbidden', status: response.status }
+  }
+  if (response.status === 404) {
+    await logPaddleApiFailure(response, path, method, environment)
+    return { ok: false, reason: 'not_found', status: response.status }
+  }
+  if (response.status === 400) {
+    await logPaddleApiFailure(response, path, method, environment)
+    return { ok: false, reason: 'invalid_request', status: response.status }
+  }
 
   if (response.status < 200 || response.status >= 300) {
+    await logPaddleApiFailure(response, path, method, environment)
     return { ok: false, reason: 'unexpected_status', status: response.status }
   }
 
