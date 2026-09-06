@@ -4,10 +4,12 @@ import { createClient } from '@/lib/supabase/server'
 import { getPaddlePriceMapping } from '@/lib/paddle/config'
 import { resolvePaddlePriceId, isPaddlePlanKey } from '@/lib/paddle/plan-mapping'
 import { createPaddleTransaction, createPaddleCustomerPortalSession } from '@/lib/paddle/client'
+import { getCurrentUserEntitlements } from '@/lib/entitlements'
+import { getPlanCtaKind } from '@/lib/billing/plan-cta'
 
 export type CreateCheckoutState =
   | { ok: true; transactionId: string; checkoutUrl: string | null }
-  | { ok: false; reason: 'not_authenticated' | 'invalid_plan' | 'plan_not_configured' | 'provider_error' }
+  | { ok: false; reason: 'not_authenticated' | 'invalid_plan' | 'plan_not_configured' | 'not_an_upgrade' | 'provider_error' }
   | null
 
 /**
@@ -43,6 +45,21 @@ export async function createCheckoutForPlan(_prevState: CreateCheckoutState, for
   const requestedPlan = formData.get('plan') as string | null
   if (!requestedPlan || !isPaddlePlanKey(requestedPlan)) {
     return { ok: false, reason: 'invalid_plan' }
+  }
+
+  // Security review finding (Phase 23.3 Part 13): the UI never renders an
+  // upgrade button for a plan at or below the user's current one (see
+  // getPlanCtaKind), but that alone is only client-side hiding — a direct
+  // Server Action submission (or a stale form re-submitted after an
+  // earlier upgrade) could otherwise still request a checkout for an
+  // already-held or lower plan. Re-using the exact same pure
+  // getPlanCtaKind the UI uses (rather than a second, hand-rolled rank
+  // comparison) makes it structurally impossible for server enforcement
+  // and client presentation to drift apart on what counts as a genuine
+  // upgrade.
+  const currentPlan = (await getCurrentUserEntitlements()).plan
+  if (getPlanCtaKind(requestedPlan, true, currentPlan) !== 'upgrade') {
+    return { ok: false, reason: 'not_an_upgrade' }
   }
 
   const priceId = resolvePaddlePriceId(requestedPlan, getPaddlePriceMapping())

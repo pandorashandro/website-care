@@ -8,15 +8,17 @@ import Badge from '@/components/ui/badge'
 import { buttonStyles } from '@/components/ui/button'
 
 /**
- * Every item here is now a real route (Phase 18.3). An item without `href`
- * renders as a non-clickable "Soon" placeholder instead of a dead link —
- * kept as an option for future nav items (e.g. Pricing) rather than deleted,
- * since the pattern is still needed going forward.
+ * Every item here is now a real route (Phase 18.3; Pricing added Phase
+ * 23.3). An item without `href` renders as a non-clickable "Soon"
+ * placeholder instead of a dead link — kept as an option for future nav
+ * items rather than deleted, since the pattern is still needed going
+ * forward.
  */
 const NAV_ITEMS: { label: string; href?: string }[] = [
   { label: 'Product', href: '/product' },
   { label: 'Website Health', href: '/website-health' },
   { label: 'Integrations', href: '/integrations' },
+  { label: 'Pricing', href: '/pricing' },
   { label: 'Resources', href: '/resources' },
 ]
 

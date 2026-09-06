@@ -1,6 +1,7 @@
 'use client'
 
 import { useActionState, useEffect, useRef, useState } from 'react'
+import Link from 'next/link'
 import { addWebsite, type AddWebsiteState } from './actions'
 import Modal from '@/components/ui/modal'
 import { Input, Label } from '@/components/ui/input'
@@ -61,7 +62,16 @@ export default function AddWebsiteButton({ label = '+ Add Website' }: { label?: 
             <p className="mt-1 text-xs text-subtle">No integration required — webioom can scan this right away.</p>
           </div>
 
-          {state?.error && <Alert tone="danger">{state.error}</Alert>}
+          {state?.error && (
+            <Alert tone="danger">
+              <p>{state.error}</p>
+              {state.reason === 'website_limit_reached' && (
+                <Link href="/pricing" className="mt-1 inline-block font-medium underline">
+                  See plans &amp; upgrade
+                </Link>
+              )}
+            </Alert>
+          )}
 
           <div className="flex justify-end gap-2 pt-2">
             <Button type="button" variant="outline" onClick={() => setOpen(false)}>

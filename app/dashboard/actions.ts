@@ -9,13 +9,24 @@ import { checkRobots } from '@/lib/scanner/check-robots'
 import { checkSitemap } from '@/lib/scanner/check-sitemap'
 import { checkInternalLinks } from '@/lib/scanner/check-internal-links'
 import type { ScanIssue } from '@/lib/scanner/issue-definitions'
-import { canAddWebsite, canRunManualScan, verifyWebsiteCountAfterInsert, type EntitlementFailureReason } from '@/lib/entitlements'
+import { canAddWebsite, canRunManualScan, verifyWebsiteCountAfterInsert, getCurrentUserEntitlements, type EntitlementFailureReason } from '@/lib/entitlements'
+import { getWebsiteLimitUpgradeMessage } from '@/lib/billing/website-limit-message'
+import type { PlanKey } from '@/lib/entitlements/plans'
 
-/** Shared, user-safe copy for every entitlement denial this file can produce — never a raw DB error or plan internals. */
-function entitlementErrorMessage(reason: EntitlementFailureReason): string {
+/**
+ * Shared, user-safe copy for every entitlement denial this file can
+ * produce — never a raw DB error or plan internals. `website_limit_reached`
+ * gets a plan-aware, commercial message (Phase 23.3 Part 9) when the
+ * caller has already resolved the current plan; falling back to a generic
+ * message costs nothing since `currentPlan` is cheap for every call site
+ * in this file to provide.
+ */
+function entitlementErrorMessage(reason: EntitlementFailureReason, currentPlan: PlanKey): string {
+  if (reason === 'website_limit_reached') {
+    return getWebsiteLimitUpgradeMessage(reason, currentPlan).message
+  }
+
   switch (reason) {
-    case 'website_limit_reached':
-      return 'You have reached the website limit for your plan.'
     case 'subscription_inactive':
       return 'Your subscription is no longer active for this feature.'
     case 'feature_not_in_plan':
@@ -53,9 +64,14 @@ export async function addWebsite(
   // Phase 23.1: server-derived, plan-based website-count limit. Never
   // trusts anything from the browser — canAddWebsite re-establishes the
   // current session itself and counts this user's own websites row.
+  // `currentPlan` is resolved once here purely for the denial message's
+  // wording (Phase 23.3) — it has no bearing on the enforcement decision
+  // itself, which canAddWebsite/verifyWebsiteCountAfterInsert already made.
+  const currentPlan = (await getCurrentUserEntitlements()).plan
+
   const entitlementCheck = await canAddWebsite()
   if (!entitlementCheck.allowed) {
-    return { error: entitlementErrorMessage(entitlementCheck.reason), reason: entitlementCheck.reason }
+    return { error: entitlementErrorMessage(entitlementCheck.reason, currentPlan), reason: entitlementCheck.reason }
   }
 
   const name = (formData.get('name') as string | null)?.trim() ?? ''
@@ -106,7 +122,7 @@ export async function addWebsite(
   const postInsertCheck = await verifyWebsiteCountAfterInsert()
   if (!postInsertCheck.allowed) {
     await supabase.from('websites').delete().eq('id', inserted.id)
-    return { error: entitlementErrorMessage(postInsertCheck.reason), reason: postInsertCheck.reason }
+    return { error: entitlementErrorMessage(postInsertCheck.reason, currentPlan), reason: postInsertCheck.reason }
   }
 
   revalidatePath('/dashboard')
@@ -141,7 +157,8 @@ export async function scanWebsite(
   // requiring every scan call site to be found and edited later.
   const entitlementCheck = await canRunManualScan()
   if (!entitlementCheck.allowed) {
-    return { error: entitlementErrorMessage(entitlementCheck.reason), reason: entitlementCheck.reason }
+    const currentPlan = (await getCurrentUserEntitlements()).plan
+    return { error: entitlementErrorMessage(entitlementCheck.reason, currentPlan), reason: entitlementCheck.reason }
   }
 
   const websiteId = formData.get('websiteId') as string | null

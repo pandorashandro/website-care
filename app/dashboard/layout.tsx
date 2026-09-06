@@ -1,9 +1,10 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
-import { LayoutDashboard } from 'lucide-react'
+import { LayoutDashboard, CreditCard } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import Logo from '@/components/brand/logo'
 import { buttonStyles } from '@/components/ui/button'
+import SidebarNav from '@/components/dashboard/sidebar-nav'
 import { logout } from './actions'
 
 /**
@@ -12,9 +13,12 @@ import { logout } from './actions'
  * /dashboard/settings) — none of those routes exist, so rather than disable
  * three ghost items for a nav that currently has exactly one real
  * destination, they're removed outright. This array is the only place a
- * future destination needs to be added.
+ * future destination needs to be added. Billing added Phase 23.3.
  */
-const navItems = [{ href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard }]
+const navItems = [
+  { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { href: '/dashboard/billing', label: 'Billing', icon: CreditCard },
+]
 
 export default async function DashboardLayout(props: LayoutProps<'/dashboard'>) {
   const supabase = await createClient()
@@ -36,22 +40,7 @@ export default async function DashboardLayout(props: LayoutProps<'/dashboard'>) 
           </Link>
         </div>
 
-        <nav className="flex gap-1 overflow-x-auto px-3 pb-3 lg:flex-col lg:overflow-visible lg:px-3 lg:pb-0" aria-label="Primary">
-          {navItems.map((item) => {
-            const Icon = item.icon
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className="group flex items-center gap-2 whitespace-nowrap rounded-md px-3 py-2 text-sm font-medium text-text-on-dark-muted hover:bg-brand-dark-hover hover:text-text-on-dark aria-[current=page]:bg-brand-dark-hover aria-[current=page]:text-text-on-dark"
-                aria-current={item.href === '/dashboard' ? 'page' : undefined}
-              >
-                <Icon className="h-4 w-4 group-aria-[current=page]:text-brand-vivid" aria-hidden="true" />
-                {item.label}
-              </Link>
-            )
-          })}
-        </nav>
+        <SidebarNav items={navItems} />
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
