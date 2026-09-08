@@ -9,7 +9,7 @@ export const metadata: Metadata = {
 
 export default function Home() {
   return (
-    <div className="flex flex-1 flex-col items-center justify-center border-b border-border-dark bg-brand-dark px-4 py-24 text-center sm:py-32">
+    <div className="flex min-h-screen flex-1 flex-col items-center justify-center bg-brand-dark px-4 py-24 text-center sm:py-32">
       <Container size="sm">
         <h1 className="text-4xl font-semibold tracking-tight text-text-on-dark sm:text-5xl">WEBIOOM</h1>
         <p className="mt-3 text-sm font-semibold tracking-wide text-brand-vivid">Where Websites Bloom.</p>
