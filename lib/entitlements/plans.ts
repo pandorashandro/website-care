@@ -35,6 +35,23 @@ export type PlanCapabilities = {
   directFixesAllowed: boolean
   monitoringCadence: MonitoringCadence
   alertsAllowed: boolean
+  /**
+   * Phase 25B — the per-plan ceiling on how many pages a single site-wide
+   * crawl run may process, read by lib/crawler/engine.ts's startCrawlRun
+   * (via the caller-supplied `planMaxPages` option) as a second, independent
+   * clamp alongside lib/crawler/limits.ts's own MAX_CRAWL_PAGES product-wide
+   * safety ceiling. The two are deliberately not the same number: this one
+   * can move freely as plans are repriced/repositioned without ever being
+   * able to exceed the flat safety ceiling, which stays a constant no plan
+   * can buy its way past. Sized off `maxWebsites` (1 / 3 / 10 -> a roughly
+   * similar 1x / 5x / ~17x spread) rather than off any usage data, since
+   * none exists yet for this brand-new capability: Free gets enough to
+   * usefully cover a small brochure site, Bloom comfortably covers a real
+   * small-to-medium business site, and Bloom Pro is set equal to the global
+   * safety ceiling itself so it is never the binding constraint for this
+   * plan's users.
+   */
+  maxCrawlPages: number
 }
 
 /**
@@ -60,6 +77,7 @@ export const PLAN_CAPABILITIES: Record<PlanKey, PlanCapabilities> = {
     directFixesAllowed: true,
     monitoringCadence: 'none',
     alertsAllowed: false,
+    maxCrawlPages: 30,
   },
   bloom: {
     maxWebsites: 3,
@@ -68,6 +86,7 @@ export const PLAN_CAPABILITIES: Record<PlanKey, PlanCapabilities> = {
     directFixesAllowed: true,
     monitoringCadence: 'weekly',
     alertsAllowed: true,
+    maxCrawlPages: 150,
   },
   bloom_pro: {
     maxWebsites: 10,
@@ -76,5 +95,10 @@ export const PLAN_CAPABILITIES: Record<PlanKey, PlanCapabilities> = {
     directFixesAllowed: true,
     monitoringCadence: 'daily',
     alertsAllowed: true,
+    // Deliberately equal to lib/crawler/limits.ts's MAX_CRAWL_PAGES product-wide
+    // safety ceiling (tests/entitlements.test.ts asserts this equality directly
+    // so the two can never silently drift apart) — Bloom Pro is meant to be
+    // bounded only by the platform-wide safety ceiling, never by its own plan.
+    maxCrawlPages: 500,
   },
 }

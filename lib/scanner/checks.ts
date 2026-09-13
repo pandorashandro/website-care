@@ -1,29 +1,75 @@
 import { isIP } from 'node:net'
+import { lookup as dnsLookup } from 'node:dns/promises'
 
 const FETCH_TIMEOUT_MS = 10_000
 const MAX_REDIRECTS = 5
+// Phase 25A: a hard cap on DECOMPRESSED response bytes, enforced by reading
+// response.body as a stream rather than response.text() — the Fetch API
+// yields decompressed bytes from that stream regardless of the response's
+// Content-Encoding, so this directly bounds decompression-bomb amplification
+// (a tiny compressed payload expanding to gigabytes), not just raw transfer
+// size. 15 MiB is far above any legitimate page (the existing `large_html`
+// scanner issue already flags anything over 1 MiB as noteworthy) and far
+// below what could meaningfully exhaust a serverless function's memory.
+const MAX_RESPONSE_BYTES = 15 * 1024 * 1024
 
-function isPrivateIp(ip: string): boolean {
-  if (ip === '::1') return true
-
-  if (
-    ip.startsWith('127.') ||
-    ip.startsWith('10.') ||
-    ip.startsWith('192.168.') ||
-    ip.startsWith('169.254.')
-  ) {
-    return true
-  }
-
+function isPrivateIpv4(ip: string): boolean {
   const octets = ip.split('.').map(Number)
-  return octets.length === 4 && octets[0] === 172 && octets[1] >= 16 && octets[1] <= 31
+  if (octets.length !== 4 || octets.some((n) => !Number.isInteger(n) || n < 0 || n > 255)) return false
+  const [a, b] = octets
+
+  if (a === 127 || a === 10 || a === 0) return true // loopback, RFC1918, "this network"
+  if (a === 192 && b === 168) return true // RFC1918
+  if (a === 169 && b === 254) return true // link-local, INCLUDING cloud metadata (169.254.169.254)
+  if (a === 172 && b >= 16 && b <= 31) return true // RFC1918
+  if (a === 100 && b >= 64 && b <= 127) return true // CGNAT (RFC6598)
+  if (a === 192 && b === 0 && octets[2] === 0) return true // IETF protocol assignments (some cloud metadata proxies)
+  if (a === 192 && b === 0 && octets[2] === 2) return true // TEST-NET-1
+  if (a === 198 && (b === 18 || b === 19)) return true // benchmarking (RFC2544)
+  if (a === 198 && b === 51 && octets[2] === 100) return true // TEST-NET-2
+  if (a === 203 && b === 0 && octets[2] === 113) return true // TEST-NET-3
+  if (a >= 224) return true // multicast (224-239) + reserved (240-255)
+
+  return false
 }
 
 /**
- * Blocks obvious localhost/private-IP targets before the server fetches a
- * user-supplied or discovered URL. This is a basic SSRF guard, not full
- * protection — it does not resolve DNS to catch hostnames that resolve to
- * private IPs.
+ * Deliberately name/prefix-based rather than full numeric CIDR arithmetic —
+ * covers every IPv6 range that actually matters for SSRF purposes
+ * (loopback, unspecified, link-local incl. IPv6 cloud-metadata addressing,
+ * unique-local/ULA, multicast, and IPv4-mapped addresses unwrapped back
+ * through isPrivateIpv4) without the complexity of a general CIDR library.
+ */
+function isPrivateIpv6(ip: string): boolean {
+  const address = ip.toLowerCase()
+
+  if (address === '::1' || address === '::') return true // loopback / unspecified
+
+  const mappedV4 = address.match(/^::ffff:(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})$/)
+  if (mappedV4) return isPrivateIpv4(mappedV4[1])
+
+  const firstHextet = parseInt(address.split(':').find((part) => part.length > 0) ?? '', 16)
+  if (Number.isNaN(firstHextet)) return false
+
+  if ((firstHextet & 0xffc0) === 0xfe80) return true // link-local (fe80::/10)
+  if ((firstHextet & 0xfe00) === 0xfc00) return true // unique local / ULA (fc00::/7)
+  if ((firstHextet & 0xff00) === 0xff00) return true // multicast (ff00::/8)
+
+  return false
+}
+
+function isPrivateIp(ip: string): boolean {
+  const family = isIP(ip)
+  if (family === 4) return isPrivateIpv4(ip)
+  if (family === 6) return isPrivateIpv6(ip)
+  return false
+}
+
+/**
+ * Blocks obvious localhost/private-IP-literal targets before the server
+ * even attempts DNS resolution. This is the fast, synchronous first check —
+ * see resolvesToBlockedAddress below for the deeper, DNS-resolving check
+ * that also catches a HOSTNAME that merely resolves to one of these ranges.
  */
 export function isBlockedHost(hostname: string): boolean {
   const host = hostname.toLowerCase()
@@ -33,6 +79,95 @@ export function isBlockedHost(hostname: string): boolean {
   }
 
   return isIP(host) ? isPrivateIp(host) : false
+}
+
+export type HostResolutionCheck = 'ok' | 'blocked' | 'unresolvable'
+
+/**
+ * Phase 25A — resolves `hostname` via DNS and validates EVERY returned
+ * address (not just the first) against the same private/reserved-range
+ * checks isBlockedHost applies to literal IPs. This closes the gap
+ * isBlockedHost's own doc comment has always disclosed: a hostname that
+ * merely *resolves* to a private/internal/cloud-metadata address (rather
+ * than being a private-IP literal itself) was previously followed
+ * unchecked. Called on every hop of fetchPage's redirect loop, exactly
+ * like the literal-IP check, so a same-host page redirecting through a
+ * hostname that resolves internally is rejected too.
+ *
+ * KNOWN, DELIBERATE LIMITATION (DNS rebinding): this checks the resolution
+ * result at the moment of the check, then fetchPage's own subsequent
+ * fetch() call performs its own, independent DNS resolution when it
+ * actually opens the connection. A narrow TOCTOU window exists between
+ * these two resolutions during which an attacker controlling DNS with a
+ * very low TTL could theoretically return a public IP for this check and a
+ * private one for the real connection ("DNS rebinding"). Closing this
+ * window completely would require pinning the exact resolved IP used here
+ * to the actual socket connection (e.g. via a custom `lookup`/dispatcher
+ * passed into the HTTP client) — undici is not an installed/importable
+ * dependency in this project (confirmed: `require.resolve('undici')` and
+ * `node:undici` both fail on the Node version this runs on), and Node's
+ * global `fetch` provides no supported hook to override or pin DNS
+ * resolution per-request without it. Rewriting this shared primitive onto
+ * Node's low-level `http`/`https` modules (which DO support a custom
+ * `lookup`) would fully close this gap but was judged higher-risk than
+ * beneficial for THIS phase: it is shared by every WordPress/Shopify/Wix
+ * verifier and the scanner itself, and re-implementing redirect/timeout/
+ * decompression handling by hand risks a much larger regression surface
+ * than the residual risk being closed. This is a deliberate, documented
+ * compromise, not an oversight — revisit with a proper HTTP client
+ * migration if/when DNS rebinding is judged to need full closure.
+ */
+export async function resolvesToBlockedAddress(hostname: string): Promise<HostResolutionCheck> {
+  if (isIP(hostname)) {
+    // Already a literal IP — isBlockedHost's synchronous check already
+    // covers this exact value; nothing further to resolve.
+    return isPrivateIp(hostname) ? 'blocked' : 'ok'
+  }
+
+  try {
+    const results = await dnsLookup(hostname, { all: true, verbatim: true })
+    if (results.length === 0) return 'unresolvable'
+    return results.some((entry) => isPrivateIp(entry.address)) ? 'blocked' : 'ok'
+  } catch {
+    return 'unresolvable'
+  }
+}
+
+/**
+ * Reads a Response body as a stream, capping DECOMPRESSED byte count at
+ * `maxBytes` — see MAX_RESPONSE_BYTES's own comment for why this is the
+ * correct place to guard against decompression bombs and oversized
+ * responses alike. Cancels the underlying stream (closing the connection)
+ * the moment the cap is exceeded, rather than reading to completion first.
+ */
+async function readBodyWithCap(response: Response, maxBytes: number): Promise<{ ok: true; text: string; byteLength: number } | { ok: false }> {
+  const reader = response.body?.getReader()
+
+  if (!reader) {
+    const text = await response.text()
+    const byteLength = new TextEncoder().encode(text).length
+    return byteLength > maxBytes ? { ok: false } : { ok: true, text, byteLength }
+  }
+
+  const decoder = new TextDecoder()
+  let result = ''
+  let total = 0
+
+  for (;;) {
+    const { done, value } = await reader.read()
+    if (done) break
+
+    total += value.byteLength
+    if (total > maxBytes) {
+      await reader.cancel().catch(() => {})
+      return { ok: false }
+    }
+
+    result += decoder.decode(value, { stream: true })
+  }
+
+  result += decoder.decode()
+  return { ok: true, text: result, byteLength: total }
 }
 
 export type RedirectHop = {
@@ -58,6 +193,8 @@ export type FetchPageResult =
       redirectChain: RedirectHop[]
       redirectCount: number
       xRobotsTag: string | null
+      /** Phase 25A: the raw Content-Type response header, if any — additive field, used by the crawler to distinguish HTML pages from other resource types it may still legitimately fetch (e.g. a non-HTML URL that reached fetchPage despite isCrawlablePageUrl's extension filtering, such as an extensionless PDF). */
+      contentType: string | null
     }
   | { ok: false; reason: FetchFailureReason }
 
@@ -113,6 +250,12 @@ export async function fetchPage(
         return { ok: false, reason: 'blocked' }
       }
 
+      // Phase 25A: deeper DNS-resolving check — see resolvesToBlockedAddress's
+      // own doc comment for exactly what this does and does not close.
+      const hostResolution = await resolvesToBlockedAddress(parsed.hostname)
+      if (hostResolution === 'blocked') return { ok: false, reason: 'blocked' }
+      if (hostResolution === 'unresolvable') return { ok: false, reason: 'network' }
+
       const normalizedCurrent = parsed.toString()
       if (seenUrls.has(normalizedCurrent)) {
         return { ok: false, reason: 'redirect_loop' }
@@ -144,18 +287,21 @@ export async function fetchPage(
       // Measured once headers arrive, before reading the body — an
       // approximation of time-to-first-byte rather than full download time.
       const durationMs = Date.now() - startedAt
-      const html = await response.text()
+
+      const body = await readBodyWithCap(response, MAX_RESPONSE_BYTES)
+      if (!body.ok) return { ok: false, reason: 'blocked' }
 
       return {
         ok: true,
-        html,
+        html: body.text,
         durationMs,
-        sizeBytes: new TextEncoder().encode(html).length,
+        sizeBytes: body.byteLength,
         finalUrl: normalizedCurrent,
         finalStatus: response.status,
         redirectChain,
         redirectCount: redirectChain.length,
         xRobotsTag: response.headers.get('x-robots-tag'),
+        contentType: response.headers.get('content-type'),
       }
     }
 

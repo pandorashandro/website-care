@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { PLAN_CAPABILITIES } from '@/lib/entitlements/plans'
+import { MAX_CRAWL_PAGES } from '@/lib/crawler/limits'
 import { resolveEntitlements, type SubscriptionRecord } from '@/lib/entitlements/subscription'
 import {
   isCapabilityAllowed,
@@ -173,6 +174,30 @@ describe('website limits by plan', () => {
     const free = resolveEntitlements(null)
     expect(evaluateAddWebsite(free, 0).allowed).toBe(true)
     expect(evaluateAddWebsite(free, 1).allowed).toBe(false)
+  })
+})
+
+describe('crawl page budgets by plan (Phase 25B)', () => {
+  it('Free crawl budget is 30 pages', () => {
+    expect(PLAN_CAPABILITIES.free.maxCrawlPages).toBe(30)
+  })
+
+  it('Bloom crawl budget is 150 pages', () => {
+    expect(PLAN_CAPABILITIES.bloom.maxCrawlPages).toBe(150)
+  })
+
+  it('Bloom Pro crawl budget equals the product-wide safety ceiling', () => {
+    // Pinned to the actual MAX_CRAWL_PAGES constant, not a duplicated
+    // literal, so the two can never silently drift apart.
+    expect(PLAN_CAPABILITIES.bloom_pro.maxCrawlPages).toBe(MAX_CRAWL_PAGES)
+  })
+
+  it('crawl budgets strictly increase with plan tier, and no plan can exceed the global safety ceiling', () => {
+    expect(PLAN_CAPABILITIES.free.maxCrawlPages).toBeLessThan(PLAN_CAPABILITIES.bloom.maxCrawlPages)
+    expect(PLAN_CAPABILITIES.bloom.maxCrawlPages).toBeLessThan(PLAN_CAPABILITIES.bloom_pro.maxCrawlPages)
+    for (const plan of Object.values(PLAN_CAPABILITIES)) {
+      expect(plan.maxCrawlPages).toBeLessThanOrEqual(MAX_CRAWL_PAGES)
+    }
   })
 })
 

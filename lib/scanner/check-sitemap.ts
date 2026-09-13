@@ -5,7 +5,8 @@ import { isSameHost, normalizeUrl } from './url-utils'
 export const MAX_SITEMAP_FILES = 5
 const MAX_LOC_ENTRIES_PER_SITEMAP = 500
 
-function extractLocEntries(xml: string): string[] {
+/** Exported for reuse by lib/crawler/sitemap.ts, which needs the same lightweight `<loc>` extraction for crawl-time discovery (including sitemap index recursion), not just this file's own validation-only use. */
+export function extractLocEntries(xml: string): string[] {
   const matches = xml.match(/<loc>([^<]*)<\/loc>/gi) ?? []
 
   return matches

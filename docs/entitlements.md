@@ -24,8 +24,11 @@ There is no generic `'paid'` plan key anywhere in this system — the two-plan (
 | `manualScansAllowed` | `true` | `true` | `true` |
 | `aiFixesAllowed` | `true` | `true` | `true` |
 | `directFixesAllowed` | `true` | `true` | `true` |
+| `maxCrawlPages` | 30 | 150 | 500 |
 
 Manual scans, AI-assisted fixes, and direct fixes are `true` on **every** plan today — this correction did not paywall any already-shipped functionality. The entitlement structure fully supports giving these different values per plan later (each is just one more field to change in `PLAN_CAPABILITIES`); nothing about today's uniform `true` values is hardcoded into the shape of the system.
+
+`maxCrawlPages` (Phase 25B) is the per-plan ceiling on how many pages a single site-wide crawl run may process — see `docs/crawler.md`. It is enforced by `lib/crawler/limits.ts`'s `clampPageBudget` as a second, independent clamp alongside that module's own flat `MAX_CRAWL_PAGES` product-wide safety ceiling (which no plan's value may ever exceed — Bloom Pro's 500 is deliberately set equal to it).
 
 ## Billing provider
 
