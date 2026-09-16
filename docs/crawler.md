@@ -20,6 +20,15 @@ Keeping these separate — rather than trying to unify them in Phase 25 — is d
 - **`lib/crawler/engine.ts`** — `startCrawlRun` (seeds the frontier, does a best-effort sitemap pass) and `processCrawlBatch` (does one wall-clock-bounded chunk of work, then returns). Progress counters are always recomputed fresh from `crawl_pages` row counts (`CrawlStore.recomputeCrawlRunCounts`), never accumulated in memory — see that method's own doc comment for the lost-update race this closes under overlapping invocations.
 - **`app/dashboard/websites/[id]/crawl-actions.ts`** — `startWebsiteCrawl`/`continueWebsiteCrawl`, the ownership-checked Server Action entry points. Both re-derive the caller's own session and website ownership before touching the engine.
 
+### Evidence extensions added by Phase 26 (Technical SEO)
+
+All additive, all reusing an already-fetched HTML page or an already-performed network call — none of them added a new fetch or changed crawl behavior:
+
+- **`crawl_pages.redirect_count`**, **`crawl_runs.robots_status`/`sitemap_status`/`sitemap_url_count`** (Phase 26A) — persist the outcome of work `startCrawlRun`/`fetchPage` already did.
+- **`crawl_pages.structured_data_present`/`structured_data_valid`/`structured_data_error`**, **`crawl_pages.hreflang_tags`** (Phase 26B) — extracted in `lib/crawler/page-extract.ts` from the same HTML `extractPageMetadata` already parses, via `lib/scanner/checks.ts`'s `getJsonLdBlocks`/`getHreflangTags` (built-in `JSON.parse` only — no new dependency).
+
+See `supabase/migrations/20260927000000_technical_seo_findings.sql` and `20260930000000_technical_seo_remediation.sql` for the exact columns, and `lib/technical-seo/` for what reads them.
+
 ## No background worker: what drives continuation in V1
 
 This codebase runs on Next.js/Vercel/Supabase — there is no queue consumer, cron dispatcher, or long-running process available to drive a crawl forward on its own. Continuation in V1 is driven by the **browser tab**: `app/dashboard/websites/[id]/site-scan/site-scan-controls.tsx` calls `continueWebsiteCrawl` repeatedly (with a small delay between calls) for as long as the crawl is `queued`/`running` and the Site Scan page stays open, up to a generous safety cap (`AUTO_CONTINUE_CAP`) per mount. If the tab is closed or the cap is hit first, nothing is lost — the crawl's entire state lives in `crawl_runs`/`crawl_pages`, and reopening the page (or clicking the visible "Continue Scan" button) picks the crawl up exactly where it left off, including reclaiming any page that was `processing` when the tab disappeared (`claim_crawl_pages`' stale-reclaim, `STALE_CLAIM_MINUTES`).

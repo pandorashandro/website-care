@@ -39,4 +39,57 @@ describe('extractPageMetadata', () => {
     const html = '<html><head></head></html>'
     expect(extractPageMetadata(html, 'https://example.com/page', 'noindex').noindex).toBe(true)
   })
+
+  describe('structured data (Phase 26B)', () => {
+    it('detects a page with no JSON-LD as absent, not invalid', () => {
+      const result = extractPageMetadata('<html><head></head></html>', 'https://example.com/page', null)
+      expect(result.structuredDataPresent).toBe(false)
+      expect(result.structuredDataValid).toBeNull()
+      expect(result.structuredDataError).toBeNull()
+    })
+
+    it('detects valid JSON-LD', () => {
+      const html = `<script type="application/ld+json">{"@context":"https://schema.org","@type":"Organization","name":"Acme"}</script>`
+      const result = extractPageMetadata(html, 'https://example.com/page', null)
+      expect(result.structuredDataPresent).toBe(true)
+      expect(result.structuredDataValid).toBe(true)
+      expect(result.structuredDataError).toBeNull()
+    })
+
+    it('detects invalid (malformed) JSON-LD', () => {
+      const html = `<script type="application/ld+json">{"@type": "Organization", "name": }</script>`
+      const result = extractPageMetadata(html, 'https://example.com/page', null)
+      expect(result.structuredDataPresent).toBe(true)
+      expect(result.structuredDataValid).toBe(false)
+      expect(result.structuredDataError).not.toBeNull()
+    })
+
+    it('treats multiple valid blocks as valid overall', () => {
+      const html = `
+        <script type="application/ld+json">{"@type":"Organization"}</script>
+        <script type="application/ld+json">{"@type":"WebSite"}</script>
+      `
+      const result = extractPageMetadata(html, 'https://example.com/page', null)
+      expect(result.structuredDataValid).toBe(true)
+    })
+  })
+
+  describe('hreflang (Phase 26B)', () => {
+    it('extracts hreflang tags and resolves relative hrefs to absolute URLs', () => {
+      const html = `<html><head><link rel="alternate" hreflang="fr" href="/fr/page"></head></html>`
+      const result = extractPageMetadata(html, 'https://example.com/page', null)
+      expect(result.hreflangTags).toEqual([{ lang: 'fr', href: 'https://example.com/fr/page' }])
+    })
+
+    it('returns an empty array when no hreflang tags are present (the common case)', () => {
+      const result = extractPageMetadata('<html><head></head></html>', 'https://example.com/page', null)
+      expect(result.hreflangTags).toEqual([])
+    })
+
+    it('ignores an alternate link with no hreflang attribute', () => {
+      const html = `<html><head><link rel="alternate" type="application/rss+xml" href="/feed.xml"></head></html>`
+      const result = extractPageMetadata(html, 'https://example.com/page', null)
+      expect(result.hreflangTags).toEqual([])
+    })
+  })
 })

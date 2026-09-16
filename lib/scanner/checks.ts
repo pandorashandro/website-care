@@ -412,6 +412,36 @@ export function getCanonicalHref(html: string): string | null {
   return null
 }
 
+/** Phase 26B: raw inner text of every `<script type="application/ld+json">` block, unparsed — the caller decides how to validate/interpret each one. */
+export function getJsonLdBlocks(html: string): string[] {
+  const matches = html.match(/<script\b[^>]*type\s*=\s*["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi) ?? []
+
+  return matches
+    .map((tag) => tag.replace(/^<script\b[^>]*>/i, '').replace(/<\/script>$/i, '').trim())
+    .filter((block) => block.length > 0)
+}
+
+export type HreflangTag = { lang: string; href: string }
+
+/** Phase 26B: every `<link rel="alternate" hreflang="..." href="...">` tag's raw lang code and href, in document order. Deliberately simple attribute matching (like getCanonicalHref) rather than a full HTML parser. */
+export function getHreflangTags(html: string): HreflangTag[] {
+  const linkTags = html.match(/<link\b[^>]*>/gi) ?? []
+  const tags: HreflangTag[] = []
+
+  for (const tag of linkTags) {
+    if (!/rel\s*=\s*["']alternate["']/i.test(tag)) continue
+
+    const hreflangMatch = tag.match(/hreflang\s*=\s*["']([^"']*)["']/i)
+    const hrefMatch = tag.match(/href\s*=\s*["']([^"']*)["']/i)
+
+    if (hreflangMatch && hrefMatch && hreflangMatch[1].trim().length > 0 && hrefMatch[1].trim().length > 0) {
+      tags.push({ lang: hreflangMatch[1].trim(), href: hrefMatch[1].trim() })
+    }
+  }
+
+  return tags
+}
+
 function hasNonEmptyMetaProperty(html: string, property: string): boolean {
   const metaTags = html.match(/<meta\b[^>]*>/gi) ?? []
   const propertyPattern = new RegExp(`(?:property|name)\\s*=\\s*["']${property}["']`, 'i')

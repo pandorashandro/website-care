@@ -37,6 +37,7 @@ describe('discoverSitemapUrls', () => {
 
     expect(result.urls.sort()).toEqual(['https://example.com/a', 'https://example.com/b'])
     expect(result.truncated).toBe(false)
+    expect(result.reachable).toBe(true)
   })
 
   it('recurses into a sitemap index one level', async () => {
@@ -84,11 +85,20 @@ describe('discoverSitemapUrls', () => {
     expect(result.urls).toEqual([])
   })
 
-  it('returns no URLs (not an error) when every candidate is unreachable', async () => {
+  it('returns no URLs (not an error) when every candidate is unreachable, and reports reachable: false (Phase 26)', async () => {
     vi.mocked(fetchPage).mockResolvedValue({ ok: false, reason: 'network' } as never)
 
     const result = await discoverSitemapUrls('https://example.com', [])
     expect(result.urls).toEqual([])
+    expect(result.reachable).toBe(false)
+  })
+
+  it('reports reachable: true when a sitemap file responds but contains no usable URLs (Phase 26)', async () => {
+    vi.mocked(fetchPage).mockResolvedValue(htmlResult('<?xml version="1.0"?><urlset></urlset>'))
+
+    const result = await discoverSitemapUrls('https://example.com', [])
+    expect(result.urls).toEqual([])
+    expect(result.reachable).toBe(true)
   })
 
   it('caps the number of sitemap files fetched (pathological expansion protection)', async () => {

@@ -32,6 +32,12 @@ export type CrawlRunRow = {
   started_at: string | null
   completed_at: string | null
   updated_at: string
+  /** Phase 26 — outcome of the one robots.txt fetch startCrawlRun already performs. Null for a crawl_run created before this column existed. */
+  robots_status: 'ok' | 'not_found' | 'unreachable' | null
+  /** Phase 26 — outcome of the sitemap discovery pass startCrawlRun already performs. Null for a crawl_run created before this column existed. */
+  sitemap_status: 'ok' | 'unreachable' | 'empty' | null
+  /** Phase 26 — total URLs collected across all sitemap files, before budget slicing. Null for a crawl_run created before this column existed. */
+  sitemap_url_count: number | null
 }
 
 export type CrawlPageRow = {
@@ -58,6 +64,16 @@ export type CrawlPageRow = {
   error_reason: string | null
   discovered_at: string
   fetched_at: string | null
+  /** Phase 26 — redirect hops fetchPage followed before reaching final_url/http_status. 0 when fetched directly with no redirect. */
+  redirect_count: number
+  /** Phase 26B — true if this page contained at least one JSON-LD structured data block. */
+  structured_data_present: boolean
+  /** Phase 26B — true if every JSON-LD block parsed as valid JSON; false if at least one didn't; null when none were present. Syntax validity only, never schema.org semantic validation. */
+  structured_data_valid: boolean | null
+  /** Phase 26B — a short description of the first JSON parse failure, when structured_data_valid is false. */
+  structured_data_error: string | null
+  /** Phase 26B — every {lang, href} extracted from this page's <link rel="alternate" hreflang="..."> tags. Empty array (the common case) means none were found. */
+  hreflang_tags: Array<{ lang: string; href: string }>
 }
 
 export type CrawlLinkInsert = {
@@ -67,6 +83,12 @@ export type CrawlLinkInsert = {
   target_page_id: string | null
   link_type: LinkType
   anchor_text: string | null
+}
+
+/** Phase 26 — the full read shape of a crawl_links row, for analyzers that read back the discovered site graph (lib/crawler/engine.ts itself never reads this back — it only ever inserts). */
+export type CrawlLinkRow = CrawlLinkInsert & {
+  id: string
+  discovered_at: string
 }
 
 /** A candidate URL discovered during processing, before it becomes a crawl_pages row. */

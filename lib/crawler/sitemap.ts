@@ -26,6 +26,8 @@ export type DiscoveredSitemapUrls = {
   urls: string[]
   filesFetched: number
   truncated: boolean
+  /** Phase 26 — true if at least one candidate sitemap file returned a reachable 2xx response (whether or not it ultimately contained usable URLs). Lets a caller distinguish "no sitemap could be fetched at all" from "a sitemap was fetched but had nothing usable in it" without any additional network calls. */
+  reachable: boolean
 }
 
 function isSitemapIndex(xml: string): boolean {
@@ -58,6 +60,7 @@ export async function discoverSitemapUrls(websiteUrl: string, sitemapUrlsFromRob
   const collected: string[] = []
   let filesFetched = 0
   let truncated = false
+  let reachable = false
 
   const initialCandidates = [...sitemapUrlsFromRobots, `${origin}/sitemap.xml`]
     .map((raw) => normalizeUrl(raw, origin))
@@ -82,6 +85,8 @@ export async function discoverSitemapUrls(websiteUrl: string, sitemapUrlsFromRob
     filesFetched++
 
     if (!result.ok || result.finalStatus < 200 || result.finalStatus >= 300) continue
+
+    reachable = true
 
     if (isSitemapIndex(result.html)) {
       if (depth >= MAX_SITEMAP_INDEX_DEPTH) {
@@ -126,5 +131,5 @@ export async function discoverSitemapUrls(websiteUrl: string, sitemapUrlsFromRob
   // was cut short, even if it happened to be exactly at a file boundary.
   if (queue.length > 0) truncated = true
 
-  return { urls: collected, filesFetched, truncated }
+  return { urls: collected, filesFetched, truncated, reachable }
 }

@@ -50,6 +50,9 @@ export function createFakeCrawlStore(): CrawlStore & { _pages: CrawlPageRow[]; _
         started_at: null,
         completed_at: null,
         updated_at: now,
+        robots_status: null,
+        sitemap_status: null,
+        sitemap_url_count: null,
       }
       runs.push(run)
       return { ...run }
@@ -119,6 +122,11 @@ export function createFakeCrawlStore(): CrawlStore & { _pages: CrawlPageRow[]; _
           response_time_ms: null,
           response_size_bytes: null,
           error_reason: null,
+          redirect_count: 0,
+          structured_data_present: false,
+          structured_data_valid: null,
+          structured_data_error: null,
+          hreflang_tags: [],
           discovered_at: new Date().toISOString(),
           fetched_at: null,
         })

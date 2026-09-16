@@ -23,6 +23,7 @@ import { buttonStyles } from '@/components/ui/button'
 import WebsiteSubNav from '@/components/website/website-sub-nav'
 import HealthOverview from '@/components/report/health-overview'
 import CategoryScoreGrid from '@/components/report/category-score-grid'
+import { getTechnicalSeoCategorySummary } from './technical-seo-summary'
 import PriorityIssues from '@/components/report/priority-issues'
 import IssueGroup from '@/components/report/issue-group'
 import {
@@ -89,6 +90,15 @@ export default async function WebsiteReportPage(props: PageProps<'/dashboard/web
   const wordpressConnectionPromise = getWordPressConnectionSummary(website.id)
   const shopifyConnectionPromise = getShopifyConnectionStatus(website.id)
   const wixConnectionPromise = getWixConnectionStatus(website.id)
+
+  // Phase 26B correction — the ONE server-side retrieval of the
+  // authoritative Technical SEO analysis for this page's Category Health
+  // tile. getTechnicalSeoCategorySummary reads the SAME crawl_analyses row
+  // (by crawl_run_id + analyzer_version) the dedicated Technical SEO page
+  // reads, and its persisted health_score verbatim — this page performs no
+  // Technical SEO computation of its own, and never reads
+  // healthScore.categories.technical (the legacy score) for this tile.
+  const technicalSeoPromise = getTechnicalSeoCategorySummary(website.id)
 
   const { data: latestScan } = await supabase
     .from('scans')
@@ -162,6 +172,8 @@ export default async function WebsiteReportPage(props: PageProps<'/dashboard/web
       .eq('status', 'completed')
     isFirstReport = completedScanCount === 1
   }
+
+  const technicalSeo = await technicalSeoPromise
 
   const wordpress = await wordpressPromise
   const wordpressConnection = await wordpressConnectionPromise
@@ -383,7 +395,7 @@ export default async function WebsiteReportPage(props: PageProps<'/dashboard/web
 
           <HealthOverview overall={healthScore.overall} issueCount={issues.length} pageCount={pageUrlsWithIssues.size} />
 
-          <CategoryScoreGrid categories={healthScore.categories} />
+          <CategoryScoreGrid categories={healthScore.categories} websiteId={website.id} technicalSeo={technicalSeo} />
 
           {issues.length === 0 ? (
             <EmptyState

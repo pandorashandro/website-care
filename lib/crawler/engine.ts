@@ -105,6 +105,27 @@ export async function startCrawlRun(store: CrawlStore, websiteId: string, seedUr
       .map((url) => ({ crawlRunId: crawlRun.id, websiteId, url, discoveredUrl: null, depth: 1, discoveredVia: 'sitemap' as const }))
 
     await store.upsertQueuedPages(sitemapPages)
+
+    // Phase 26: persist the OUTCOME of the robots.txt fetch and sitemap
+    // discovery pass this function was already performing — no new network
+    // call, just recording what happened so Technical SEO analysis has
+    // real site-wide evidence instead of re-fetching robots.txt/sitemap.xml
+    // a second time. Best-effort like everything else in this try block: if
+    // this write fails, the crawl itself is unaffected (these columns are
+    // nullable for exactly this reason).
+    const robotsStatus: NonNullable<CrawlRunRow['robots_status']> = robotsResult.ok
+      ? 'ok'
+      : robotsResult.reason === 'not_found'
+        ? 'not_found'
+        : 'unreachable'
+    const sitemapStatus: NonNullable<CrawlRunRow['sitemap_status']> =
+      sitemapDiscovery.urls.length > 0 ? 'ok' : sitemapDiscovery.reachable ? 'empty' : 'unreachable'
+
+    await store.updateCrawlRun(crawlRun.id, {
+      robots_status: robotsStatus,
+      sitemap_status: sitemapStatus,
+      sitemap_url_count: sitemapDiscovery.urls.length,
+    })
   } catch {
     // Best-effort only — see module doc comment. Link-following discovery
     // during processCrawlBatch does not depend on this having succeeded.
@@ -185,7 +206,17 @@ async function processOnePage(store: CrawlStore, page: CrawlPageRow, maxDepth: n
   const isHtml = !result.contentType || result.contentType.toLowerCase().includes('html')
   const metadata = isHtml
     ? extractPageMetadata(result.html, result.finalUrl, result.xRobotsTag)
-    : { title: null, metaDescription: null, h1Text: null, canonicalUrl: null, noindex: false }
+    : {
+        title: null,
+        metaDescription: null,
+        h1Text: null,
+        canonicalUrl: null,
+        noindex: false,
+        structuredDataPresent: false,
+        structuredDataValid: null,
+        structuredDataError: null,
+        hreflangTags: [],
+      }
 
   // Discoveries are computed and PERSISTED BEFORE this page is marked
   // 'completed' — deliberately, for resumability: this page's row is the
@@ -248,6 +279,11 @@ async function processOnePage(store: CrawlStore, page: CrawlPageRow, maxDepth: n
     h1_text: metadata.h1Text,
     response_time_ms: result.durationMs,
     response_size_bytes: result.sizeBytes,
+    redirect_count: result.redirectCount,
+    structured_data_present: metadata.structuredDataPresent,
+    structured_data_valid: metadata.structuredDataValid,
+    structured_data_error: metadata.structuredDataError,
+    hreflang_tags: metadata.hreflangTags,
     fetched_at: new Date().toISOString(),
   })
 

@@ -69,6 +69,61 @@ describe('startCrawlRun', () => {
     expect(crawlRun.status).toBe('failed')
   })
 
+  describe('robots/sitemap outcome persistence (Phase 26)', () => {
+    it('persists robots_status/sitemap_status as unreachable when both are unfetchable, with no new network calls beyond what startCrawlRun already made', async () => {
+      const store = createFakeCrawlStore()
+      const { crawlRun } = await startCrawlRun(store, 'website-1', 'https://example.com/')
+
+      const finalRun = await store.getCrawlRun(crawlRun.id)
+      expect(finalRun?.robots_status).toBe('unreachable')
+      expect(finalRun?.sitemap_status).toBe('unreachable')
+      expect(finalRun?.sitemap_url_count).toBe(0)
+    })
+
+    it('persists robots_status: not_found when robots.txt returns 404, distinct from a genuine network failure', async () => {
+      vi.mocked(fetchPage).mockImplementation(async (url: string) => {
+        if (url === 'https://example.com/robots.txt') return htmlResult('', { finalUrl: url, finalStatus: 404 })
+        return NO_ROBOTS as never
+      })
+
+      const store = createFakeCrawlStore()
+      const { crawlRun } = await startCrawlRun(store, 'website-1', 'https://example.com/')
+      const finalRun = await store.getCrawlRun(crawlRun.id)
+      expect(finalRun?.robots_status).toBe('not_found')
+    })
+
+    it('persists robots_status: ok and sitemap_status: ok with the correct URL count when both are fetchable', async () => {
+      const sitemapXml =
+        '<?xml version="1.0"?><urlset><url><loc>https://example.com/a</loc></url><url><loc>https://example.com/b</loc></url></urlset>'
+
+      vi.mocked(fetchPage).mockImplementation(async (url: string) => {
+        if (url === 'https://example.com/robots.txt') return htmlResult('User-agent: *', { finalUrl: url, contentType: 'text/plain' })
+        if (url === 'https://example.com/sitemap.xml') return htmlResult(sitemapXml, { finalUrl: url, contentType: 'application/xml' })
+        return NO_ROBOTS as never
+      })
+
+      const store = createFakeCrawlStore()
+      const { crawlRun } = await startCrawlRun(store, 'website-1', 'https://example.com/')
+      const finalRun = await store.getCrawlRun(crawlRun.id)
+      expect(finalRun?.robots_status).toBe('ok')
+      expect(finalRun?.sitemap_status).toBe('ok')
+      expect(finalRun?.sitemap_url_count).toBe(2)
+    })
+
+    it('persists sitemap_status: empty when a sitemap file is reachable but has no usable URLs', async () => {
+      vi.mocked(fetchPage).mockImplementation(async (url: string) => {
+        if (url === 'https://example.com/sitemap.xml') return htmlResult('<?xml version="1.0"?><urlset></urlset>', { finalUrl: url, contentType: 'application/xml' })
+        return NO_ROBOTS as never
+      })
+
+      const store = createFakeCrawlStore()
+      const { crawlRun } = await startCrawlRun(store, 'website-1', 'https://example.com/')
+      const finalRun = await store.getCrawlRun(crawlRun.id)
+      expect(finalRun?.sitemap_status).toBe('empty')
+      expect(finalRun?.sitemap_url_count).toBe(0)
+    })
+  })
+
   describe('plan-aware crawl budgets (Phase 25B)', () => {
     it('clamps the effective budget to planMaxPages even when a larger amount was requested — a client cannot buy a bigger crawl than its plan allows', async () => {
       const store = createFakeCrawlStore()
@@ -146,6 +201,20 @@ describe('processCrawlBatch — persistence, discovery, duplicate prevention, fi
     expect(aboutPages).toHaveLength(1)
     expect(aboutPages[0].status).toBe('completed')
     expect(aboutPages[0].title).toBe('About')
+  })
+
+  it('persists the redirect count fetchPage reports for a completed page (Phase 26 evidence)', async () => {
+    vi.mocked(fetchPage).mockImplementation(async (url: string) => {
+      if (url === 'https://example.com/') return htmlResult('<title>Home</title>', { finalUrl: 'https://example.com/', redirectCount: 3 })
+      return NO_ROBOTS as never
+    })
+
+    const store = createFakeCrawlStore()
+    const { crawlRun } = await startCrawlRun(store, 'website-1', 'https://example.com/')
+    await processCrawlBatch(store, crawlRun.id)
+
+    const seedPage = store._pages.find((p) => p.url === 'https://example.com/')
+    expect(seedPage?.redirect_count).toBe(3)
   })
 
   it('does not destroy the crawl when one page fails — other pages still process, run still completes', async () => {
