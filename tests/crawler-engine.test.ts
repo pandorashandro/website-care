@@ -217,6 +217,82 @@ describe('processCrawlBatch — persistence, discovery, duplicate prevention, fi
     expect(seedPage?.redirect_count).toBe(3)
   })
 
+  it('persists the extracted meta description for a completed HTML page (Phase 28 real-world evidence validation, Observation 3)', async () => {
+    vi.mocked(fetchPage).mockImplementation(async (url: string) => {
+      if (url === 'https://example.com/') {
+        return htmlResult('<title>Home</title><meta name="description" content="A page-specific summary describing this page.">', {
+          finalUrl: 'https://example.com/',
+        })
+      }
+      return NO_ROBOTS as never
+    })
+
+    const store = createFakeCrawlStore()
+    const { crawlRun } = await startCrawlRun(store, 'website-1', 'https://example.com/')
+    await processCrawlBatch(store, crawlRun.id)
+
+    const seedPage = store._pages.find((p) => p.url === 'https://example.com/')
+    expect(seedPage?.meta_description).toBe('A page-specific summary describing this page.')
+  })
+
+  it('persists null meta_description when no meta description tag is present (genuine absence, not an extraction/persistence bug)', async () => {
+    vi.mocked(fetchPage).mockImplementation(async (url: string) => {
+      if (url === 'https://example.com/') return htmlResult('<title>Home</title><p>No meta description here.</p>', { finalUrl: 'https://example.com/' })
+      return NO_ROBOTS as never
+    })
+
+    const store = createFakeCrawlStore()
+    const { crawlRun } = await startCrawlRun(store, 'website-1', 'https://example.com/')
+    await processCrawlBatch(store, crawlRun.id)
+
+    const seedPage = store._pages.find((p) => p.url === 'https://example.com/')
+    expect(seedPage?.meta_description).toBeNull()
+  })
+
+  it('persists h1_count for a completed HTML page (Phase 28 evidence)', async () => {
+    vi.mocked(fetchPage).mockImplementation(async (url: string) => {
+      if (url === 'https://example.com/') return htmlResult('<title>Home</title><h1>One</h1><h1>Two</h1>', { finalUrl: 'https://example.com/' })
+      return NO_ROBOTS as never
+    })
+
+    const store = createFakeCrawlStore()
+    const { crawlRun } = await startCrawlRun(store, 'website-1', 'https://example.com/')
+    await processCrawlBatch(store, crawlRun.id)
+
+    const seedPage = store._pages.find((p) => p.url === 'https://example.com/')
+    expect(seedPage?.h1_count).toBe(2)
+    expect(seedPage?.h1_text).toBe('One')
+  })
+
+  it('persists h1_count 0 for a non-HTML resource (e.g. an extensionless PDF that still reaches fetchPage)', async () => {
+    vi.mocked(fetchPage).mockImplementation(async (url: string) => {
+      if (url === 'https://example.com/') return htmlResult('<title>Home</title><a href="/document">doc</a>', { finalUrl: 'https://example.com/' })
+      if (url === 'https://example.com/document') {
+        return {
+          ok: true as const,
+          html: '%PDF-1.4',
+          durationMs: 5,
+          sizeBytes: 8,
+          finalUrl: 'https://example.com/document',
+          finalStatus: 200,
+          redirectChain: [],
+          redirectCount: 0,
+          xRobotsTag: null,
+          contentType: 'application/pdf',
+        }
+      }
+      return NO_ROBOTS as never
+    })
+
+    const store = createFakeCrawlStore()
+    const { crawlRun } = await startCrawlRun(store, 'website-1', 'https://example.com/')
+    await processCrawlBatch(store, crawlRun.id)
+    await processCrawlBatch(store, crawlRun.id)
+
+    const docPage = store._pages.find((p) => p.url === 'https://example.com/document')
+    expect(docPage?.h1_count).toBe(0)
+  })
+
   it('does not destroy the crawl when one page fails — other pages still process, run still completes', async () => {
     vi.mocked(fetchPage).mockImplementation(async (url: string) => {
       if (url === 'https://example.com/') {

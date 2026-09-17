@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { cn } from '@/lib/ui/cn'
 
-export type WebsiteSubNavActive = 'overview' | 'site-scan' | 'technical-seo' | 'site-architecture' | 'integrations' | 'activity'
+export type WebsiteSubNavActive = 'overview' | 'site-scan' | 'technical-seo' | 'site-architecture' | 'on-page-seo' | 'integrations' | 'activity'
 
 /**
  * Small, truthful sub-navigation for a single website. Only real routes
@@ -15,6 +15,7 @@ export default function WebsiteSubNav({ websiteId, active }: { websiteId: string
     { key: 'site-scan', label: 'Site Scan', href: `/dashboard/websites/${websiteId}/site-scan` },
     { key: 'technical-seo', label: 'Technical SEO', href: `/dashboard/websites/${websiteId}/technical-seo` },
     { key: 'site-architecture', label: 'Site Architecture', href: `/dashboard/websites/${websiteId}/site-architecture` },
+    { key: 'on-page-seo', label: 'On-Page SEO', href: `/dashboard/websites/${websiteId}/on-page-seo` },
     { key: 'integrations', label: 'Integrations', href: `/dashboard/websites/${websiteId}/integrations` },
     { key: 'activity', label: 'Activity', href: `/dashboard/websites/${websiteId}/activity` },
   ]

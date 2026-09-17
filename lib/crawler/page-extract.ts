@@ -26,11 +26,20 @@ import { normalizeUrl } from '@/lib/scanner/url-utils'
  * this is syntax validity only, never schema.org semantic/Rich-Results
  * validation — see lib/technical-seo/checks/structured-data.ts's own doc
  * comment for why that distinction matters.
+ *
+ * Phase 28 additive extraction (`h1Count`): the ON-PAGE SEO engine's
+ * `multiple_h1` check needs to know HOW MANY <h1> elements a page has, not
+ * just the first one's text — `h1Text` alone (below) cannot distinguish "one
+ * H1" from "three H1s, first one shown." Reuses the scanner's own existing
+ * `getH1Texts` (already called for h1Text) rather than re-parsing the HTML a
+ * second time — `.length` is free once that array already exists.
  */
 export type ExtractedPageMetadata = {
   title: string | null
   metaDescription: string | null
   h1Text: string | null
+  /** Phase 28 — total count of <h1> elements found (0 if none). Independent of h1Text's own null-when-empty-string handling; see lib/on-page/checks/headings.ts for how the two are combined. */
+  h1Count: number
   canonicalUrl: string | null
   noindex: boolean
   structuredDataPresent: boolean
@@ -70,6 +79,7 @@ export function extractPageMetadata(html: string, pageUrl: string, xRobotsTag: s
     title: getTitleText(html),
     metaDescription: getMetaDescriptionContent(html),
     h1Text: h1Texts.length > 0 ? h1Texts[0] : null,
+    h1Count: h1Texts.length,
     canonicalUrl,
     noindex: hasNoindexMetaRobots(html) || hasNoindexXRobotsTag(xRobotsTag),
     ...structuredData,

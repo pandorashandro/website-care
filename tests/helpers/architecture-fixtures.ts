@@ -61,6 +61,7 @@ export function makePage(overrides: Partial<CrawlPageRow> & { url: string }): Cr
     structured_data_valid: null,
     structured_data_error: null,
     hreflang_tags: [],
+    h1_count: 1,
     ...overrides,
   }
 }

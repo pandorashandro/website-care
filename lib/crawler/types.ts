@@ -74,6 +74,8 @@ export type CrawlPageRow = {
   structured_data_error: string | null
   /** Phase 26B — every {lang, href} extracted from this page's <link rel="alternate" hreflang="..."> tags. Empty array (the common case) means none were found. */
   hreflang_tags: Array<{ lang: string; href: string }>
+  /** Phase 28 — total count of <h1> elements on this page (0 if none). Independent of h1_text, which only ever stores the FIRST one's text — see lib/on-page/checks/headings.ts's multiple_h1 check, which is the reason this was added. */
+  h1_count: number
 }
 
 export type CrawlLinkInsert = {

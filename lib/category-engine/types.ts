@@ -46,6 +46,8 @@ export type RemediationType =
   | 'schema_correction'
   | 'link_restructure'
   | 'guided_instruction'
+  /** Phase 28 — a page's own title/meta-description/H1 text field being replaced with a new value (e.g. via the existing WordPress title/meta-description/H1 Prepare Fix flows). Added per this type's own "extend as needed" contract. */
+  | 'content_field_replacement'
 
 /** A single observed-or-desired state value, paired with a human-readable label so the UI never has to guess how to phrase a raw value. */
 export type StateValue = {

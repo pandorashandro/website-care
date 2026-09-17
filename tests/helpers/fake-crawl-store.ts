@@ -119,6 +119,7 @@ export function createFakeCrawlStore(): CrawlStore & { _pages: CrawlPageRow[]; _
           title: null,
           meta_description: null,
           h1_text: null,
+          h1_count: 0,
           response_time_ms: null,
           response_size_bytes: null,
           error_reason: null,

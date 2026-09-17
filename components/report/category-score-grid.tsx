@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { Wrench, Network } from 'lucide-react'
+import { Wrench, Network, Search } from 'lucide-react'
 import Card from '@/components/ui/card'
 import Badge from '@/components/ui/badge'
 import type { CategoryScores } from '@/lib/scanner/calculate-health-score'
@@ -15,20 +15,28 @@ function barColor(score: number): string {
 }
 
 /**
- * Phase 26B correction / Phase 27 — 'technical' is excluded from
- * CATEGORY_ORDER's own legacy rendering below; both canonical category
- * engines built so far (Technical SEO, Site Architecture) render their own
- * tile in THIS SAME grid from a `CategorySummary` (see
- * lib/category-engine/types.ts) instead. This is the fix for the exact
- * duplicate-scoring bug a prior attempt introduced: a canonical category
- * must live INSIDE this existing "Category Health" grid (never a
- * standalone card above the report), and its score/status/finding-count
- * must come from the ONE authoritative persisted analysis — the exact same
- * source its own dedicated page reads — never recomputed here. The
- * remaining legacy categories (seo/accessibility/performance/content) stay
- * unchanged placeholders until their own canonical engines are built.
+ * Phase 26B correction / Phase 27 / Phase 28 — 'technical' and 'seo' are
+ * excluded from CATEGORY_ORDER's own legacy rendering below; all three
+ * canonical category engines built so far (Technical SEO, Site
+ * Architecture, On-Page SEO) render their own tile in THIS SAME grid from a
+ * `CategorySummary` (see lib/category-engine/types.ts) instead. This is the
+ * fix for the exact duplicate-scoring bug a prior attempt introduced: a
+ * canonical category must live INSIDE this existing "Category Health" grid
+ * (never a standalone card above the report), and its score/status/
+ * finding-count must come from the ONE authoritative persisted analysis —
+ * the exact same source its own dedicated page reads — never recomputed
+ * here.
+ *
+ * Phase 28 specifically: the legacy generic 'seo' category (title/meta/H1
+ * checks bucketed under a single "SEO" score alongside checks that
+ * genuinely belong to Technical SEO — see
+ * docs/technical-seo-legacy-classification.md) is retired from this grid
+ * now that canonical On-Page SEO exists — never shown alongside it as a
+ * second, competing category. The remaining legacy categories
+ * (accessibility/performance/content) stay unchanged placeholders until
+ * their own canonical engines are built.
  */
-const OTHER_CATEGORY_ORDER = CATEGORY_ORDER.filter((category) => category !== 'technical')
+const OTHER_CATEGORY_ORDER = CATEGORY_ORDER.filter((category) => category !== 'technical' && category !== 'seo')
 
 /**
  * One reusable tile for any canonical category engine's CategorySummary —
@@ -106,17 +114,20 @@ export default function CategoryScoreGrid({
   websiteId,
   technicalSeo,
   siteArchitecture,
+  onPageSeo,
 }: {
   categories: CategoryScores
   websiteId: string
   technicalSeo: CategorySummary
   siteArchitecture: CategorySummary
+  onPageSeo: CategorySummary
 }) {
   return (
     <div>
       <h2 className="text-base font-semibold text-gray-900">Category Health</h2>
       <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <CategoryEngineTile href={`/dashboard/websites/${websiteId}/technical-seo`} label="Technical SEO" icon={Wrench} summary={technicalSeo} />
+        <CategoryEngineTile href={`/dashboard/websites/${websiteId}/on-page-seo`} label="On-Page SEO" icon={Search} summary={onPageSeo} />
         <CategoryEngineTile
           href={`/dashboard/websites/${websiteId}/site-architecture`}
           label="Site Architecture"

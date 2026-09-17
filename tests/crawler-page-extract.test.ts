@@ -18,6 +18,9 @@ describe('extractPageMetadata', () => {
     expect(result.title).toBe('My Page')
     expect(result.metaDescription).toBe('A page about things.')
     expect(result.h1Text).toBe('First Heading')
+    // Phase 28 — h1Count reflects the TOTAL number of <h1> elements, even
+    // though h1Text only ever stores the first one's text.
+    expect(result.h1Count).toBe(2)
     expect(result.canonicalUrl).toBe('https://example.com/canonical-path')
     expect(result.noindex).toBe(false)
   })
@@ -27,7 +30,66 @@ describe('extractPageMetadata', () => {
     expect(result.title).toBeNull()
     expect(result.metaDescription).toBeNull()
     expect(result.h1Text).toBeNull()
+    expect(result.h1Count).toBe(0)
     expect(result.canonicalUrl).toBeNull()
+  })
+
+  it('h1Count is 1 for a page with exactly one H1 (Phase 28)', () => {
+    const result = extractPageMetadata('<html><body><h1>Only Heading</h1></body></html>', 'https://example.com/page', null)
+    expect(result.h1Text).toBe('Only Heading')
+    expect(result.h1Count).toBe(1)
+  })
+
+  /**
+   * Phase 28 real-world evidence validation, Observations 2 & 3 — ruling
+   * out an extraction-selector bug as the explanation for the Bespoke
+   * analysis's 30/30 missing-title/H1 findings by verifying the extractors
+   * against realistic WordPress/Elementor/Yoast/RankMath-style markup
+   * shapes (reversed attribute order, single quotes, self-closing tags,
+   * multi-line attributes, heading classes/data attributes) rather than
+   * only clean synthetic HTML.
+   */
+  describe('realistic real-world markup shapes (WordPress/SEO-plugin style)', () => {
+    it('extracts a meta description with REVERSED attribute order (content before name) — a common SEO-plugin output shape', () => {
+      const html = '<meta content="Reversed attribute order description." name="description">'
+      expect(extractPageMetadata(html, 'https://example.com/page', null).metaDescription).toBe('Reversed attribute order description.')
+    })
+
+    it('extracts a meta description using single-quoted attributes', () => {
+      const html = "<meta name='description' content='Single-quoted description.'>"
+      expect(extractPageMetadata(html, 'https://example.com/page', null).metaDescription).toBe('Single-quoted description.')
+    })
+
+    it('extracts a meta description written as a self-closing tag with a trailing slash', () => {
+      const html = '<meta name="description" content="Self-closing description." />'
+      expect(extractPageMetadata(html, 'https://example.com/page', null).metaDescription).toBe('Self-closing description.')
+    })
+
+    it('extracts a meta description whose attributes span multiple lines', () => {
+      const html = `<meta\n  name="description"\n  content="Multi-line attribute description.">`
+      expect(extractPageMetadata(html, 'https://example.com/page', null).metaDescription).toBe('Multi-line attribute description.')
+    })
+
+    it('extracts an H1 carrying typical Elementor-style classes and data attributes', () => {
+      const html = '<h1 class="elementor-heading-title elementor-size-default" data-id="abc123">Our Services</h1>'
+      const result = extractPageMetadata(html, 'https://example.com/page', null)
+      expect(result.h1Text).toBe('Our Services')
+      expect(result.h1Count).toBe(1)
+    })
+
+    it('does not mistake an H2/H3 (or any non-h1 heading) for an H1', () => {
+      const html = '<h2 class="elementor-heading-title">Not An H1</h2><h3>Also Not An H1</h3>'
+      const result = extractPageMetadata(html, 'https://example.com/page', null)
+      expect(result.h1Text).toBeNull()
+      expect(result.h1Count).toBe(0)
+    })
+
+    it('a genuinely H1-less page (theme puts only the site name in header H1, page content starts at H2) correctly extracts h1Count 0 — this is a real, non-buggy possible site characteristic', () => {
+      const html = '<body><header><div class="site-logo">Bespoke</div></header><main><h2>Digital Marketing</h2><p>Content...</p></main></body>'
+      const result = extractPageMetadata(html, 'https://example.com/page', null)
+      expect(result.h1Text).toBeNull()
+      expect(result.h1Count).toBe(0)
+    })
   })
 
   it('detects noindex from a meta robots tag', () => {

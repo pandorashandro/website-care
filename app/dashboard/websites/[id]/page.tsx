@@ -25,6 +25,7 @@ import HealthOverview from '@/components/report/health-overview'
 import CategoryScoreGrid from '@/components/report/category-score-grid'
 import { getTechnicalSeoCategorySummary } from './technical-seo-summary'
 import { getSiteArchitectureCategorySummary } from './site-architecture-summary'
+import { getOnPageCategorySummary } from './on-page-summary'
 import PriorityIssues from '@/components/report/priority-issues'
 import IssueGroup from '@/components/report/issue-group'
 import {
@@ -109,6 +110,16 @@ export default async function WebsiteReportPage(props: PageProps<'/dashboard/web
   // happens on this page, and no legacy category score is ever substituted.
   const siteArchitecturePromise = getSiteArchitectureCategorySummary(website.id)
 
+  // Phase 28 — the ONE server-side retrieval of the authoritative On-Page
+  // SEO analysis for this page's Category Health tile. Same reasoning as
+  // technicalSeoPromise/siteArchitecturePromise above: getOnPageCategorySummary
+  // reads the SAME crawl_analyses row (by crawl_run_id + analyzer_version)
+  // the dedicated On-Page SEO page reads — no independent scoring happens
+  // on this page, and the legacy 'seo' category score is never read for
+  // this tile (see category-score-grid.tsx's own OTHER_CATEGORY_ORDER
+  // exclusion).
+  const onPageSeoPromise = getOnPageCategorySummary(website.id)
+
   const { data: latestScan } = await supabase
     .from('scans')
     .select('id, status, score, created_at')
@@ -184,6 +195,7 @@ export default async function WebsiteReportPage(props: PageProps<'/dashboard/web
 
   const technicalSeo = await technicalSeoPromise
   const siteArchitecture = await siteArchitecturePromise
+  const onPageSeo = await onPageSeoPromise
 
   const wordpress = await wordpressPromise
   const wordpressConnection = await wordpressConnectionPromise
@@ -405,7 +417,13 @@ export default async function WebsiteReportPage(props: PageProps<'/dashboard/web
 
           <HealthOverview overall={healthScore.overall} issueCount={issues.length} pageCount={pageUrlsWithIssues.size} />
 
-          <CategoryScoreGrid categories={healthScore.categories} websiteId={website.id} technicalSeo={technicalSeo} siteArchitecture={siteArchitecture} />
+          <CategoryScoreGrid
+            categories={healthScore.categories}
+            websiteId={website.id}
+            technicalSeo={technicalSeo}
+            siteArchitecture={siteArchitecture}
+            onPageSeo={onPageSeo}
+          />
 
           {issues.length === 0 ? (
             <EmptyState
