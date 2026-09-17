@@ -24,6 +24,7 @@ import WebsiteSubNav from '@/components/website/website-sub-nav'
 import HealthOverview from '@/components/report/health-overview'
 import CategoryScoreGrid from '@/components/report/category-score-grid'
 import { getTechnicalSeoCategorySummary } from './technical-seo-summary'
+import { getSiteArchitectureCategorySummary } from './site-architecture-summary'
 import PriorityIssues from '@/components/report/priority-issues'
 import IssueGroup from '@/components/report/issue-group'
 import {
@@ -100,6 +101,14 @@ export default async function WebsiteReportPage(props: PageProps<'/dashboard/web
   // healthScore.categories.technical (the legacy score) for this tile.
   const technicalSeoPromise = getTechnicalSeoCategorySummary(website.id)
 
+  // Phase 27 — the ONE server-side retrieval of the authoritative Site
+  // Architecture analysis for this page's Category Health tile. Same
+  // reasoning as technicalSeoPromise above: getSiteArchitectureCategorySummary
+  // reads the SAME crawl_analyses row (by crawl_run_id + analyzer_version)
+  // the dedicated Site Architecture page reads — no independent scoring
+  // happens on this page, and no legacy category score is ever substituted.
+  const siteArchitecturePromise = getSiteArchitectureCategorySummary(website.id)
+
   const { data: latestScan } = await supabase
     .from('scans')
     .select('id, status, score, created_at')
@@ -174,6 +183,7 @@ export default async function WebsiteReportPage(props: PageProps<'/dashboard/web
   }
 
   const technicalSeo = await technicalSeoPromise
+  const siteArchitecture = await siteArchitecturePromise
 
   const wordpress = await wordpressPromise
   const wordpressConnection = await wordpressConnectionPromise
@@ -395,7 +405,7 @@ export default async function WebsiteReportPage(props: PageProps<'/dashboard/web
 
           <HealthOverview overall={healthScore.overall} issueCount={issues.length} pageCount={pageUrlsWithIssues.size} />
 
-          <CategoryScoreGrid categories={healthScore.categories} websiteId={website.id} technicalSeo={technicalSeo} />
+          <CategoryScoreGrid categories={healthScore.categories} websiteId={website.id} technicalSeo={technicalSeo} siteArchitecture={siteArchitecture} />
 
           {issues.length === 0 ? (
             <EmptyState

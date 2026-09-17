@@ -1,12 +1,26 @@
-import type { IssueSeverity } from '@/lib/scanner/issue-definitions'
-
 /**
  * Phase 26 — shared Technical SEO vocabulary. Types only, mirroring
  * lib/crawler/types.ts's own "types first, no premature abstraction"
  * convention. These names track supabase/migrations/20260927000000_technical_seo_findings.sql
  * and 20260930000000_technical_seo_remediation.sql's CHECK constraints
  * exactly — if either drifts, update both together.
+ *
+ * Phase 27: Severity/Confidence/Actionability/ImpactLevel/RemediationType/
+ * StateValue/RawFindingPageEvidence moved to lib/category-engine/types.ts
+ * (promoted once lib/architecture/, a second category engine, needed the
+ * exact same vocabulary) and are re-exported below unchanged — no existing
+ * import of them from this module needed to change.
  */
+export type {
+  Severity,
+  Confidence,
+  Actionability,
+  ImpactLevel,
+  RemediationType,
+  StateValue,
+  RawFindingPageEvidence,
+} from '@/lib/category-engine/types'
+import type { Actionability, ImpactLevel, RemediationType, StateValue, RawFindingPageEvidence, Severity, Confidence } from '@/lib/category-engine/types'
 
 export type FindingCategory =
   | 'crawlability'
@@ -22,49 +36,6 @@ export type FindingCategory =
   | 'site_wide_consistency'
 
 export type FindingScope = 'page' | 'site'
-
-/** Reused verbatim from the existing scanner's own severity vocabulary (Checkpoint 6, Phase 26A: "use/extend WEBIOOM's existing severity conventions rather than inventing an unrelated system"). */
-export type Severity = IssueSeverity
-
-export type Confidence = 'high' | 'medium' | 'low'
-
-/**
- * Phase 26B, Checkpoint 7 — the canonical, product-wide actionability
- * vocabulary every future category engine (On-Page, Content, Architecture,
- * Performance, Accessibility, Security) will reuse. Renamed from Phase 26A's
- * own {safe_automatic, prepared_approval, guided_manual, developer_required,
- * informational_monitor} to this exact wording per Phase 26B's instructions
- * — same five-way concept, corrected vocabulary. As of this phase, no
- * Technical SEO check has a real automatic/prepared-fix backend (the
- * existing WordPress/Shopify/Wix fix capabilities only cover title/meta/H1/
- * image-alt), so no check in this library is classified 'safe_fix' or
- * 'prepared_fix' — see lib/technical-seo/actionability.ts. Phase 30 attaches
- * real executors later without needing to redesign this field.
- */
-export type Actionability = 'safe_fix' | 'prepared_fix' | 'guided_fix' | 'developer_required' | 'monitor'
-
-/** Deliberately the same three-value vocabulary for impact/effort/risk — categorical, never fake numeric precision. */
-export type ImpactLevel = 'high' | 'medium' | 'low'
-
-/**
- * Phase 26B, Checkpoint 6 — the kind of change a remediation instance
- * represents. Generic on purpose: not hardcoded to redirects, reusable by
- * every check category implemented now or later.
- */
-export type RemediationType =
-  | 'url_replacement'
-  | 'directive_change'
-  | 'canonical_change'
-  | 'sitemap_correction'
-  | 'robots_correction'
-  | 'schema_correction'
-  | 'guided_instruction'
-
-/** A single observed-or-desired state value, paired with a human-readable label so the UI never has to guess how to phrase a raw value. */
-export type StateValue = {
-  label: string
-  value: string | null
-}
 
 /**
  * Stable identifier for each implemented check — this, not title text, is
@@ -121,30 +92,6 @@ export type CheckKey =
   // I. Site-wide technical consistency
   | 'widespread_non_indexable_pages'
   | 'widespread_fetch_failures'
-
-/**
- * Phase 26B, Checkpoint 6 — one concrete problem instance, generic enough
- * to represent a page-level defect (affectedResourceUrl null, `url` IS the
- * affected resource) or a relationship defect between two resources (e.g. a
- * source page's internal link and the broken/redirected target it points
- * to). This is the "evidence-first" upgrade: a check can now express
- * current state, desired state, and a proposed change, not just prose.
- */
-export type RawFindingPageEvidence = {
-  /** The page this instance is anchored to — for a page-level defect, the affected page itself; for a relationship defect (e.g. a broken internal link), the page CONTAINING the reference. */
-  url: string
-  /** The specific other resource the problem is actually about, when it differs from `url` (e.g. a broken/redirected link's target, or a canonical's target). Null when `url` itself is the affected resource. */
-  affectedResourceUrl?: string | null
-  /** What is observed right now, e.g. `{ label: 'Internal link points to', value: '/old-url (redirects, HTTP 301)' }`. */
-  currentState?: StateValue | null
-  /** What the state should be, when deterministically knowable from this crawl's own evidence. Null when no confident target exists (never guessed). */
-  desiredState?: StateValue | null
-  /** One-line actionable instruction, e.g. "Replace the link to /old-url with /new-url." Null when the instance is purely observational. */
-  proposedChange?: string | null
-  remediationType?: RemediationType | null
-  /** Small, JSON-serializable, finding-specific detail for THIS instance. Never the full crawl_pages row — that already exists and is queryable by url/crawl_run_id. */
-  detail?: Record<string, unknown>
-}
 
 /**
  * One analyzer's output before aggregation/severity-adjustment/persistence.

@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { Wrench } from 'lucide-react'
+import { Wrench, Network } from 'lucide-react'
 import Card from '@/components/ui/card'
 import Badge from '@/components/ui/badge'
 import type { CategoryScores } from '@/lib/scanner/calculate-health-score'
@@ -15,32 +15,48 @@ function barColor(score: number): string {
 }
 
 /**
- * Phase 26B correction — 'technical' is excluded from CATEGORY_ORDER's own
- * legacy rendering below; the Technical SEO tile in THIS SAME grid is
- * rendered from `technicalSeo` (a CategorySummary — see
+ * Phase 26B correction / Phase 27 — 'technical' is excluded from
+ * CATEGORY_ORDER's own legacy rendering below; both canonical category
+ * engines built so far (Technical SEO, Site Architecture) render their own
+ * tile in THIS SAME grid from a `CategorySummary` (see
  * lib/category-engine/types.ts) instead. This is the fix for the exact
- * duplicate-scoring bug a prior attempt introduced: Technical SEO must live
- * INSIDE this existing "Category Health" grid (not a standalone card above
- * the report), and its score/status/finding-count must come from the ONE
- * authoritative persisted analysis (app/dashboard/websites/[id]/
- * technical-seo-summary.ts's getTechnicalSeoCategorySummary) — the exact
- * same source the dedicated Technical SEO page reads — never recomputed
- * here, and never read from `categories.technical`. The remaining four
- * categories (seo/accessibility/performance/content) are unchanged legacy
- * placeholders until their own canonical engines are built.
+ * duplicate-scoring bug a prior attempt introduced: a canonical category
+ * must live INSIDE this existing "Category Health" grid (never a
+ * standalone card above the report), and its score/status/finding-count
+ * must come from the ONE authoritative persisted analysis — the exact same
+ * source its own dedicated page reads — never recomputed here. The
+ * remaining legacy categories (seo/accessibility/performance/content) stay
+ * unchanged placeholders until their own canonical engines are built.
  */
 const OTHER_CATEGORY_ORDER = CATEGORY_ORDER.filter((category) => category !== 'technical')
 
-function TechnicalSeoTile({ websiteId, summary }: { websiteId: string; summary: CategorySummary }) {
+/**
+ * One reusable tile for any canonical category engine's CategorySummary —
+ * Technical SEO was the first (Phase 26B), Site Architecture the second
+ * (Phase 27). A future category engine's Overview tile should use this
+ * same component rather than re-deriving the not_analyzed/analyzed
+ * rendering logic again.
+ */
+function CategoryEngineTile({
+  href,
+  label,
+  icon: Icon,
+  summary,
+}: {
+  href: string
+  label: string
+  icon: typeof Wrench
+  summary: CategorySummary
+}) {
   if (summary.status === 'not_analyzed') {
     return (
-      <Link href={`/dashboard/websites/${websiteId}/technical-seo`}>
+      <Link href={href}>
         <Card padding="sm" className="h-full border-dashed hover:border-border-strong">
           <div className="flex items-center gap-2">
             <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-surface-muted text-muted">
-              <Wrench className="h-4 w-4" aria-hidden="true" />
+              <Icon className="h-4 w-4" aria-hidden="true" />
             </div>
-            <span className="text-sm font-medium text-gray-900">Technical SEO</span>
+            <span className="text-sm font-medium text-gray-900">{label}</span>
           </div>
           <p className="mt-3 text-sm text-muted">Not analyzed yet</p>
         </Card>
@@ -49,20 +65,21 @@ function TechnicalSeoTile({ websiteId, summary }: { websiteId: string; summary: 
   }
 
   // score/findingsCount are non-null whenever status === 'analyzed' (see
-  // buildTechnicalSeoCategorySummary) — asserted here rather than widening
-  // CategorySummary's own types with a redundant discriminant duplication.
+  // e.g. buildTechnicalSeoCategorySummary/buildSiteArchitectureCategorySummary)
+  // — asserted here rather than widening CategorySummary's own types with a
+  // redundant discriminant duplication.
   const score = summary.score as number
   const findingsCount = summary.findingsCount as number
 
   return (
-    <Link href={`/dashboard/websites/${websiteId}/technical-seo`}>
+    <Link href={href}>
       <Card padding="sm" className="h-full hover:border-border-strong">
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-brand-subtle text-brand">
-              <Wrench className="h-4 w-4" aria-hidden="true" />
+              <Icon className="h-4 w-4" aria-hidden="true" />
             </div>
-            <span className="text-sm font-medium text-gray-900">Technical SEO</span>
+            <span className="text-sm font-medium text-gray-900">{label}</span>
           </div>
           {summary.partial && <Badge tone="neutral">Partial</Badge>}
         </div>
@@ -88,16 +105,24 @@ export default function CategoryScoreGrid({
   categories,
   websiteId,
   technicalSeo,
+  siteArchitecture,
 }: {
   categories: CategoryScores
   websiteId: string
   technicalSeo: CategorySummary
+  siteArchitecture: CategorySummary
 }) {
   return (
     <div>
       <h2 className="text-base font-semibold text-gray-900">Category Health</h2>
       <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        <TechnicalSeoTile websiteId={websiteId} summary={technicalSeo} />
+        <CategoryEngineTile href={`/dashboard/websites/${websiteId}/technical-seo`} label="Technical SEO" icon={Wrench} summary={technicalSeo} />
+        <CategoryEngineTile
+          href={`/dashboard/websites/${websiteId}/site-architecture`}
+          label="Site Architecture"
+          icon={Network}
+          summary={siteArchitecture}
+        />
 
         {OTHER_CATEGORY_ORDER.map((category) => {
           const score = categories[category]
