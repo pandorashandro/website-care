@@ -253,7 +253,7 @@ export default async function SiteArchitecturePage(props: PageProps<'/dashboard/
   const sortedFindings = [...findings].sort((a, b) => SEVERITY_DISPLAY_ORDER.indexOf(a.severity) - SEVERITY_DISPLAY_ORDER.indexOf(b.severity))
 
   return (
-    <Container size="md" className="py-10">
+    <Container size="xl" className="py-10">
       <Link href={`/dashboard/websites/${website.id}`} className="text-sm text-muted hover:text-gray-700">
         ← Back to {website.name}
       </Link>
@@ -281,11 +281,11 @@ export default async function SiteArchitecturePage(props: PageProps<'/dashboard/
       {!crawlRun ? (
         <EmptyState
           icon={Network}
-          title="Run a site scan first."
-          description="Site Architecture analysis is built from a site-wide crawl. Start a site scan, then come back here to analyze what webioom found."
+          title="Scan your website first."
+          description="Site Architecture analysis is built from your website scan. Run a scan from the Overview page, then come back here to see what webioom found."
           action={
-            <Link href={`/dashboard/websites/${website.id}/site-scan`} className={buttonStyles({ variant: 'outline' })}>
-              Go to Site Scan
+            <Link href={`/dashboard/websites/${website.id}`} className={buttonStyles({ variant: 'outline' })}>
+              Go to Overview
             </Link>
           }
           className="mt-6"

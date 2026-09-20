@@ -1,6 +1,7 @@
 'use client'
 
 import { useActionState, useState } from 'react'
+import UpgradePrompt from '@/components/billing/upgrade-prompt'
 import {
   prepareWixTitleFix,
   applyWixTitleFix,
@@ -246,6 +247,13 @@ export default function WixPrepareFixButton({
                 <p className="mt-3 text-xs text-red-600">{visibleApplyState.reason}</p>
               ))}
           </div>
+        ) : visiblePrepareState.status === 'requires_upgrade' ? (
+          <UpgradePrompt
+            open
+            onClose={() => setDismissed(true)}
+            attemptedAction={`Fix this ${fixKind === 'title' ? 'title' : 'meta description'} with webioom`}
+            benefit="Upgrade to unlock guided fixes, AI-assisted improvements, Safe Fix where supported, verification and ongoing website improvement."
+          />
         ) : (
           <p className="mt-2 text-xs text-gray-600">{visiblePrepareState.reason}</p>
         ))}

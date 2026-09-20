@@ -1,7 +1,8 @@
 'use server'
 
 import { getValidWixAccessToken } from './wix-credentials'
-import { getTrustedWixMetaIssue } from './wix-meta-issue'
+import { getTrustedWixMetaIssue, type TrustedWixMetaIssueResult } from './wix-meta-issue'
+import { getTrustedOnPageMetaFindingForWix } from './on-page-finding-issue'
 import { resolveWixResource, mappingFailureMessage, type WixResourceFamily } from '@/lib/integrations/wix/resource-mapping'
 import { getWixSiteIdentity } from '@/lib/integrations/wix/site-identity'
 import { evaluateWixFixCapability, capabilityFailureMessage, type WixFixCapabilityContext } from '@/lib/integrations/wix/capabilities'
@@ -22,6 +23,7 @@ import { WIX_PLATFORM } from '@/lib/integrations/wix/platform'
 import { recordFixHistory, type FixHistoryInsertResult } from './fix-history'
 import { getMetaDescriptionContent } from '@/lib/scanner/checks'
 import { verifyWixPublicValue, type WixPublicVerification } from '@/lib/fixes/verify-wix-public-value'
+import { canUseAiFix, canUseDirectFix } from '@/lib/entitlements/service'
 
 /**
  * Wix V1 Prompt 2 — Safe Meta Description Fix for Blog Post and Stores
@@ -32,7 +34,19 @@ import { verifyWixPublicValue, type WixPublicVerification } from '@/lib/fixes/ve
  * (mappingFailureMessage/capabilityFailureMessage/mutationFailureMessage
  * are imported from their respective lib/integrations/wix/ modules rather
  * than duplicated — their wording is field-agnostic).
+ *
+ * PAYABLE-V1 CLOSURE — see shopify-title-fix-actions.ts's identical
+ * `onpage:`-prefix dispatch doc comment for the full reasoning; mirrored
+ * here for Wix Meta Description.
  */
+const ON_PAGE_ISSUE_ID_PREFIX = 'onpage:'
+
+function resolveTrustedWixMetaIssue(websiteId: string, issueId: string): Promise<TrustedWixMetaIssueResult> {
+  if (issueId.startsWith(ON_PAGE_ISSUE_ID_PREFIX)) {
+    return getTrustedOnPageMetaFindingForWix(websiteId, issueId.slice(ON_PAGE_ISSUE_ID_PREFIX.length))
+  }
+  return getTrustedWixMetaIssue(websiteId, issueId)
+}
 
 function itemTypeToWixSeoItemType(resourceType: WixResourceFamily): 'BLOG_POST' | 'STORES_PRODUCT' {
   return resourceType === 'blog_post' ? 'BLOG_POST' : 'STORES_PRODUCT'
@@ -61,6 +75,8 @@ export type PrepareWixMetaFixState =
       previewToken: string
     }
   | { status: 'unavailable'; reason: string }
+  /** Free-scan -> paid funnel — see wordpress-fix-actions.ts's prepareFix doc comment for the full reasoning. */
+  | { status: 'requires_upgrade'; reason: string }
   | null
 
 export async function prepareWixMetaFix(_prevState: PrepareWixMetaFixState, formData: FormData): Promise<PrepareWixMetaFixState> {
@@ -71,7 +87,14 @@ export async function prepareWixMetaFix(_prevState: PrepareWixMetaFixState, form
     return { status: 'unavailable', reason: 'Missing information for this request.' }
   }
 
-  const trustedIssue = await getTrustedWixMetaIssue(websiteId, issueId)
+  // Free-scan -> paid funnel: checked before any credential lookup or Wix
+  // request — see wordpress-fix-actions.ts's prepareFix doc comment.
+  const aiFixCheck = await canUseAiFix()
+  if (!aiFixCheck.allowed) {
+    return { status: 'requires_upgrade', reason: 'Upgrade to a paid plan to prepare fixes with webioom.' }
+  }
+
+  const trustedIssue = await resolveTrustedWixMetaIssue(websiteId, issueId)
   if (!trustedIssue.ok) {
     return { status: 'unavailable', reason: trustedIssue.reason }
   }
@@ -192,6 +215,13 @@ async function executeWixMetaMutation(
 }
 
 export async function applyWixMetaFix(_prevState: ApplyWixMetaFixState, formData: FormData): Promise<ApplyWixMetaFixState> {
+  // Free-scan -> paid funnel: authoritative server-side gate, checked fresh
+  // regardless of what prepare decided earlier.
+  const directFixCheck = await canUseDirectFix()
+  if (!directFixCheck.allowed) {
+    return { writeStatus: 'failed', reason: 'Upgrade to a paid plan to apply fixes with webioom.' }
+  }
+
   const previewToken = formData.get('previewToken') as string | null
 
   if (!previewToken) {
@@ -208,7 +238,7 @@ export async function applyWixMetaFix(_prevState: ApplyWixMetaFixState, formData
 
   const { payload } = verified
 
-  const trustedIssue = await getTrustedWixMetaIssue(payload.websiteId, payload.issueId)
+  const trustedIssue = await resolveTrustedWixMetaIssue(payload.websiteId, payload.issueId)
   if (!trustedIssue.ok) {
     return { writeStatus: 'failed', reason: trustedIssue.reason }
   }

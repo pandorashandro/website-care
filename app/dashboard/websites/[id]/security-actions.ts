@@ -1,0 +1,37 @@
+'use server'
+
+import { createClient } from '@/lib/supabase/server'
+import { createSupabaseCrawlStore } from '@/lib/crawler/supabase-store'
+import { createSupabasePillarStore } from '@/lib/pillars/supabase-store'
+import { analyzeSecurity } from '@/lib/security/run-analysis'
+
+/** Unified webioom engine, Prompt 2 — the ownership-checked entry point into the Security canonical analysis engine, mirroring content-actions.ts's own established pattern exactly. */
+
+async function getOwnedWebsite(websiteId: string): Promise<{ id: string } | null> {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return null
+
+  const { data: website, error } = await supabase.from('websites').select('id').eq('id', websiteId).eq('user_id', user.id).single()
+  if (error || !website) return null
+  return website
+}
+
+export type AnalyzeSecurityCrawlRunResult = { ok: true; findingsCount: number; healthScore: number } | { ok: false; error: string }
+
+export async function analyzeSecurityCrawlRun(websiteId: string, crawlRunId: string): Promise<AnalyzeSecurityCrawlRunResult> {
+  const website = await getOwnedWebsite(websiteId)
+  if (!website) return { ok: false, error: 'Website not found.' }
+
+  const crawlStore = createSupabaseCrawlStore()
+  const crawlRun = await crawlStore.getCrawlRun(crawlRunId)
+  if (!crawlRun || crawlRun.website_id !== website.id) return { ok: false, error: 'Crawl not found.' }
+
+  const store = createSupabasePillarStore()
+  const result = await analyzeSecurity(store, crawlRunId)
+
+  if (!result.ok) return { ok: false, error: result.error }
+  return { ok: true, findingsCount: result.findings.length, healthScore: result.health.score }
+}

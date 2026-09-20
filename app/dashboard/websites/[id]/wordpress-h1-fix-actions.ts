@@ -16,6 +16,7 @@ import { getH1IssueKind } from '@/lib/fixes/fix-preview'
 import { getH1Texts } from '@/lib/scanner/checks'
 import { getConnectedWordPressCredentials } from './wordpress-credentials'
 import { recordFixHistory } from './fix-history'
+import { canUseDirectFix } from '@/lib/entitlements/service'
 
 export type ApplyH1FixState =
   | {
@@ -49,6 +50,14 @@ function normalizeForComparison(value: string): string {
  * happens here — the approved text is only re-validated deterministically.
  */
 export async function applyH1Fix(_prevState: ApplyH1FixState, formData: FormData): Promise<ApplyH1FixState> {
+  // Free-scan -> paid funnel: authoritative server-side gate, checked fresh
+  // regardless of what prepareFix decided earlier — see
+  // lib/entitlements/service.ts's canUseDirectFix doc comment.
+  const directFixCheck = await canUseDirectFix()
+  if (!directFixCheck.allowed) {
+    return { writeStatus: 'failed', reason: 'Upgrade to a paid plan to apply fixes with webioom.' }
+  }
+
   const previewToken = formData.get('previewToken') as string | null
 
   if (!previewToken) {

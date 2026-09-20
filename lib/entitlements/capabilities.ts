@@ -69,12 +69,12 @@ export function evaluateManualScan(entitlements: PlanEntitlements): EntitlementC
   return evaluateCapability(entitlements, 'manualScansAllowed')
 }
 
-/** Both plans currently allow AI-assisted fixes — same reasoning as evaluateManualScan. */
+/** Free-scan -> paid funnel: Free denies this (see plans.ts), every paid plan allows it. Gates the "prepare" step of every fix family. */
 export function evaluateAiFix(entitlements: PlanEntitlements): EntitlementCheckResult {
   return evaluateCapability(entitlements, 'aiFixesAllowed')
 }
 
-/** Both plans currently allow direct fixes — same reasoning as evaluateManualScan. */
+/** Free-scan -> paid funnel: Free denies this (see plans.ts), every paid plan allows it. Gates the "apply" step of every fix family. */
 export function evaluateDirectFix(entitlements: PlanEntitlements): EntitlementCheckResult {
   return evaluateCapability(entitlements, 'directFixesAllowed')
 }

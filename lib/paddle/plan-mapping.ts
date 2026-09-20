@@ -6,11 +6,12 @@
  * enters through lib/paddle/config.ts's getPaddlePriceMapping, consumed by
  * server-only callers.
  */
-export type PaddlePlanKey = 'bloom' | 'bloom_pro'
+export type PaddlePlanKey = 'bloom' | 'bloom_pro' | 'agency'
 
 export type PaddlePriceMapping = {
   bloom: string | null
   bloom_pro: string | null
+  agency: string | null
 }
 
 /**
@@ -40,6 +41,7 @@ export function resolvePaddlePriceId(plan: PaddlePlanKey, mapping: PaddlePriceMa
 export function derivePlanFromPriceId(priceId: string, mapping: PaddlePriceMapping): PaddlePlanKey | null {
   if (mapping.bloom && priceId === mapping.bloom) return 'bloom'
   if (mapping.bloom_pro && priceId === mapping.bloom_pro) return 'bloom_pro'
+  if (mapping.agency && priceId === mapping.agency) return 'agency'
   return null
 }
 
@@ -54,5 +56,5 @@ export function derivePlanFromPriceId(priceId: string, mapping: PaddlePriceMappi
  * component started importing that file — see docs/paddle-billing.md).
  */
 export function isPaddlePlanKey(value: string): value is PaddlePlanKey {
-  return value === 'bloom' || value === 'bloom_pro'
+  return value === 'bloom' || value === 'bloom_pro' || value === 'agency'
 }

@@ -1,7 +1,8 @@
 'use server'
 
 import { getValidShopifyAccessToken } from './shopify-credentials'
-import { getTrustedShopifyMetaIssue } from './shopify-meta-issue'
+import { getTrustedShopifyMetaIssue, type TrustedShopifyMetaIssueResult } from './shopify-meta-issue'
+import { getTrustedOnPageMetaFindingForShopify } from './on-page-finding-issue'
 import { resolveShopifyResource, mappingFailureMessage } from '@/lib/integrations/shopify/resource-mapping'
 import { getGrantedShopifyScopes } from '@/lib/integrations/shopify/scopes'
 import { evaluateShopifyFixCapability, type ShopifyResourceFamily } from '@/lib/integrations/shopify/capabilities'
@@ -25,6 +26,7 @@ import { SHOPIFY_PLATFORM } from '@/lib/integrations/shopify/platform'
 import { recordFixHistory, type FixHistoryInsertResult } from './fix-history'
 import { getMetaDescriptionContent } from '@/lib/scanner/checks'
 import { verifyShopifyPublicValue, type ShopifyPublicVerification } from '@/lib/fixes/verify-shopify-public-value'
+import { canUseAiFix, canUseDirectFix } from '@/lib/entitlements/service'
 
 /**
  * Phase 20.1E — Shopify Safe Meta Description Fix backend foundation.
@@ -45,7 +47,19 @@ import { verifyShopifyPublicValue, type ShopifyPublicVerification } from '@/lib/
  * notes — confirmed current against official Shopify Admin GraphQL API
  * 2026-07 docs; Product/Collection has no equivalent mechanism, so its
  * fresh-read/drift-check model is unchanged). No UI trigger.
+ *
+ * PAYABLE-V1 CLOSURE — see shopify-title-fix-actions.ts's identical
+ * `onpage:`-prefix dispatch doc comment for the full reasoning; mirrored
+ * here for the Meta Description family.
  */
+const ON_PAGE_ISSUE_ID_PREFIX = 'onpage:'
+
+function resolveTrustedShopifyMetaIssue(websiteId: string, issueId: string): Promise<TrustedShopifyMetaIssueResult> {
+  if (issueId.startsWith(ON_PAGE_ISSUE_ID_PREFIX)) {
+    return getTrustedOnPageMetaFindingForShopify(websiteId, issueId.slice(ON_PAGE_ISSUE_ID_PREFIX.length))
+  }
+  return getTrustedShopifyMetaIssue(websiteId, issueId)
+}
 
 // ---------------------------------------------------------------------------
 // Read/write dispatch — Product/Collection (seo_object) and Page/Article
@@ -157,6 +171,8 @@ export type PrepareShopifyMetaFixState =
       previewToken: string
     }
   | { status: 'unavailable'; reason: string }
+  /** Free-scan -> paid funnel — see wordpress-fix-actions.ts's prepareFix doc comment for the full reasoning. */
+  | { status: 'requires_upgrade'; reason: string }
   | null
 
 /**
@@ -175,7 +191,14 @@ export async function prepareShopifyMetaFix(_prevState: PrepareShopifyMetaFixSta
     return { status: 'unavailable', reason: 'Missing information for this request.' }
   }
 
-  const trustedIssue = await getTrustedShopifyMetaIssue(websiteId, issueId)
+  // Free-scan -> paid funnel: checked before any credential lookup or
+  // Shopify request — see wordpress-fix-actions.ts's prepareFix doc comment.
+  const aiFixCheck = await canUseAiFix()
+  if (!aiFixCheck.allowed) {
+    return { status: 'requires_upgrade', reason: 'Upgrade to a paid plan to prepare fixes with webioom.' }
+  }
+
+  const trustedIssue = await resolveTrustedShopifyMetaIssue(websiteId, issueId)
   if (!trustedIssue.ok) {
     return { status: 'unavailable', reason: trustedIssue.reason }
   }
@@ -319,6 +342,13 @@ export type ApplyShopifyMetaFixState =
  * carry it at all) — see readCurrentMetaDescription/writeMetaDescription.
  */
 export async function applyShopifyMetaFix(_prevState: ApplyShopifyMetaFixState, formData: FormData): Promise<ApplyShopifyMetaFixState> {
+  // Free-scan -> paid funnel: authoritative server-side gate, checked fresh
+  // regardless of what prepare decided earlier.
+  const directFixCheck = await canUseDirectFix()
+  if (!directFixCheck.allowed) {
+    return { writeStatus: 'failed', reason: 'Upgrade to a paid plan to apply fixes with webioom.' }
+  }
+
   const previewToken = formData.get('previewToken') as string | null
 
   if (!previewToken) {
@@ -335,7 +365,7 @@ export async function applyShopifyMetaFix(_prevState: ApplyShopifyMetaFixState, 
 
   const { payload } = verified
 
-  const trustedIssue = await getTrustedShopifyMetaIssue(payload.websiteId, payload.issueId)
+  const trustedIssue = await resolveTrustedShopifyMetaIssue(payload.websiteId, payload.issueId)
   if (!trustedIssue.ok) {
     return { writeStatus: 'failed', reason: trustedIssue.reason }
   }

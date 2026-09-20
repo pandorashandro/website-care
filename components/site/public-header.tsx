@@ -2,10 +2,12 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
+import { usePathname } from 'next/navigation'
 import { Menu, X } from 'lucide-react'
 import Logo from '@/components/brand/logo'
 import Badge from '@/components/ui/badge'
 import { buttonStyles } from '@/components/ui/button'
+import { cn } from '@/lib/ui/cn'
 
 /**
  * Every item here is now a real route (Phase 18.3; Pricing added Phase
@@ -24,6 +26,7 @@ const NAV_ITEMS: { label: string; href?: string }[] = [
 
 export default function PublicHeader() {
   const [mobileOpen, setMobileOpen] = useState(false)
+  const pathname = usePathname()
 
   useEffect(() => {
     if (!mobileOpen) return
@@ -49,7 +52,11 @@ export default function PublicHeader() {
               <Link
                 key={item.label}
                 href={item.href}
-                className="text-sm font-medium text-gray-600 hover:text-gray-900"
+                aria-current={pathname === item.href ? 'page' : undefined}
+                className={cn(
+                  'border-b-2 pb-0.5 text-sm font-medium',
+                  pathname === item.href ? 'border-brand text-brand' : 'border-transparent text-gray-600 hover:text-gray-900'
+                )}
               >
                 {item.label}
               </Link>

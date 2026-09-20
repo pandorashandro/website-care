@@ -14,6 +14,13 @@ import WebsiteSubNav from '@/components/website/website-sub-nav'
 import { formatDate, SEVERITY_DISPLAY_ORDER, SEVERITY_LABELS, severityTone } from '@/components/report/report-helpers'
 import OnPageSeoControls from './on-page-seo-controls'
 import { getWordPressConnectionSummary, toIntegrationFixabilityInputs } from '../wordpress-capabilities'
+import { getShopifyConnectionStatus, toShopifyIssueFixabilityInputs } from '../shopify-connection-status'
+import { getWixConnectionStatus, toWixIssueFixabilityInputs } from '../wix-connection-status'
+import { evaluateShopifyIssueFixability } from '@/lib/integrations/shopify/issue-fixability'
+import { evaluateWixIssueFixability } from '@/lib/integrations/wix/issue-fixability'
+import PrepareFixButton from '../prepare-fix-button'
+import ShopifyPrepareFixButton from '../shopify-prepare-fix-button'
+import WixPrepareFixButton from '../wix-prepare-fix-button'
 
 /**
  * Phase 28 — the On-Page SEO product surface, mirroring
@@ -44,11 +51,35 @@ import { getWordPressConnectionSummary, toIntegrationFixabilityInputs } from '..
  * the legacy report's separate fixability system does). This page now
  * reuses the SAME `getWordPressConnectionSummary`/`toIntegrationFixabilityInputs`
  * helpers the Overview report already uses for identical live-capability
- * gating, purely to add an honest qualifier caption under a `prepared_fix`
+ * gating, to add an honest qualifier caption under a `prepared_fix`
  * badge when no working connection exists — it does not change
- * `finding.actionability` itself, does not touch scoring, and does not add
- * any new execution path (see docs/on-page-seo-engine.md's own note on this
- * correction).
+ * `finding.actionability` itself and does not touch scoring.
+ *
+ * PAYABLE-V1 PRODUCT COMPLETION: `prepared_fix` findings now render a real
+ * Prepare Fix button — previously this page only ever showed a static
+ * badge with no way to actually act on it, so the real remediation
+ * pipelines were completely unreachable from this canonical report (only
+ * reachable via the legacy `scans`/`issues` tables, which the unified
+ * "Scan Website" action never populates).
+ *
+ * PLATFORM-AGNOSTIC CLOSURE: the correct button is chosen per finding based
+ * on which platform is ACTUALLY connected and capable for THIS website —
+ * never assumed from which platforms exist in the product. WordPress takes
+ * priority when connected+capable (existing behavior, unchanged); otherwise
+ * Shopify, then Wix, each evaluated via their own existing
+ * evaluateShopifyIssueFixability/evaluateWixIssueFixability (which already
+ * return null for anything outside title/meta_description — H1 stays
+ * WordPress-only, honestly, since neither other platform's adapter can
+ * write it). Shopify/Wix reach the canonical finding through
+ * on-page-finding-issue.ts's resolvers (the same `onpage:`-prefix pattern
+ * accessibility-image-alt-finding.ts established for Accessibility) —
+ * their own existing prepare/apply/verify/rollback pipelines are entirely
+ * unchanged. No new execution path was built for any platform: this reuses
+ * the identical server actions, entitlement gate, preview tokens, and
+ * verification/history/rollback machinery that already existed — only the
+ * ownership-resolution step needed a second, symmetric implementation per
+ * platform, plus the canonical engine's own title strings needing to be
+ * recognized by the shared classifier (lib/fixes/fix-preview.ts).
  */
 
 type Website = { id: string; name: string; url: string }
@@ -80,6 +111,7 @@ type FindingRow = {
 }
 
 type FindingInstanceRow = {
+  id: string
   finding_id: string
   url: string
   affected_resource_url: string | null
@@ -87,6 +119,8 @@ type FindingInstanceRow = {
   desired_state: StateValue | null
   proposed_change: string | null
 }
+
+const ON_PAGE_ISSUE_ID_PREFIX = 'onpage:'
 
 const CATEGORY_LABELS: Record<FindingCategory, string> = {
   title: 'Title',
@@ -140,7 +174,7 @@ function SummaryMetric({ label, value }: { label: string; value: number }) {
 
 function InstanceRow({ instance }: { instance: FindingInstanceRow }) {
   return (
-    <li className="rounded-md border border-border bg-surface p-3 text-xs">
+    <div className="rounded-md border border-border bg-surface p-3 text-xs">
       <p className="truncate font-medium text-gray-900">{instance.url}</p>
       {instance.current_state && (
         <p className="mt-1 text-muted">
@@ -153,7 +187,7 @@ function InstanceRow({ instance }: { instance: FindingInstanceRow }) {
         </p>
       )}
       {instance.proposed_change && <p className="mt-1.5 font-medium text-gray-900">→ {instance.proposed_change}</p>}
-    </li>
+    </div>
   )
 }
 
@@ -184,9 +218,11 @@ export default async function OnPageSeoPage(props: PageProps<'/dashboard/website
 
   // Kicked off early, in parallel with the crawl/analysis queries below —
   // mirrors app/dashboard/websites/[id]/page.tsx's own "kick off early"
-  // pattern for this exact same live WordPress capability check. Not
-  // persisted; recomputed on every render, same as the Overview report.
+  // pattern for these same live capability checks. Not persisted;
+  // recomputed on every render, same as the Overview report.
   const wordpressConnectionPromise = getWordPressConnectionSummary(website.id)
+  const shopifyConnectionPromise = getShopifyConnectionStatus(website.id)
+  const wixConnectionPromise = getWixConnectionStatus(website.id)
 
   const { data: crawlRun } = await supabase
     .from('crawl_runs')
@@ -226,7 +262,7 @@ export default async function OnPageSeoPage(props: PageProps<'/dashboard/website
       if (findings.length > 0) {
         const { data: instanceRows } = await supabase
           .from('on_page_finding_pages')
-          .select('finding_id, url, affected_resource_url, current_state, desired_state, proposed_change')
+          .select('id, finding_id, url, affected_resource_url, current_state, desired_state, proposed_change')
           .in(
             'finding_id',
             findings.map((f) => f.id)
@@ -250,11 +286,39 @@ export default async function OnPageSeoPage(props: PageProps<'/dashboard/website
 
   // Truthfulness correction (see this file's own top doc comment): a
   // `prepared_fix` badge only means "webioom can genuinely apply this
-  // right now" when a WordPress connection with content-editing permission
-  // actually exists for THIS website — never implied universally.
+  // right now" when a REAL connected, capable platform integration exists
+  // for THIS website — never implied universally, and never assumed to be
+  // WordPress just because that was the first platform wired.
   const wordpressConnection = await wordpressConnectionPromise
   const { connectionState, capabilities } = toIntegrationFixabilityInputs(wordpressConnection)
   const hasWorkingPreparedFixBackend = connectionState === 'connected' && capabilities?.edit_content === 'available'
+
+  const shopifyConnection = await shopifyConnectionPromise
+  const wixConnection = await wixConnectionPromise
+  const shopifyFixabilityInputs = toShopifyIssueFixabilityInputs(shopifyConnection)
+  const wixFixabilityInputs = toWixIssueFixabilityInputs(wixConnection)
+
+  /**
+   * Platform priority mirrors Overview's own getFixability dispatch order
+   * (WordPress, then Shopify, then Wix) for consistency — WordPress's own
+   * result is untouched when it already resolves working, so an existing
+   * WordPress-connected website renders byte-for-byte the same as before
+   * either other platform's canonical wiring existed. Returns null (never
+   * a fake provider) for anything outside prepared_fix, or when no
+   * connected platform can actually execute this specific finding.
+   */
+  function getFixProvider(finding: FindingRow): 'wordpress' | 'shopify' | 'wix' | null {
+    if (finding.actionability !== 'prepared_fix') return null
+    if (hasWorkingPreparedFixBackend) return 'wordpress'
+
+    const shopifyResult = evaluateShopifyIssueFixability({ issueTitle: finding.title, ...shopifyFixabilityInputs })
+    if (shopifyResult?.level === 'assisted') return 'shopify'
+
+    const wixResult = evaluateWixIssueFixability({ issueTitle: finding.title, connectionState: wixFixabilityInputs.connectionState })
+    if (wixResult?.level === 'assisted') return 'wix'
+
+    return null
+  }
 
   const severityCounts: Record<string, number> = {}
   for (const finding of findings) {
@@ -264,7 +328,7 @@ export default async function OnPageSeoPage(props: PageProps<'/dashboard/website
   const sortedFindings = [...findings].sort((a, b) => SEVERITY_DISPLAY_ORDER.indexOf(a.severity) - SEVERITY_DISPLAY_ORDER.indexOf(b.severity))
 
   return (
-    <Container size="md" className="py-10">
+    <Container size="xl" className="py-10">
       <Link href={`/dashboard/websites/${website.id}`} className="text-sm text-muted hover:text-gray-700">
         ← Back to {website.name}
       </Link>
@@ -292,11 +356,11 @@ export default async function OnPageSeoPage(props: PageProps<'/dashboard/website
       {!crawlRun ? (
         <EmptyState
           icon={Search}
-          title="Run a site scan first."
-          description="On-Page SEO analysis is built from a site-wide crawl. Start a site scan, then come back here to analyze what webioom found."
+          title="Scan your website first."
+          description="On-Page SEO analysis is built from your website scan. Run a scan from the Overview page, then come back here to see what webioom found."
           action={
-            <Link href={`/dashboard/websites/${website.id}/site-scan`} className={buttonStyles({ variant: 'outline' })}>
-              Go to Site Scan
+            <Link href={`/dashboard/websites/${website.id}`} className={buttonStyles({ variant: 'outline' })}>
+              Go to Overview
             </Link>
           }
           className="mt-6"
@@ -358,6 +422,13 @@ export default async function OnPageSeoPage(props: PageProps<'/dashboard/website
                 const instances = instancesByFinding.get(finding.id) ?? []
                 const shownInstances = instances.slice(0, MAX_INSTANCES_SHOWN)
                 const remainingCount = instances.length - shownInstances.length
+                const fixProvider = getFixProvider(finding)
+                // Only 'title'/'meta_description' ever reach a Shopify/Wix
+                // provider — evaluateShopifyIssueFixability/
+                // evaluateWixIssueFixability both return null for
+                // 'headings', so fixProvider can never be 'shopify'/'wix'
+                // for an H1 finding; this cast is safe, not assumed.
+                const shopifyWixFixKind = finding.category as 'title' | 'meta_description'
 
                 return (
                   <Card key={finding.id} padding="md">
@@ -380,8 +451,13 @@ export default async function OnPageSeoPage(props: PageProps<'/dashboard/website
                     {/* ACTIONABILITY */}
                     <div className="mt-2">
                       <Badge tone={ACTIONABILITY_TONE[finding.actionability]}>{ACTIONABILITY_LABELS[finding.actionability]}</Badge>
-                      {finding.actionability === 'prepared_fix' && !hasWorkingPreparedFixBackend && (
-                        <p className="mt-1 text-xs text-muted">Requires a connected WordPress site with content-editing permission.</p>
+                      {finding.actionability === 'prepared_fix' && !fixProvider && (
+                        <p className="mt-1 text-xs text-muted">
+                          <Link href={`/dashboard/websites/${website.id}/integrations`} className="underline hover:text-gray-700">
+                            Connect your website
+                          </Link>{' '}
+                          to let webioom apply this fix automatically.
+                        </p>
                       )}
                     </div>
 
@@ -389,7 +465,33 @@ export default async function OnPageSeoPage(props: PageProps<'/dashboard/website
                     {shownInstances.length > 0 && (
                       <ul className="mt-3 space-y-2">
                         {shownInstances.map((instance, index) => (
-                          <InstanceRow key={`${instance.url}-${instance.affected_resource_url ?? index}`} instance={instance} />
+                          <li key={`${instance.url}-${instance.affected_resource_url ?? index}`}>
+                            <InstanceRow instance={instance} />
+                            {fixProvider === 'wordpress' && (
+                              <PrepareFixButton
+                                websiteId={website.id}
+                                pageUrl={instance.url}
+                                pageLabel={instance.url}
+                                issueTitle={finding.title}
+                              />
+                            )}
+                            {fixProvider === 'shopify' && (
+                              <ShopifyPrepareFixButton
+                                websiteId={website.id}
+                                pageLabel={instance.url}
+                                issueId={`${ON_PAGE_ISSUE_ID_PREFIX}${instance.id}`}
+                                fixKind={shopifyWixFixKind}
+                              />
+                            )}
+                            {fixProvider === 'wix' && (
+                              <WixPrepareFixButton
+                                websiteId={website.id}
+                                pageLabel={instance.url}
+                                issueId={`${ON_PAGE_ISSUE_ID_PREFIX}${instance.id}`}
+                                fixKind={shopifyWixFixKind}
+                              />
+                            )}
+                          </li>
                         ))}
                       </ul>
                     )}

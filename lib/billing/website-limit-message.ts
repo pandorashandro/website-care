@@ -24,6 +24,6 @@ export function getWebsiteLimitUpgradeMessage(reason: EntitlementFailureReason, 
 
   return {
     message: `You've reached the ${presentation.maxWebsites} ${websiteWord} limit on ${presentation.name}.`,
-    showUpgradeLink: currentPlan !== 'bloom_pro',
+    showUpgradeLink: currentPlan !== 'agency',
   }
 }

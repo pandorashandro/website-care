@@ -2,7 +2,6 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { ScanSearch } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
-import ScanWebsiteButton from '@/app/dashboard/scan-website-button'
 import { aggregateIssues, type RawIssueRow } from '@/lib/scanner/aggregate-issues'
 import { calculateHealthScore } from '@/lib/scanner/calculate-health-score'
 import { ISSUE_DEFINITIONS } from '@/lib/scanner/issue-definitions'
@@ -22,10 +21,13 @@ import EmptyState from '@/components/ui/empty-state'
 import { buttonStyles } from '@/components/ui/button'
 import WebsiteSubNav from '@/components/website/website-sub-nav'
 import HealthOverview from '@/components/report/health-overview'
+import OverallWebsiteHealthCard from '@/components/report/overall-website-health'
 import CategoryScoreGrid from '@/components/report/category-score-grid'
-import { getTechnicalSeoCategorySummary } from './technical-seo-summary'
-import { getSiteArchitectureCategorySummary } from './site-architecture-summary'
-import { getOnPageCategorySummary } from './on-page-summary'
+import ScanWebsiteControls from './scan-website-controls'
+import { getUnifiedCategorySummaries } from './unified-summary'
+import { getFixTheseFirst } from './fix-these-first'
+import { computeOverallWebsiteHealth } from '@/lib/category-engine/overall-health'
+import FixTheseFirst from '@/components/report/fix-these-first'
 import PriorityIssues from '@/components/report/priority-issues'
 import IssueGroup from '@/components/report/issue-group'
 import {
@@ -93,32 +95,13 @@ export default async function WebsiteReportPage(props: PageProps<'/dashboard/web
   const shopifyConnectionPromise = getShopifyConnectionStatus(website.id)
   const wixConnectionPromise = getWixConnectionStatus(website.id)
 
-  // Phase 26B correction — the ONE server-side retrieval of the
-  // authoritative Technical SEO analysis for this page's Category Health
-  // tile. getTechnicalSeoCategorySummary reads the SAME crawl_analyses row
-  // (by crawl_run_id + analyzer_version) the dedicated Technical SEO page
-  // reads, and its persisted health_score verbatim — this page performs no
-  // Technical SEO computation of its own, and never reads
-  // healthScore.categories.technical (the legacy score) for this tile.
-  const technicalSeoPromise = getTechnicalSeoCategorySummary(website.id)
-
-  // Phase 27 — the ONE server-side retrieval of the authoritative Site
-  // Architecture analysis for this page's Category Health tile. Same
-  // reasoning as technicalSeoPromise above: getSiteArchitectureCategorySummary
-  // reads the SAME crawl_analyses row (by crawl_run_id + analyzer_version)
-  // the dedicated Site Architecture page reads — no independent scoring
-  // happens on this page, and no legacy category score is ever substituted.
-  const siteArchitecturePromise = getSiteArchitectureCategorySummary(website.id)
-
-  // Phase 28 — the ONE server-side retrieval of the authoritative On-Page
-  // SEO analysis for this page's Category Health tile. Same reasoning as
-  // technicalSeoPromise/siteArchitecturePromise above: getOnPageCategorySummary
-  // reads the SAME crawl_analyses row (by crawl_run_id + analyzer_version)
-  // the dedicated On-Page SEO page reads — no independent scoring happens
-  // on this page, and the legacy 'seo' category score is never read for
-  // this tile (see category-score-grid.tsx's own OTHER_CATEGORY_ORDER
-  // exclusion).
-  const onPageSeoPromise = getOnPageCategorySummary(website.id)
+  // Unified webioom engine — the ONE server-side retrieval of every
+  // canonical category's authoritative analysis, all resolved from the SAME
+  // latest crawl_run (see unified-summary.ts's own doc comment for why this
+  // replaced four independent per-category fetches). No category's score is
+  // ever computed on this page — each is read verbatim from its own
+  // canonical crawl_analyses row, exactly as its dedicated page reads it.
+  const unifiedSummariesPromise = getUnifiedCategorySummaries(website.id)
 
   const { data: latestScan } = await supabase
     .from('scans')
@@ -193,9 +176,31 @@ export default async function WebsiteReportPage(props: PageProps<'/dashboard/web
     isFirstReport = completedScanCount === 1
   }
 
-  const technicalSeo = await technicalSeoPromise
-  const siteArchitecture = await siteArchitecturePromise
-  const onPageSeo = await onPageSeoPromise
+  const { crawlRun, technicalSeo, onPageSeo, siteArchitecture, content, performance, accessibility, security } = await unifiedSummariesPromise
+
+  // Unified webioom engine, Prompt 2 — all SEVEN canonical categories now
+  // contribute to Overall Website Health (Performance/Accessibility/
+  // Security joined Technical SEO/On-Page SEO/Site Architecture/Content).
+  const canonicalSummaries = [technicalSeo, onPageSeo, siteArchitecture, content, performance, accessibility, security]
+  const overallHealth = computeOverallWebsiteHealth(canonicalSummaries)
+  const allCategoriesAnalyzed = canonicalSummaries.every((summary) => summary.status === 'analyzed')
+
+  // "Latest website-analysis date" for the header card: the most recent
+  // canonical category's own analyzedAt timestamp (all seven are analyzed
+  // together by the same unified scan, so they are always very close in
+  // time) — never the legacy homepage scan's date, which is a separate,
+  // independently-timed analysis.
+  const latestAnalysisDate = canonicalSummaries
+    .map((summary) => summary.analyzedAt)
+    .filter((date): date is string => !!date)
+    .sort()
+    .at(-1)
+
+  // Overview command center: a small, deterministic cross-category "Fix
+  // these first" list — see fix-these-first.ts's own doc comment. Only
+  // fetched once a crawl_run exists to key off; resolves to [] for a
+  // crawl_run with no analyzed categories yet.
+  const fixTheseFirst = crawlRun ? await getFixTheseFirst(website.id, crawlRun.id) : []
 
   const wordpress = await wordpressPromise
   const wordpressConnection = await wordpressConnectionPromise
@@ -326,7 +331,7 @@ export default async function WebsiteReportPage(props: PageProps<'/dashboard/web
   const otherIssues = decoratedIssues.filter((issue) => !isKnownCategory(issue.type))
 
   return (
-    <Container size="md" className="py-10">
+    <Container size="xl" className="py-10">
       <Link href="/dashboard" className="text-sm text-muted hover:text-gray-700">
         ← Back to Websites
       </Link>
@@ -345,46 +350,54 @@ export default async function WebsiteReportPage(props: PageProps<'/dashboard/web
           </a>
 
           <p className="mt-3 text-sm text-muted">
-            {!latestScan
-              ? 'Not scanned yet'
-              : latestScan.status === 'completed'
-                ? `Last scanned ${formatDate(latestScan.created_at)}`
-                : latestScan.status === 'running'
-                  ? 'Scan in progress…'
-                  : latestScan.status === 'failed'
-                    ? 'The last scan failed.'
-                    : 'Scan status unavailable.'}
+            {latestAnalysisDate
+              ? `Last analyzed ${formatDate(latestAnalysisDate)}`
+              : crawlRun && (crawlRun.status === 'queued' || crawlRun.status === 'running')
+                ? 'Scanning in progress…'
+                : 'Not scanned yet'}
           </p>
         </div>
 
         <div className="sm:w-48 sm:shrink-0">
-          <ScanWebsiteButton websiteId={website.id} label={latestScan ? 'Scan Again' : 'Run First Scan'} />
+          <ScanWebsiteControls websiteId={website.id} crawlRun={crawlRun} allCategoriesAnalyzed={allCategoriesAnalyzed} />
         </div>
       </Card>
 
       <WebsiteSubNav websiteId={website.id} active="overview" />
 
-      {latestScan?.status === 'running' && (
-        <Alert tone="info" className="mt-6">
-          Scanning your website now. webioom is preparing your health report — it will appear here once
-          scanning completes.
-        </Alert>
+      {!crawlRun && !latestScan && (
+        <EmptyState
+          icon={ScanSearch}
+          title="Your website is ready for its first scan."
+          description="Scan your website to see its health across Technical SEO, On-Page SEO, Content, Site Architecture, and more — organized by priority so you know what to fix first."
+          action={<ScanWebsiteControls websiteId={website.id} crawlRun={crawlRun} allCategoriesAnalyzed={allCategoriesAnalyzed} />}
+          className="mt-6"
+        />
+      )}
+
+      {(crawlRun || latestScan) && (
+        <div className="mt-6 space-y-6">
+          <OverallWebsiteHealthCard health={overallHealth} />
+
+          <FixTheseFirst problems={fixTheseFirst} />
+
+          <CategoryScoreGrid
+            websiteId={website.id}
+            technicalSeo={technicalSeo}
+            siteArchitecture={siteArchitecture}
+            onPageSeo={onPageSeo}
+            content={content}
+            performance={performance}
+            accessibility={accessibility}
+            security={security}
+          />
+        </div>
       )}
 
       {latestScan?.status === 'failed' && (
         <Alert tone="danger" className="mt-6">
-          The last scan for this website failed. Try scanning again above.
+          The last homepage scan failed. Try scanning again above.
         </Alert>
-      )}
-
-      {!latestScan && (
-        <EmptyState
-          icon={ScanSearch}
-          title="Your website is ready for its first scan."
-          description="Run a scan to create your website health report. webioom checks the website and organizes findings by health category and priority."
-          action={<ScanWebsiteButton websiteId={website.id} label="Run First Scan" />}
-          className="mt-6"
-        />
       )}
 
       {latestScan?.status === 'completed' && healthScore && (
@@ -416,14 +429,6 @@ export default async function WebsiteReportPage(props: PageProps<'/dashboard/web
           )}
 
           <HealthOverview overall={healthScore.overall} issueCount={issues.length} pageCount={pageUrlsWithIssues.size} />
-
-          <CategoryScoreGrid
-            categories={healthScore.categories}
-            websiteId={website.id}
-            technicalSeo={technicalSeo}
-            siteArchitecture={siteArchitecture}
-            onPageSeo={onPageSeo}
-          />
 
           {issues.length === 0 ? (
             <EmptyState

@@ -104,6 +104,22 @@ describe('evaluateShopifyIssueFixability — same fail-closed contract, independ
     })
     expect(result?.level).toBe('unavailable')
   })
+
+  it('PAYABLE-V1 CLOSURE: also recognizes the CANONICAL On-Page SEO engine\'s own title strings, not just the legacy scanner\'s — this is what lets the canonical report page reach Shopify\'s real fix pipeline', () => {
+    const grantedScopes = parseShopifyGrantedScopes(['write_products', 'write_content'])
+    expect(evaluateShopifyIssueFixability({ issueTitle: 'Pages have no title tag', connectionState: 'connected', grantedScopes })?.level).toBe('assisted')
+    expect(
+      evaluateShopifyIssueFixability({ issueTitle: 'Pages have no meta description', connectionState: 'connected', grantedScopes })?.level
+    ).toBe('assisted')
+  })
+
+  it('still returns null for canonical findings with no real Shopify fix (weak/duplicate titles, headings)', () => {
+    const grantedScopes = parseShopifyGrantedScopes(['write_products', 'write_content'])
+    expect(
+      evaluateShopifyIssueFixability({ issueTitle: 'Pages use a generic, placeholder-style title', connectionState: 'connected', grantedScopes })
+    ).toBeNull()
+    expect(evaluateShopifyIssueFixability({ issueTitle: 'Pages have no H1 heading', connectionState: 'connected', grantedScopes })).toBeNull()
+  })
 })
 
 describe('resolveRequiredWordPressCapability (WordPress adapter — used to build the snapshot fixability consumes)', () => {

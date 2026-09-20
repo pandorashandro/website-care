@@ -36,26 +36,30 @@ export function createSupabaseCrawlStore(): CrawlStore {
     },
 
     async findActiveCrawlRun(websiteId: string): Promise<CrawlRunRow | null> {
-      const { data } = await admin
+      const { data, error } = await admin
         .from('crawl_runs')
         .select('*')
         .eq('website_id', websiteId)
         .in('status', ['queued', 'running'])
         .maybeSingle()
 
+      if (error) throw new Error(`Could not check for an active crawl run: ${error.message}`)
       return (data as CrawlRunRow | null) ?? null
     },
 
     async getCrawlRun(id: string): Promise<CrawlRunRow | null> {
-      const { data } = await admin.from('crawl_runs').select('*').eq('id', id).maybeSingle()
+      const { data, error } = await admin.from('crawl_runs').select('*').eq('id', id).maybeSingle()
+      if (error) throw new Error(`Could not fetch crawl run ${id}: ${error.message}`)
       return (data as CrawlRunRow | null) ?? null
     },
 
     async updateCrawlRun(id: string, patch): Promise<void> {
-      await admin
+      const { error } = await admin
         .from('crawl_runs')
         .update({ ...patch, updated_at: new Date().toISOString() })
         .eq('id', id)
+
+      if (error) throw new Error(`Could not update crawl run ${id}: ${error.message}`)
     },
 
     async claimPages(crawlRunId, batchSize, staleAfterMinutes): Promise<CrawlPageRow[]> {
@@ -70,13 +74,14 @@ export function createSupabaseCrawlStore(): CrawlStore {
     },
 
     async updatePage(id, patch): Promise<void> {
-      await admin.from('crawl_pages').update(patch).eq('id', id)
+      const { error } = await admin.from('crawl_pages').update(patch).eq('id', id)
+      if (error) throw new Error(`Could not update crawl page ${id}: ${error.message}`)
     },
 
     async upsertQueuedPages(rows: NewCrawlPageInput[]): Promise<void> {
       if (rows.length === 0) return
 
-      await admin
+      const { error } = await admin
         .from('crawl_pages')
         .upsert(
           rows.map((row) => ({
@@ -89,6 +94,8 @@ export function createSupabaseCrawlStore(): CrawlStore {
           })),
           { onConflict: 'crawl_run_id,url', ignoreDuplicates: true }
         )
+
+      if (error) throw new Error(`Could not queue crawl pages: ${error.message}`)
     },
 
     async insertLinks(rows: CrawlLinkInsert[]): Promise<void> {
@@ -98,18 +105,20 @@ export function createSupabaseCrawlStore(): CrawlStore {
       // for why this is safe: a reclaimed/reprocessed page (see
       // claim_crawl_pages' stale-reclaim) would otherwise insert duplicate
       // edges for the same links.
-      await admin.from('crawl_links').upsert(rows, { onConflict: 'crawl_run_id,source_page_id,target_url', ignoreDuplicates: true })
+      const { error } = await admin.from('crawl_links').upsert(rows, { onConflict: 'crawl_run_id,source_page_id,target_url', ignoreDuplicates: true })
+      if (error) throw new Error(`Could not insert crawl links: ${error.message}`)
     },
 
     async hasRemainingWork(crawlRunId, staleAfterMinutes): Promise<boolean> {
       const staleThreshold = new Date(Date.now() - staleAfterMinutes * 60_000).toISOString()
 
-      const { count } = await admin
+      const { count, error } = await admin
         .from('crawl_pages')
         .select('id', { count: 'exact', head: true })
         .eq('crawl_run_id', crawlRunId)
         .or(`status.eq.queued,and(status.eq.processing,claimed_at.lt.${staleThreshold})`)
 
+      if (error) throw new Error(`Could not check remaining crawl work: ${error.message}`)
       return (count ?? 0) > 0
     },
 
@@ -133,11 +142,18 @@ export function createSupabaseCrawlStore(): CrawlStore {
       // migration's crawl_pages_run_status_depth index — are fast enough
       // not to justify one). `head: true` means Postgres never actually
       // returns row bodies, only the count.
+      function countOrThrow(label: string) {
+        return (r: { count: number | null; error: { message: string } | null }) => {
+          if (r.error) throw new Error(`Could not recompute crawl run counts (${label}): ${r.error.message}`)
+          return r.count ?? 0
+        }
+      }
+
       const [total, succeeded, failed, skippedTotal, skippedByBudget] = await Promise.all([
-        admin.from('crawl_pages').select('id', { count: 'exact', head: true }).eq('crawl_run_id', crawlRunId).then((r) => r.count ?? 0),
-        admin.from('crawl_pages').select('id', { count: 'exact', head: true }).eq('crawl_run_id', crawlRunId).eq('status', 'completed').then((r) => r.count ?? 0),
-        admin.from('crawl_pages').select('id', { count: 'exact', head: true }).eq('crawl_run_id', crawlRunId).eq('status', 'failed').then((r) => r.count ?? 0),
-        admin.from('crawl_pages').select('id', { count: 'exact', head: true }).eq('crawl_run_id', crawlRunId).eq('status', 'skipped').then((r) => r.count ?? 0),
+        admin.from('crawl_pages').select('id', { count: 'exact', head: true }).eq('crawl_run_id', crawlRunId).then(countOrThrow('total')),
+        admin.from('crawl_pages').select('id', { count: 'exact', head: true }).eq('crawl_run_id', crawlRunId).eq('status', 'completed').then(countOrThrow('succeeded')),
+        admin.from('crawl_pages').select('id', { count: 'exact', head: true }).eq('crawl_run_id', crawlRunId).eq('status', 'failed').then(countOrThrow('failed')),
+        admin.from('crawl_pages').select('id', { count: 'exact', head: true }).eq('crawl_run_id', crawlRunId).eq('status', 'skipped').then(countOrThrow('skippedTotal')),
         // See BUDGET_SKIP_REASON's own doc comment: a budget-exhausted
         // skip means this page was never actually claimed/attempted, so it
         // must NOT count toward pagesProcessed — only a robots-disallowed
@@ -149,7 +165,7 @@ export function createSupabaseCrawlStore(): CrawlStore {
           .eq('crawl_run_id', crawlRunId)
           .eq('status', 'skipped')
           .eq('error_reason', BUDGET_SKIP_REASON)
-          .then((r) => r.count ?? 0),
+          .then(countOrThrow('skippedByBudget')),
       ])
 
       const attemptedSkipped = skippedTotal - skippedByBudget

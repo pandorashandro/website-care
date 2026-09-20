@@ -13,9 +13,9 @@ export type CreateCheckoutState =
   | null
 
 /**
- * The backend half of the future Phase 23.3 checkout UI. The browser may
- * only ever submit a webioom plan KEY ('bloom' | 'bloom_pro') — never a
- * Paddle price ID, customer ID, or subscription ID. This function is the
+ * The backend half of the checkout UI. The browser may only ever submit a
+ * webioom plan KEY ('bloom' | 'bloom_pro' | 'agency') — never a Paddle
+ * price ID, customer ID, or subscription ID. This function is the
  * one place that resolves the trusted, server-configured price ID
  * (resolvePaddlePriceId) and attaches this session's own user id as
  * `custom_data.webioom_user_id` on the Paddle transaction it creates —

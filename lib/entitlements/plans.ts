@@ -1,14 +1,20 @@
 /**
- * Phase 23.1, corrected — webioom's three named commercial plans. This is
- * product-domain architecture, not billing-provider architecture: no
- * price, currency, or billing-provider product/price ID appears anywhere
- * in this file or is ever read by anything downstream of it. Prices
- * (currently targeted at roughly €49/month for Bloom and €99/month for
- * Bloom Pro) and the eventual billing provider (Paddle is the current
- * candidate — see docs/entitlements.md) are both free to change without
- * touching this file or any of its consumers.
+ * Phase 23.1, corrected, then extended to a fourth "Agency" tier for the
+ * locked website-based commercial model — webioom's named commercial
+ * plans. This is product-domain architecture, not billing-provider
+ * architecture: no price, currency, or billing-provider product/price ID
+ * appears anywhere in this file or is ever read by anything downstream of
+ * it. Prices (Bloom €29/month, Bloom Pro €99/month, Agency €299/month —
+ * see lib/billing/plan-presentation.ts for the customer-facing numbers,
+ * including annual pricing) and the billing provider (Paddle) are both
+ * free to change without touching this file or any of its consumers.
+ *
+ * The commercial unit is NUMBER OF WEBSITES, never page count — pricing
+ * copy must never lead with `maxCrawlPages`. That field still exists purely
+ * as an internal technical safeguard (a per-plan crawl-budget ceiling), a
+ * separate concept from the customer-facing website limit below.
  */
-export type PlanKey = 'free' | 'bloom' | 'bloom_pro'
+export type PlanKey = 'free' | 'bloom' | 'bloom_pro' | 'agency'
 
 /**
  * Represented now so Phase 24's monitoring/scheduling work has a field to
@@ -59,28 +65,40 @@ export type PlanCapabilities = {
  * other module in lib/entitlements/ only ever reads from here — no plan
  * constant is ever duplicated or re-declared elsewhere in the codebase.
  *
- * `manualScansAllowed`/`aiFixesAllowed`/`directFixesAllowed` are `true` for
- * ALL THREE plans — this preserves every existing user's current behavior
- * exactly; no shipped functionality is paywalled by this correction. Adding
- * a real restriction on any of these later is a one-line change per plan
- * here, with no consumer needing to change (see docs/entitlements.md).
+ * FREE-SCAN -> PAID FUNNEL (locked product boundary): Free is a diagnosis/
+ * acquisition experience only — `manualScansAllowed` stays `true` (a
+ * customer must be able to actually run and view their scan), but
+ * `aiFixesAllowed`/`directFixesAllowed` are `false`. Those two are read by
+ * `lib/entitlements/service.ts`'s `canUseAiFix`/`canUseDirectFix`, which are
+ * now genuinely wired into every fix-preparation ("prepare") and fix-
+ * execution ("apply") server action across WordPress/Shopify/Wix (see each
+ * file's own doc comment) — this is real, server-enforced gating, not just
+ * pricing-page marketing copy. `aiFixesAllowed` gates the PREPARE step
+ * (generating/previewing a proposed change — today always AI-assisted where
+ * AI is used at all); `directFixesAllowed` gates the APPLY step (the actual
+ * write to the connected platform). Bloom/Bloom Pro/Agency all grant both —
+ * deliberately identical across every paid tier, since the locked product
+ * boundary is Free-vs-paid, not a further split between paid tiers (Bloom
+ * Pro/Agency differ from Bloom only in `maxWebsites`/`maxCrawlPages`, never
+ * in which remediation capability they unlock).
  *
- * `maxWebsites` is the one field actually enforced today (Part 7 of Phase
- * 23.1). `monitoringCadence`/`alertsAllowed` are represented per-plan as
- * forward-looking hooks for Phase 24 and are not consumed by anything yet.
+ * `maxWebsites` is the LOCKED commercial dimension for the website-based
+ * pricing model: Free/Bloom = 1, Bloom Pro = 5, Agency = 20.
+ * `monitoringCadence`/`alertsAllowed` remain forward-looking hooks, not
+ * consumed by anything yet (no monitoring engine exists).
  */
 export const PLAN_CAPABILITIES: Record<PlanKey, PlanCapabilities> = {
   free: {
     maxWebsites: 1,
     manualScansAllowed: true,
-    aiFixesAllowed: true,
-    directFixesAllowed: true,
+    aiFixesAllowed: false,
+    directFixesAllowed: false,
     monitoringCadence: 'none',
     alertsAllowed: false,
     maxCrawlPages: 30,
   },
   bloom: {
-    maxWebsites: 3,
+    maxWebsites: 1,
     manualScansAllowed: true,
     aiFixesAllowed: true,
     directFixesAllowed: true,
@@ -89,7 +107,7 @@ export const PLAN_CAPABILITIES: Record<PlanKey, PlanCapabilities> = {
     maxCrawlPages: 150,
   },
   bloom_pro: {
-    maxWebsites: 10,
+    maxWebsites: 5,
     manualScansAllowed: true,
     aiFixesAllowed: true,
     directFixesAllowed: true,
@@ -99,6 +117,17 @@ export const PLAN_CAPABILITIES: Record<PlanKey, PlanCapabilities> = {
     // safety ceiling (tests/entitlements.test.ts asserts this equality directly
     // so the two can never silently drift apart) — Bloom Pro is meant to be
     // bounded only by the platform-wide safety ceiling, never by its own plan.
+    maxCrawlPages: 500,
+  },
+  agency: {
+    maxWebsites: 20,
+    manualScansAllowed: true,
+    aiFixesAllowed: true,
+    directFixesAllowed: true,
+    monitoringCadence: 'daily',
+    alertsAllowed: true,
+    // Also pinned to the global safety ceiling — there is no higher crawl
+    // budget to grant above Bloom Pro's, only more websites.
     maxCrawlPages: 500,
   },
 }

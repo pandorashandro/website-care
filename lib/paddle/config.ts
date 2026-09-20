@@ -65,6 +65,7 @@ export function getPaddlePriceMapping(): PaddlePriceMapping {
   return {
     bloom: process.env.PADDLE_BLOOM_PRICE_ID || null,
     bloom_pro: process.env.PADDLE_BLOOM_PRO_PRICE_ID || null,
+    agency: process.env.PADDLE_AGENCY_PRICE_ID || null,
   }
 }
 

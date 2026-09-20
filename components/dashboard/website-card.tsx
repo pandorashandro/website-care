@@ -25,6 +25,8 @@ const RING_COLOR_CLASS: Record<BadgeTone, string> = {
   info: 'border-blue-500',
   neutral: 'border-border-strong',
   brand: 'border-brand',
+  violet: 'border-violet',
+  sky: 'border-sky',
 }
 
 function hostnameOf(url: string): string {

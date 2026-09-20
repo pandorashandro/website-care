@@ -106,7 +106,7 @@ export default async function WebsiteSiteScanPage(props: PageProps<'/dashboard/w
   const progressPercent = crawlRun ? Math.min(100, Math.round((crawlRun.pages_processed / crawlRun.effective_page_budget) * 100)) : 0
 
   return (
-    <Container size="md" className="py-10">
+    <Container size="xl" className="py-10">
       <Link href={`/dashboard/websites/${website.id}`} className="text-sm text-muted hover:text-gray-700">
         ← Back to {website.name}
       </Link>

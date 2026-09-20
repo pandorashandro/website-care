@@ -111,12 +111,29 @@ export async function canRunManualScan(): Promise<EntitlementCheckResult> {
   return evaluateManualScan(await getCurrentUserEntitlements())
 }
 
-/** Always `{ allowed: true }` today — not yet wired into any AI-fix call site (see docs/entitlements.md's Phase 23.1 scope note). */
+/**
+ * The authoritative server-side gate for the "prepare" half of every fix
+ * family (WordPress title/meta-description/H1/image-alt, Shopify title/
+ * meta-description, Wix title/meta-description) — `false` for Free, `true`
+ * for every paid plan. Called as the FIRST thing each `prepare*Fix` server
+ * action does, before any credential lookup or third-party request, so a
+ * denied Free user never triggers wasted work or leaks connection-status
+ * information they can't act on anyway.
+ */
 export async function canUseAiFix(): Promise<EntitlementCheckResult> {
   return evaluateAiFix(await getCurrentUserEntitlements())
 }
 
-/** Always `{ allowed: true }` today — not yet wired into any direct-fix call site (see docs/entitlements.md's Phase 23.1 scope note). */
+/**
+ * The authoritative server-side gate for the "apply" half of every fix
+ * family — the actual write to the connected platform. Checked fresh,
+ * independently of whatever `canUseAiFix` decided at prepare time (a plan
+ * can change between the two steps), by every `apply*Fix` server action.
+ * In practice this is defense-in-depth: a Free user can never obtain a
+ * valid signed preview token in the first place once `canUseAiFix` blocks
+ * `prepare*Fix`, but this is still checked again here rather than relying
+ * on that alone.
+ */
 export async function canUseDirectFix(): Promise<EntitlementCheckResult> {
   return evaluateDirectFix(await getCurrentUserEntitlements())
 }

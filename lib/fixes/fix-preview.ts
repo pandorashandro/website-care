@@ -97,31 +97,74 @@ export type FixPreview =
   | { status: 'diagnostic'; field: 'image_alt'; result: ImageAltSourceDetectionResult }
   | { status: 'unsupported'; reason: string }
   | { status: 'unavailable'; reason: string }
+  /**
+   * Free-scan -> paid funnel: the session's own resolved plan does not
+   * currently allow AI-assisted/prepared fixes (lib/entitlements/service.ts's
+   * canUseAiFix). Checked BEFORE any credential lookup or third-party
+   * request in prepareFix, so this is always the first and only thing a
+   * Free user's attempt produces — never a real diagnostic or a leaked
+   * connection-status detail they can't act on anyway. Distinct from
+   * 'unavailable' specifically so the UI (PrepareFixButton) can show the
+   * reusable UpgradePrompt instead of a plain text reason.
+   */
+  | { status: 'requires_upgrade'; reason: string }
 
 export type FixSupport = 'title' | 'meta_description' | 'h1' | 'image_alt' | 'unsupported'
 
-/** References the scanner's own fixed title strings rather than re-hardcoding them. */
+/**
+ * References the scanner's own fixed title strings rather than
+ * re-hardcoding them.
+ *
+ * PAYABLE-V1 PRODUCT COMPLETION: also recognizes the CANONICAL On-Page SEO
+ * engine's own, independently-authored title strings (lib/on-page/checks/
+ * title.ts) for the exact same underlying condition — that engine's
+ * `checkKey`s (missing_title/title_too_short/title_too_long) are literally
+ * identical to these legacy issue keys, but its customer-facing `title`
+ * copy was written fresh and never matched this classifier, which meant
+ * Prepare Fix was silently unreachable from the canonical On-Page SEO
+ * report page (only the legacy single-page-scan issue list on Overview
+ * could ever trigger it — see app/dashboard/websites/[id]/on-page-seo/
+ * page.tsx's wiring). Both title strings map to the identical kind, so the
+ * exact same deterministic generator/AI path runs regardless of which
+ * surface the customer clicked from.
+ */
 const TITLE_ISSUE_KIND: Record<string, TitleIssueKind> = {
   [ISSUE_DEFINITIONS.missing_title.title]: 'missing',
   [ISSUE_DEFINITIONS.title_too_short.title]: 'too_short',
   [ISSUE_DEFINITIONS.title_too_long.title]: 'too_long',
+  'Pages have no title tag': 'missing',
+  'Page titles are too short': 'too_short',
+  'Page titles are too long': 'too_long',
 }
 
-/** References the scanner's own fixed meta-description strings rather than re-hardcoding them — mirrors TITLE_ISSUE_KIND above. */
+/**
+ * References the scanner's own fixed meta-description strings rather than
+ * re-hardcoding them — mirrors TITLE_ISSUE_KIND above, including the same
+ * canonical-engine bridge (lib/on-page/checks/meta-description.ts).
+ */
 const META_DESCRIPTION_ISSUE_KIND: Record<string, MetaDescriptionIssueKind> = {
   [ISSUE_DEFINITIONS.missing_meta_description.title]: 'missing',
   [ISSUE_DEFINITIONS.meta_description_too_short.title]: 'too_short',
   [ISSUE_DEFINITIONS.meta_description_too_long.title]: 'too_long',
+  'Pages have no meta description': 'missing',
+  'Meta descriptions are too short': 'too_short',
+  'Meta descriptions are too long': 'too_long',
 }
 
 const META_DESCRIPTION_ISSUE_TITLES = new Set<string>(Object.keys(META_DESCRIPTION_ISSUE_KIND))
 
 export type H1IssueKind = 'missing_h1' | 'multiple_h1'
 
-/** References the scanner's own fixed H1 issue strings rather than re-hardcoding them. */
+/**
+ * References the scanner's own fixed H1 issue strings rather than
+ * re-hardcoding them — mirrors TITLE_ISSUE_KIND's canonical-engine bridge
+ * (lib/on-page/checks/headings.ts).
+ */
 const H1_ISSUE_KIND: Record<string, H1IssueKind> = {
   [ISSUE_DEFINITIONS.missing_h1.title]: 'missing_h1',
   [ISSUE_DEFINITIONS.multiple_h1.title]: 'multiple_h1',
+  'Pages have no H1 heading': 'missing_h1',
+  'Pages have multiple H1 headings': 'multiple_h1',
 }
 
 const H1_ISSUE_TITLES = new Set<string>(Object.keys(H1_ISSUE_KIND))

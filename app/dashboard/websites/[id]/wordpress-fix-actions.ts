@@ -24,8 +24,31 @@ import { generateMetaDescriptionRecommendation } from '@/lib/ai/meta-description
 import { generateH1Recommendation } from '@/lib/ai/h1-recommendation'
 import { generateImageAltRecommendation } from '@/lib/ai/image-alt-recommendation'
 import { getConnectedWordPressCredentials } from './wordpress-credentials'
-import { getTrustedMissingImageAltIssue } from './image-alt-issue'
+import { getTrustedMissingImageAltIssue, type TrustedMissingImageAltIssueResult } from './image-alt-issue'
+import { getTrustedAccessibilityImageAltFinding } from './accessibility-image-alt-finding'
 import { recordFixHistory } from './fix-history'
+import { canUseAiFix, canUseDirectFix } from '@/lib/entitlements/service'
+
+/**
+ * Unified webioom engine, Prompt 3 — an image-alt fix's opaque `issueId` now
+ * resolves through ONE of two trusted tables, distinguished by a literal
+ * `pillar:` prefix the browser never has reason to fabricate (it only ever
+ * echoes back an id webioom itself rendered): `pillar:<uuid>` means a
+ * `pillar_finding_pages` row from the new canonical Accessibility engine;
+ * a bare uuid means a legacy `issues` row, exactly as before this pass.
+ * Both resolvers return the IDENTICAL `TrustedMissingImageAltIssueResult`
+ * shape, so every line of code after this point (WordPress source
+ * detection, AI recommendation, write, verify, fix-history, rollback) is
+ * completely unchanged and unaware which table proved ownership.
+ */
+const PILLAR_ISSUE_ID_PREFIX = 'pillar:'
+
+function resolveTrustedImageAltIssue(websiteId: string, issueId: string): Promise<TrustedMissingImageAltIssueResult> {
+  if (issueId.startsWith(PILLAR_ISSUE_ID_PREFIX)) {
+    return getTrustedAccessibilityImageAltFinding(websiteId, issueId.slice(PILLAR_ISSUE_ID_PREFIX.length))
+  }
+  return getTrustedMissingImageAltIssue(websiteId, issueId)
+}
 import {
   buildFixPreview,
   buildMetaDescriptionDiagnostic,
@@ -79,6 +102,16 @@ export async function prepareFix(
     return { status: 'unsupported', reason: 'Preview not available yet for this fix type.' }
   }
 
+  // Free-scan -> paid funnel: checked BEFORE any credential lookup or
+  // WordPress request, so a Free user's attempt never does wasted work or
+  // leaks connection-status information they can't act on anyway. This is
+  // the authoritative server-side gate — see lib/entitlements/service.ts's
+  // canUseAiFix doc comment.
+  const aiFixCheck = await canUseAiFix()
+  if (!aiFixCheck.allowed) {
+    return { status: 'requires_upgrade', reason: 'Upgrade to a paid plan to prepare fixes with webioom.' }
+  }
+
   // Re-verifies webioom session + website ownership internally before
   // ever touching wordpress_connections — never trusts the form's websiteId alone.
   const credentials = await getConnectedWordPressCredentials(websiteId)
@@ -99,9 +132,10 @@ export async function prepareFix(
     // The browser identifies the fix ONLY by an opaque issue id — pageUrl
     // and imageUrl are never accepted from form fields for this issue type.
     // This re-authenticates the session and walks the full ownership chain
-    // (issue -> scan -> website -> user) itself; RLS is a second layer, not
-    // the only check.
-    const trustedIssue = await getTrustedMissingImageAltIssue(websiteId, issueId)
+    // itself (issue -> scan -> website -> user, OR pillar_finding_page ->
+    // pillar_finding -> website -> user); RLS is a second layer, not the
+    // only check.
+    const trustedIssue = await resolveTrustedImageAltIssue(websiteId, issueId)
 
     if (!trustedIssue.ok) {
       return { status: 'unavailable', reason: trustedIssue.reason }
@@ -475,6 +509,16 @@ export type ApplyFixState =
  * reported as two independent facts.
  */
 export async function applyFix(_prevState: ApplyFixState, formData: FormData): Promise<ApplyFixState> {
+  // Free-scan -> paid funnel: checked fresh here, independently of whatever
+  // canUseAiFix decided at prepare time — a plan can change between the two
+  // steps. In practice a Free user can never obtain a valid signed preview
+  // token in the first place (prepareFix already blocks them), but this is
+  // real defense-in-depth, not reliance on that alone.
+  const directFixCheck = await canUseDirectFix()
+  if (!directFixCheck.allowed) {
+    return { writeStatus: 'failed', reason: 'Upgrade to a paid plan to apply fixes with webioom.' }
+  }
+
   const previewToken = formData.get('previewToken') as string | null
 
   if (!previewToken) {

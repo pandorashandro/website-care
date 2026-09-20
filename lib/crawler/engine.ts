@@ -2,6 +2,8 @@ import { fetchPage } from '@/lib/scanner/checks'
 import { extractInternalLinks } from '@/lib/scanner/url-utils'
 import { normalizeCrawlUrl, isCrawlableSameSiteUrl } from './url-policy'
 import { extractPageMetadata } from './page-extract'
+import { extractContentEvidence } from './content-extract'
+import { extractPerformanceEvidence, extractAccessibilityEvidence, extractSecurityEvidence, emptyPerformanceEvidence, emptyAccessibilityEvidence, emptySecurityEvidence } from './pillar-extract'
 import { fetchRobotsRules, isPathAllowed, type RobotsRules } from './robots'
 import { discoverSitemapUrls } from './sitemap'
 import { clampPageBudget, clampDepth, BATCH_SIZE, BATCH_WALL_CLOCK_BUDGET_MS, STALE_CLAIM_MINUTES, MAX_LINKS_PER_PAGE, BUDGET_SKIP_REASON } from './limits'
@@ -219,6 +221,22 @@ async function processOnePage(store: CrawlStore, page: CrawlPageRow, maxDepth: n
         hreflangTags: [],
       }
 
+  // Phase 29 — reuses the SAME already-fetched HTML (no second fetch, no
+  // headless browser); see lib/crawler/content-extract.ts's own doc comment
+  // for why these compact fields were chosen over persisting raw HTML.
+  const contentEvidence = isHtml
+    ? extractContentEvidence(result.html)
+    : { contentText: null, contentWordCount: 0, contentParagraphCount: 0, contentHeadingTexts: [], contentHash: null, contentExtractionConfidence: 'high' as const }
+
+  // Unified webioom engine, Prompt 2 — same reasoning as contentEvidence
+  // above: reuses the SAME already-fetched HTML/response, no new network
+  // call. Security's isHttps fact is still meaningful even for a non-HTML
+  // resource (derived from the URL alone), so its "empty" variant still
+  // computes that one field for real rather than defaulting it.
+  const performanceEvidence = isHtml ? extractPerformanceEvidence(result.html, result.responseHeaders) : emptyPerformanceEvidence()
+  const accessibilityEvidence = isHtml ? extractAccessibilityEvidence(result.html) : emptyAccessibilityEvidence()
+  const securityEvidence = isHtml ? extractSecurityEvidence(result.html, result.finalUrl, result.responseHeaders) : emptySecurityEvidence(result.finalUrl)
+
   // Discoveries are computed and PERSISTED BEFORE this page is marked
   // 'completed' — deliberately, for resumability: this page's row is the
   // ONLY record that its outbound links were ever extracted (it will never
@@ -286,6 +304,15 @@ async function processOnePage(store: CrawlStore, page: CrawlPageRow, maxDepth: n
     structured_data_valid: metadata.structuredDataValid,
     structured_data_error: metadata.structuredDataError,
     hreflang_tags: metadata.hreflangTags,
+    content_text: contentEvidence.contentText,
+    content_word_count: contentEvidence.contentWordCount,
+    content_paragraph_count: contentEvidence.contentParagraphCount,
+    content_heading_texts: contentEvidence.contentHeadingTexts,
+    content_hash: contentEvidence.contentHash,
+    content_extraction_confidence: contentEvidence.contentExtractionConfidence,
+    performance_evidence: performanceEvidence,
+    accessibility_evidence: accessibilityEvidence,
+    security_evidence: securityEvidence,
     fetched_at: new Date().toISOString(),
   })
 
@@ -356,8 +383,22 @@ export async function processCrawlBatch(store: CrawlStore, crawlRunId: string, o
     }
 
     for (const page of claimed) {
-      await processOnePage(store, page, crawlRun.max_depth, robotsRules)
-      processedThisInvocation++
+      try {
+        await processOnePage(store, page, crawlRun.max_depth, robotsRules)
+        processedThisInvocation++
+      } catch (err) {
+        // A persistence failure while processing ONE page must never look
+        // like a silent success, but it also must not abort the entire
+        // batch (see this function's own doc comment: "never throws for a
+        // single bad page"). Left uncaught, a single transient write error
+        // (e.g. a schema mismatch, a dropped connection) would previously
+        // have been swallowed inside the store methods themselves with no
+        // trace at all; now it is at minimum logged, and the page is left
+        // in its claimed 'processing' state so claimPages' own stale-reclaim
+        // picks it up again on a later invocation instead of it silently
+        // vanishing from the frontier.
+        console.error(`[crawler] processOnePage failed for page ${page.id} (${page.url}):`, err)
+      }
     }
 
     counts = await store.recomputeCrawlRunCounts(crawlRunId)

@@ -76,6 +76,24 @@ export type CrawlPageRow = {
   hreflang_tags: Array<{ lang: string; href: string }>
   /** Phase 28 — total count of <h1> elements on this page (0 if none). Independent of h1_text, which only ever stores the FIRST one's text — see lib/on-page/checks/headings.ts's multiple_h1 check, which is the reason this was added. */
   h1_count: number
+  /** Phase 29 — cleaned substantive body text extracted from block-level containers (see lib/crawler/content-extract.ts/getSubstantiveBlocks — broader than `<p>`-only since Phase 29's real-world evidence-quality pass), blocks joined by "\n\n", bounded to CONTENT_TEXT_MAX_CHARS. A PREFIX only on a long page -- content_word_count/content_paragraph_count below are computed from the FULL page, not this truncated sample. Null for non-HTML pages or pages with no extractable substantive text. */
+  content_text: string | null
+  /** Phase 29 — total word count of the FULL substantive block text (untruncated), the basis for thin-content detection. */
+  content_word_count: number
+  /** Phase 29 — total count of substantive blocks (>= MIN_BLOCK_WORDS words each) on the FULL page (untruncated). */
+  content_paragraph_count: number
+  /** Phase 29 — up to CONTENT_MAX_HEADINGS <h2> section-heading texts, each truncated to CONTENT_HEADING_MAX_CHARS -- a weak structural signal only, never proof a specific section is present/absent. */
+  content_heading_texts: string[]
+  /** Phase 29 — a sha256 hex fingerprint of the FULL (untruncated) normalized substantive text, used for O(1) exact-duplicate-content grouping across pages. Null when there is no extractable text (nothing meaningful to fingerprint) -- see lib/content/checks/exact-duplicate.ts for why near-empty pages are excluded from duplicate grouping entirely. */
+  content_hash: string | null
+  /** Phase 29 real-world evidence-quality pass — 'low' when this page's raw visible text (every visible character, chrome included) is clearly non-trivial but almost none of it landed in a substantive content block, meaning the block extraction likely missed this page's real content structure. 'low' must never be read as "0 substantive words proves the page is empty" -- see lib/crawler/content-extract.ts's own doc comment and lib/content/eligibility.ts's getExtractionConfidence for how this softens dependent findings' confidence. */
+  content_extraction_confidence: 'high' | 'low'
+  /** Unified webioom engine, Prompt 2 — see lib/crawler/pillar-extract.ts's PerformanceEvidence for the exact shape. `{}` for a non-HTML/failed page. */
+  performance_evidence: Record<string, unknown>
+  /** Unified webioom engine, Prompt 2 — see lib/crawler/pillar-extract.ts's AccessibilityEvidence for the exact shape. `{}` for a non-HTML/failed page. */
+  accessibility_evidence: Record<string, unknown>
+  /** Unified webioom engine, Prompt 2 — see lib/crawler/pillar-extract.ts's SecurityEvidence for the exact shape. `{}` for a non-HTML/failed page (note: even then, isHttps is still a real, derivable fact -- see emptySecurityEvidence). */
+  security_evidence: Record<string, unknown>
 }
 
 export type CrawlLinkInsert = {

@@ -78,3 +78,47 @@ export function isEligibleContentPage(page: CrawlPageRow): boolean {
   if (!selfCanonicalizes(page)) return false
   return true
 }
+
+/**
+ * Prompt 3 (PAYABLE V1 convergence) — real-world false-positive protection.
+ *
+ * A real crawl once surfaced page-builder template-preview URLs (carrying a
+ * query string, reached only by following an internal link — never listed
+ * in the site's own sitemap, never the seed URL) inside a duplicate-content
+ * group alongside the actual homepage. Those pages pass every existing
+ * eligibility check (2xx HTML, not noindex, self-canonical), so they are
+ * correctly still ANALYZED — the fix is not to exclude them (that risks
+ * hiding a real problem on a legitimate query-string page) but to flag when
+ * a finding's evidence leans heavily on pages exhibiting this pattern, so
+ * that finding can report reduced confidence instead of asserting the same
+ * certainty as a finding built entirely from primary, deliberately-listed
+ * pages.
+ *
+ * DELIBERATELY GENERIC AND EVIDENCE-BASED — no CMS/platform/plugin name, no
+ * specific query-string key, no specific customer URL is ever referenced.
+ * The two signals combined here are both already generic evidence recorded
+ * for every crawled page, for every website, regardless of platform:
+ *
+ *   1. `discovered_via === 'link'` — this page was found only by following
+ *      another page's own link, never declared by the site owner as a
+ *      primary destination (a 'sitemap' entry) nor the crawl's own starting
+ *      point (a 'seed' page).
+ *   2. The URL carries a query string — a strong general indicator of a
+ *      parameterized, dynamically-generated variant rather than a
+ *      deliberately-authored destination page.
+ *
+ * Both together, not either alone: `discovered_via === 'link'` alone would
+ * flag the majority of ordinary content on any site with no sitemap (far
+ * too broad to be defensible), and a query string alone would flag
+ * legitimate paginated/filtered content the site owner explicitly listed.
+ * The conjunction is a narrow, conservative signal — never used to exclude
+ * a page from analysis, only to let a finding built substantially from such
+ * pages report its confidence honestly instead of overstating it. This is
+ * intentionally the full extent of this signal — a single, bounded,
+ * documented rule, not the start of an open-ended calibration effort.
+ */
+export function hasLikelyAuxiliaryUrlSignal(page: CrawlPageRow): boolean {
+  if (page.discovered_via !== 'link') return false
+  const url = page.final_url ?? page.url
+  return url.includes('?')
+}

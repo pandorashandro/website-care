@@ -1,98 +1,60 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { Check, Clock } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { getCurrentUserEntitlements } from '@/lib/entitlements'
-import { PLAN_PRESENTATION, PLAN_ORDER } from '@/lib/billing/plan-presentation'
-import { getPlanCtaKind } from '@/lib/billing/plan-cta'
-import type { PlanKey } from '@/lib/entitlements/plans'
 import Container from '@/components/ui/container'
-import Card from '@/components/ui/card'
-import Badge from '@/components/ui/badge'
 import SectionHeading from '@/components/ui/section-heading'
+import FaqAccordion, { type FaqItem } from '@/components/ui/faq-accordion'
 import { buttonStyles } from '@/components/ui/button'
-import UpgradePlanButton from '@/components/billing/upgrade-plan-button'
+import PricingCards from './pricing-cards'
 
 export const metadata: Metadata = {
   title: 'Pricing',
-  description: 'webioom pricing — Free, Bloom, and Bloom Pro. Scan for free. Upgrade for more websites, and monitoring once it launches.',
+  description:
+    'webioom pricing — scan your website for free, then choose Bloom, Bloom Pro, or Agency to fix issues, improve performance, and keep your site healthy.',
 }
 
 /**
- * The only place a plan card decides what to show for the current viewer
- * — always via the shared, pure `getPlanCtaKind` so `/dashboard/billing`
- * can never disagree with this page about who is eligible to upgrade.
+ * Pricing/Free-Scan Funnel task. Checkout only ever charges the plan's
+ * MONTHLY Paddle price today (see lib/paddle/plan-mapping.ts) — the
+ * Monthly/Yearly toggle below changes DISPLAYED pricing only, so a visitor
+ * can compare the two, but does not yet start a separate annual Paddle
+ * checkout (that would require creating new annual Paddle prices, which is
+ * a manual Paddle-dashboard action outside this codebase's ability to
+ * invent — see this task's final report for exactly what remains).
  */
-function PlanCta({ plan, isLoggedIn, currentPlan }: { plan: PlanKey; isLoggedIn: boolean; currentPlan: PlanKey }) {
-  const kind = getPlanCtaKind(plan, isLoggedIn, currentPlan)
-
-  if (kind === 'signup') {
-    return (
-      <Link href="/signup" className={buttonStyles({ variant: plan === 'free' ? 'outline' : 'primary', className: 'w-full' })}>
-        {plan === 'free' ? 'Start Free' : 'Get Started'}
-      </Link>
-    )
-  }
-
-  if (kind === 'current') {
-    return (
-      <span className={buttonStyles({ variant: 'outline', className: 'w-full cursor-default opacity-75' })} aria-current="true">
-        Current Plan
-      </span>
-    )
-  }
-
-  if (kind === 'included') {
-    return (
-      <span className="block text-center text-sm text-muted">
-        Included in your plan
-      </span>
-    )
-  }
-
-  // kind === 'upgrade' — plan is 'bloom' | 'bloom_pro' here, never 'free'
-  // (getPlanCtaKind never returns 'upgrade' for the free card, since free
-  // is always rank 0 and nothing ranks below it).
-  return <UpgradePlanButton plan={plan as 'bloom' | 'bloom_pro'} label={`Upgrade to ${PLAN_PRESENTATION[plan].name}`} />
-}
-
-function PlanCard({ plan, isLoggedIn, currentPlan, highlighted }: { plan: PlanKey; isLoggedIn: boolean; currentPlan: PlanKey; highlighted?: boolean }) {
-  const presentation = PLAN_PRESENTATION[plan]
-
-  return (
-    <Card className={highlighted ? 'border-brand ring-1 ring-brand' : undefined}>
-      <div className="flex items-center gap-2">
-        <h3 className="text-lg font-semibold text-gray-900">{presentation.name}</h3>
-        {highlighted && <Badge tone="brand">Most popular</Badge>}
-      </div>
-
-      <p className="mt-3 text-3xl font-semibold tracking-tight text-gray-900">{presentation.priceLabel}</p>
-      <p className="mt-2 text-sm text-muted">{presentation.tagline}</p>
-
-      <ul className="mt-6 space-y-2.5 text-sm text-gray-700">
-        {presentation.liveFeatures.map((feature) => (
-          <li key={feature} className="flex items-start gap-2">
-            <Check className="mt-0.5 h-4 w-4 shrink-0 text-brand" aria-hidden="true" />
-            <span>{feature}</span>
-          </li>
-        ))}
-        {presentation.plannedFeatures.map((feature) => (
-          <li key={feature} className="flex items-start gap-2">
-            <Clock className="mt-0.5 h-4 w-4 shrink-0 text-subtle" aria-hidden="true" />
-            <span>
-              {feature}
-              <span className="block text-xs text-subtle">{presentation.plannedNote}</span>
-            </span>
-          </li>
-        ))}
-      </ul>
-
-      <div className="mt-6">
-        <PlanCta plan={plan} isLoggedIn={isLoggedIn} currentPlan={currentPlan} />
-      </div>
-    </Card>
-  )
-}
+const FAQ_ITEMS: FaqItem[] = [
+  {
+    question: 'Can I change my plan later?',
+    answer:
+      'Yes. You can upgrade to a higher plan at any time from your billing page, and the new plan applies as soon as checkout completes.',
+  },
+  {
+    question: 'Is there a free trial?',
+    answer:
+      "There's no separate trial — the Free Website Scan lets you see a real health report for one website before you pay anything, so you always know what you're getting.",
+  },
+  {
+    question: 'What payment methods do you accept?',
+    answer: 'Payments are processed securely by Paddle, which supports major credit and debit cards.',
+  },
+  {
+    question: 'What counts as a website?',
+    answer: 'One website is one domain you connect to webioom for scanning and analysis — your plan sets how many you can manage at once.',
+  },
+  {
+    question: 'What happens if I need more websites?',
+    answer: "You can upgrade to a plan with a higher website limit at any time — your existing websites and reports carry over.",
+  },
+  {
+    question: 'Can I cancel anytime?',
+    answer: 'Yes. You can cancel your subscription at any time from your billing page — there is no minimum commitment.',
+  },
+  {
+    question: 'Does the free website scan require a credit card?',
+    answer: 'No. Scanning your first website is free and does not ask for payment details.',
+  },
+]
 
 export default async function PricingPage() {
   const supabase = await createClient()
@@ -112,47 +74,49 @@ export default async function PricingPage() {
 
   return (
     <>
-      <div className="border-b border-border bg-surface-muted">
-        <Container size="lg" className="py-16 text-center sm:py-20">
-          <p className="text-sm font-semibold tracking-wide text-brand">Pricing</p>
-          <h1 className="mt-2 text-3xl font-semibold tracking-tight text-gray-900 sm:text-4xl">
-            Simple plans for a healthier website.
-          </h1>
-          <p className="mx-auto mt-4 max-w-2xl text-lg text-muted">
-            Scan for free. Upgrade when you want more websites — and monitoring, once it launches.
-          </p>
-        </Container>
-      </div>
-
-      <Container size="lg" className="py-16 sm:py-20">
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-          {PLAN_ORDER.map((plan) => (
-            <PlanCard key={plan} plan={plan} isLoggedIn={isLoggedIn} currentPlan={currentPlan} highlighted={plan === 'bloom'} />
-          ))}
-        </div>
-
-        <p className="mt-8 text-center text-sm text-subtle">
-          Prices shown in EUR, billed monthly. No credit card required for Free.{' '}
-          <Link href="/security" className="font-medium text-brand hover:text-brand-hover">
-            Read about how billing and credentials are kept safe
-          </Link>
-          .
+      <Container size="lg" className="py-16 text-center sm:py-20">
+        <p className="text-sm font-semibold tracking-wide text-brand">Pricing</p>
+        <h1 className="mx-auto mt-2 max-w-2xl text-3xl font-semibold tracking-tight text-gray-900 sm:text-4xl">
+          Choose the plan that fits your goals
+        </h1>
+        <p className="mx-auto mt-4 max-w-2xl text-lg text-muted">
+          Scan your website for free and upgrade when you&apos;re ready to fix issues, improve performance, and keep your
+          site healthy over time.
         </p>
       </Container>
 
-      <SectionHeading
-        eyebrow="Honest by design"
-        title="What's live today, and what's coming"
-        align="center"
-        className="px-4 pb-4"
-      />
-      <Container size="md" className="pb-16 text-center sm:pb-20">
-        <p className="text-sm text-muted">
-          Website scanning, prioritization, and supported direct fixes are fully live today on every plan where
-          currently allowed. Weekly and daily automatic monitoring — and the alerts built on top of it — are
-          entitlements reserved by your plan now, but the monitoring engine itself has not launched yet. We&apos;ll
-          never tell you a feature is running when it isn&apos;t.
+      <Container size="xl" className="pb-16 sm:pb-20">
+        <PricingCards isLoggedIn={isLoggedIn} currentPlan={currentPlan} />
+
+        <p className="mt-10 text-center text-sm text-subtle">
+          <span className="inline-flex items-center gap-1.5">Secure payments via Paddle</span>
+          <span className="mx-2 text-border-strong">|</span>
+          <span>Cancel anytime</span>
         </p>
+      </Container>
+
+      <div className="border-t border-border bg-surface-muted">
+        <Container size="md" className="py-16 sm:py-20">
+          <SectionHeading eyebrow="Pricing FAQ" title="Frequently asked questions" align="center" />
+          <div className="mt-8">
+            <FaqAccordion items={FAQ_ITEMS} />
+          </div>
+        </Container>
+      </div>
+
+      <Container size="md" className="py-16 text-center sm:py-20">
+        <p className="text-sm font-semibold tracking-wide text-brand">Ready to get started?</p>
+        <h2 className="mx-auto mt-2 max-w-xl text-2xl font-semibold tracking-tight text-gray-900 sm:text-3xl">
+          Scan your website and see the difference
+        </h2>
+        <p className="mx-auto mt-3 max-w-xl text-base text-muted">
+          Discover what&apos;s holding your website back and get a clear plan to improve it.
+        </p>
+        <div className="mt-6">
+          <Link href="/signup" className={buttonStyles({ size: 'lg' })}>
+            Scan your website for free
+          </Link>
+        </div>
       </Container>
     </>
   )

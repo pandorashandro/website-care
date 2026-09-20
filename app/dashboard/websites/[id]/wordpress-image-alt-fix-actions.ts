@@ -13,8 +13,20 @@ import { verifyImageAltPreviewToken, hashContent } from '@/lib/fixes/preview-tok
 import { validateAiAltText } from '@/lib/ai/image-alt-recommendation'
 import { verifyPublicImageAlt, type ImageAltFixVerification } from '@/lib/fixes/verify-image-alt-fix'
 import { getConnectedWordPressCredentials } from './wordpress-credentials'
-import { getTrustedMissingImageAltIssue } from './image-alt-issue'
+import { getTrustedMissingImageAltIssue, type TrustedMissingImageAltIssueResult } from './image-alt-issue'
+import { getTrustedAccessibilityImageAltFinding } from './accessibility-image-alt-finding'
 import { recordFixHistory } from './fix-history'
+import { canUseDirectFix } from '@/lib/entitlements/service'
+
+/** See wordpress-fix-actions.ts's own doc comment for this exact dispatch convention — kept identical (and independently re-run here, never trusted from Prepare time) so Apply's re-validation is symmetric regardless of which table originally proved ownership. */
+const PILLAR_ISSUE_ID_PREFIX = 'pillar:'
+
+function resolveTrustedImageAltIssue(websiteId: string, issueId: string): Promise<TrustedMissingImageAltIssueResult> {
+  if (issueId.startsWith(PILLAR_ISSUE_ID_PREFIX)) {
+    return getTrustedAccessibilityImageAltFinding(websiteId, issueId.slice(PILLAR_ISSUE_ID_PREFIX.length))
+  }
+  return getTrustedMissingImageAltIssue(websiteId, issueId)
+}
 
 export type ApplyImageAltFixState =
   | {
@@ -61,6 +73,14 @@ export async function applyImageAltFix(
   _prevState: ApplyImageAltFixState,
   formData: FormData
 ): Promise<ApplyImageAltFixState> {
+  // Free-scan -> paid funnel: authoritative server-side gate, checked fresh
+  // regardless of what prepareFix decided earlier — see
+  // lib/entitlements/service.ts's canUseDirectFix doc comment.
+  const directFixCheck = await canUseDirectFix()
+  if (!directFixCheck.allowed) {
+    return { writeStatus: 'failed', reason: 'Upgrade to a paid plan to apply fixes with webioom.' }
+  }
+
   const previewToken = formData.get('previewToken') as string | null
 
   if (!previewToken) {
@@ -102,9 +122,10 @@ export async function applyImageAltFix(
   }
 
   // Re-authenticates the session and re-walks the full ownership chain
-  // (issue -> scan -> website -> user) itself — never trusts the token's
-  // issueId/websiteId as proof the current session may act on this issue.
-  const trustedIssue = await getTrustedMissingImageAltIssue(websiteId, issueId)
+  // itself — never trusts the token's issueId/websiteId as proof the
+  // current session may act on this issue. Dispatches to whichever table
+  // this issueId's prefix indicates (see resolveTrustedImageAltIssue).
+  const trustedIssue = await resolveTrustedImageAltIssue(websiteId, issueId)
 
   if (!trustedIssue.ok) {
     return { writeStatus: 'failed', reason: trustedIssue.reason }

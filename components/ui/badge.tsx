@@ -1,7 +1,7 @@
 import type { HTMLAttributes } from 'react'
 import { cn } from '@/lib/ui/cn'
 
-export type BadgeTone = 'neutral' | 'brand' | 'success' | 'warning' | 'danger' | 'info'
+export type BadgeTone = 'neutral' | 'brand' | 'success' | 'warning' | 'danger' | 'info' | 'violet' | 'sky'
 
 const TONE_STYLES: Record<BadgeTone, string> = {
   neutral: 'bg-surface-muted text-gray-600',
@@ -10,6 +10,10 @@ const TONE_STYLES: Record<BadgeTone, string> = {
   warning: 'bg-warning-subtle text-amber-700',
   danger: 'bg-danger-subtle text-red-700',
   info: 'bg-info-subtle text-blue-700',
+  /** Bloom Pro's plan-accent tone (pricing page "Most Popular" badge) — see app/globals.css's plan-accent system note. */
+  violet: 'bg-violet-subtle text-violet',
+  /** Agency's plan-accent tone. */
+  sky: 'bg-sky-subtle text-sky',
 }
 
 export type BadgeProps = HTMLAttributes<HTMLSpanElement> & {

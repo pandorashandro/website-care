@@ -1,6 +1,7 @@
 'use client'
 
 import { useActionState, useState } from 'react'
+import UpgradePrompt from '@/components/billing/upgrade-prompt'
 import { prepareFix, applyFix, type PrepareFixState, type ApplyFixState } from './wordpress-fix-actions'
 import { applyMetaDescriptionFix, type ApplyMetaDescriptionFixState } from './wordpress-meta-fix-actions'
 import { applyH1Fix, type ApplyH1FixState } from './wordpress-h1-fix-actions'
@@ -682,6 +683,13 @@ export default function PrepareFixButton({
           ) : (
             <ImageAltSourceDiagnostic result={visibleState.result} />
           )
+        ) : visibleState.status === 'requires_upgrade' ? (
+          <UpgradePrompt
+            open
+            onClose={() => setDismissed(true)}
+            attemptedAction={`Fix "${issueTitle}" with webioom`}
+            benefit="Upgrade to unlock guided fixes, AI-assisted improvements, Safe Fix where supported, verification and ongoing website improvement."
+          />
         ) : (
           <p className="mt-2 text-xs text-gray-600">{visibleState.reason}</p>
         ))}

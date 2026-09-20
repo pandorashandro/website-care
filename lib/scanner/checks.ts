@@ -195,6 +195,17 @@ export type FetchPageResult =
       xRobotsTag: string | null
       /** Phase 25A: the raw Content-Type response header, if any — additive field, used by the crawler to distinguish HTML pages from other resource types it may still legitimately fetch (e.g. a non-HTML URL that reached fetchPage despite isCrawlablePageUrl's extension filtering, such as an extensionless PDF). */
       contentType: string | null
+      /** Unified webioom engine, Prompt 2 — the small, fixed set of response headers the Performance and Security canonical engines need. Never a full header dump (unbounded, mostly irrelevant) — only the specific headers those two engines' own checks are documented to use. Raw string values (or null if absent), never interpreted here — interpretation belongs entirely to each engine's own checks. */
+      responseHeaders: {
+        contentEncoding: string | null
+        cacheControl: string | null
+        strictTransportSecurity: string | null
+        contentSecurityPolicy: string | null
+        xContentTypeOptions: string | null
+        referrerPolicy: string | null
+        xFrameOptions: string | null
+        permissionsPolicy: string | null
+      }
     }
   | { ok: false; reason: FetchFailureReason }
 
@@ -302,6 +313,16 @@ export async function fetchPage(
         redirectCount: redirectChain.length,
         xRobotsTag: response.headers.get('x-robots-tag'),
         contentType: response.headers.get('content-type'),
+        responseHeaders: {
+          contentEncoding: response.headers.get('content-encoding'),
+          cacheControl: response.headers.get('cache-control'),
+          strictTransportSecurity: response.headers.get('strict-transport-security'),
+          contentSecurityPolicy: response.headers.get('content-security-policy'),
+          xContentTypeOptions: response.headers.get('x-content-type-options'),
+          referrerPolicy: response.headers.get('referrer-policy'),
+          xFrameOptions: response.headers.get('x-frame-options'),
+          permissionsPolicy: response.headers.get('permissions-policy'),
+        },
       }
     }
 
@@ -527,8 +548,17 @@ export function hasEmptyButtons(html: string): boolean {
   return hasEmptyInteractiveElements(html, 'button')
 }
 
-/** Rough estimate of visible page text, with scripts/styles/tags stripped. */
-export function getVisibleTextLength(html: string): number {
+/**
+ * Rough estimate of visible page text, with scripts/styles/tags stripped and
+ * entities decoded. Phase 29 — extracted from getVisibleTextLength's own
+ * original inline implementation (unchanged byte-for-byte) so Content
+ * Intelligence's word-count/paragraph extraction can reuse the exact same
+ * stripping logic rather than a second, potentially-drifting copy.
+ * getVisibleTextLength itself is now a one-line wrapper — its own behavior
+ * (and every existing caller's, e.g. the legacy scanner's low_text_content
+ * check) is completely unchanged.
+ */
+export function getVisibleText(html: string): string {
   const withoutScriptsAndStyles = html
     .replace(/<script[\s\S]*?<\/script>/gi, ' ')
     .replace(/<style[\s\S]*?<\/style>/gi, ' ')
@@ -543,7 +573,214 @@ export function getVisibleTextLength(html: string): number {
     .replace(/&quot;/gi, '"')
     .replace(/&#39;/gi, "'")
 
-  return decoded.replace(/\s+/g, ' ').trim().length
+  return decoded.replace(/\s+/g, ' ').trim()
+}
+
+/** Rough estimate of visible page text length, with scripts/styles/tags stripped. */
+export function getVisibleTextLength(html: string): number {
+  return getVisibleText(html).length
+}
+
+/**
+ * Phase 29 — the trimmed, tag-stripped text of every <p>...</p> element, in
+ * document order, mirroring getH1Texts' exact extraction pattern. Used as
+ * Content Intelligence's paragraph-level unit for structure/boilerplate/
+ * duplicate-content analysis. Empty/whitespace-only paragraphs (e.g.
+ * spacer `<p>&nbsp;</p>` elements some page builders emit) are excluded —
+ * they carry no content signal and would otherwise inflate paragraph counts
+ * with structurally-empty elements.
+ */
+export function getParagraphTexts(html: string): string[] {
+  const matches = html.match(/<p[^>]*>[\s\S]*?<\/p>/gi) ?? []
+
+  return matches
+    .map((match) =>
+      match
+        .replace(/^<p[^>]*>/i, '')
+        .replace(/<\/p>$/i, '')
+        .replace(/<[^>]*>/g, ' ')
+        .replace(/&nbsp;/gi, ' ')
+        .replace(/&amp;/gi, '&')
+        .replace(/&lt;/gi, '<')
+        .replace(/&gt;/gi, '>')
+        .replace(/&quot;/gi, '"')
+        .replace(/&#39;/gi, "'")
+        .replace(/\s+/g, ' ')
+        .trim()
+    )
+    .filter((text) => text.length > 0)
+}
+
+/**
+ * Phase 29 real-world evidence-quality pass — general, CMS-independent
+ * SUBSTANTIVE CONTENT block extraction, broader than getParagraphTexts'
+ * `<p>`-only scope. A real-world Bespoke crawl found visibly populated pages
+ * extracting to 0 substantive words: their body copy was not wrapped in
+ * literal `<p>` tags at all (a common page-builder pattern — text widgets,
+ * icon boxes, testimonials, and CTAs are frequently rendered as `<div>`
+ * containers rather than `<p>` elements). Root cause was extraction being
+ * too narrow, not a persistence or database-default bug (see
+ * docs/content-intelligence-engine.md's own root-cause section for the full
+ * traced proof).
+ *
+ * ALGORITHM (regex-based, no HTML parser, no CMS-specific selectors):
+ *
+ *   1. Remove <script>/<style>/<noscript>/<template> elements ENTIRELY
+ *      (tag AND content) — never content.
+ *   2. Remove <nav>/<header>/<footer> elements ENTIRELY (tag AND content) —
+ *      the standard HTML5 elements for navigation/site-header/site-footer
+ *      chrome. Generic and semantic, not a CMS/theme-specific class
+ *      dictionary; sites that don't use these tags simply get no exclusion
+ *      here (conservative — never assumes chrome exists that isn't marked).
+ *   3. Replace every remaining BLOCK-LEVEL tag boundary (both the opening
+ *      and closing tag of p/div/li/section/article/blockquote/tr/td/th/
+ *      figcaption/dd/dt) with a newline. This segments the flat HTML into
+ *      block-sized text fragments WITHOUT ever duplicating a nested
+ *      element's text — each character of the source HTML still appears
+ *      exactly once; boundaries only decide where a fragment breaks. A
+ *      `<div>intro<div>nested</div>outro</div>` becomes three fragments
+ *      ("intro", "nested", "outro"), never a fourth fragment repeating
+ *      "nested" inside a fourth "intro nested outro" combination the way a
+ *      naive `element.textContent`-style recursive extraction would.
+ *   4. Strip all remaining tags (inline elements: span/a/strong/em/b/i,
+ *      and heading tags h1-h6, which are intentionally NOT block
+ *      boundaries here — their own text is captured separately by
+ *      getH1Texts/getH2Texts and would otherwise fragment normal prose that
+ *      happens to follow a heading with no intervening block wrapper).
+ *   5. Decode entities, split on the inserted newlines, trim/collapse
+ *      whitespace per fragment, and drop empty fragments.
+ *
+ * DELIBERATELY NOT "count every text node" (the opposite failure mode this
+ * phase's own instructions warn against): callers apply a minimum-word
+ * filter per block (see lib/crawler/content-extract.ts's MIN_BLOCK_WORDS)
+ * to exclude short leftover fragments (e.g. a 2-word menu label not wrapped
+ * in <nav>) from counting as substantive content.
+ *
+ * KNOWN LIMITATION, documented rather than solved with a bigger heuristic:
+ * no link-density filtering is applied — a genuine navigation/menu block
+ * NOT wrapped in a semantic `<nav>`/`<header>`/`<footer>` tag/ARIA landmark
+ * role could still leak through if its own text happens to clear the
+ * minimum-word filter. Building reliable link-density detection would
+ * require tracking anchor coverage per block before tag-stripping, a
+ * meaningfully bigger DOM-aware mechanism this phase's own "do not build a
+ * huge DOM-template engine" instruction rules out.
+ */
+
+/**
+ * Strips every region whose OPENING tag matches `openTagPattern` (which must
+ * be a global regex capturing the tag name in group 1) through its TRUE
+ * matching closing tag — a small depth counter over same-named open/close
+ * tags, not a single non-greedy regex. This matters specifically for the
+ * ARIA-landmark case below: a `<div role="banner">` almost always contains
+ * MULTIPLE nested `<div>` children (this is how virtually all page-builder
+ * header/nav markup is actually structured), so a naive
+ * `<div ...>[\s\S]*?<\/div>` would only strip through the FIRST inner
+ * `</div>` it finds — silently leaving everything after that point (e.g. a
+ * second CTA `<div>` inside the same header) uncounted as chrome. This
+ * function still uses only regex scanning (no HTML parser/DOM), matching
+ * this module's existing constraint, but tracks nesting depth so it finds
+ * the region's real end.
+ */
+function stripBalancedRegions(html: string, openTagPattern: RegExp): string {
+  let result = ''
+  let cursor = 0
+  openTagPattern.lastIndex = 0
+
+  let openMatch: RegExpExecArray | null
+  while ((openMatch = openTagPattern.exec(html)) !== null) {
+    if (openMatch.index < cursor) continue // inside an already-stripped region
+
+    result += html.slice(cursor, openMatch.index)
+
+    const tagName = openMatch[1]
+    const tagScan = new RegExp(`<${tagName}\\b[^>]*>|<\\/${tagName}\\s*>`, 'gi')
+    tagScan.lastIndex = openTagPattern.lastIndex
+
+    let depth = 1
+    let regionEnd = html.length
+    let scanMatch: RegExpExecArray | null
+    while ((scanMatch = tagScan.exec(html)) !== null) {
+      if (scanMatch[0].startsWith('</')) depth--
+      else depth++
+      if (depth === 0) {
+        regionEnd = scanMatch.index + scanMatch[0].length
+        break
+      }
+    }
+
+    cursor = regionEnd
+    openTagPattern.lastIndex = regionEnd
+  }
+
+  result += html.slice(cursor)
+  return result
+}
+
+export function getSubstantiveBlocks(html: string): string[] {
+  // Collapse any pre-existing newlines/tabs in the SOURCE HTML to spaces
+  // FIRST (HTML whitespace is collapsible, so this changes no rendered
+  // meaning) so that splitting on '\n' below only ever breaks on the block
+  // boundaries THIS function inserts, never on a newline that happened to
+  // already be present inside one paragraph's own text in the source.
+  let text = html.replace(/[\r\n\t]+/g, ' ')
+
+  text = text.replace(/<(script|style|noscript|template)\b[^>]*>[\s\S]*?<\/\1>/gi, ' ')
+  text = stripBalancedRegions(text, /<(nav|header|footer|aside)\b[^>]*>/gi)
+
+  // Real-world evidence pass: page-builder-generated markup (Elementor,
+  // WPBakery, Divi, and many others) very rarely emits the semantic
+  // <nav>/<header>/<footer>/<aside> tags themselves — it emits <div
+  // role="..."> instead. The four WAI-ARIA landmark roles below are the
+  // STANDARD, CMS-INDEPENDENT equivalents of those four tags (a web-standard
+  // accessibility convention, not a signal specific to any one site or
+  // builder), so the same chrome that would already be excluded if it used
+  // semantic tags is excluded here too — via stripBalancedRegions, since
+  // these divs are essentially always multiply-nested in real markup.
+  text = stripBalancedRegions(text, /<(\w+)\b[^>]*\brole\s*=\s*["'](?:banner|navigation|contentinfo|complementary)["'][^>]*>/gi)
+
+  // WCAG "bypass blocks" skip links (technique G1) are a universal
+  // accessibility idiom present on the vast majority of modern sites
+  // regardless of CMS or framework — "Skip to main content" / "Skip to
+  // content" / "Skip navigation" is standardized phrasing, not this site's
+  // own copy, so excluding it is a generic structural signal, not a
+  // per-site hardcode. These anchors carry no page-specific content.
+  text = text.replace(/<a\b[^>]*>[\s\S]{0,60}?\bskip\s+(?:to\s+)?(?:the\s+)?(?:main\s+)?(?:content|navigation|nav)\b[\s\S]{0,60}?<\/a>/gi, ' ')
+
+  text = text.replace(/<\/?(p|div|li|section|article|blockquote|tr|td|th|figcaption|dd|dt)\b[^>]*>/gi, '\n')
+  text = text.replace(/<[^>]*>/g, ' ')
+  text = text
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'")
+
+  return text
+    .split('\n')
+    .map((block) => block.replace(/\s+/g, ' ').trim())
+    .filter((block) => block.length > 0)
+}
+
+/**
+ * Phase 29 — the trimmed, tag-stripped text of every <h2>...</h2> element,
+ * in document order, mirroring getH1Texts exactly one level down. Used as a
+ * weak "section heading" structural signal (heading count, and later a
+ * question/FAQ-signal check) — never treated as proof a specific section is
+ * present or absent, only as evidence of how much heading-level structure a
+ * page has.
+ */
+export function getH2Texts(html: string): string[] {
+  const matches = html.match(/<h2[^>]*>[\s\S]*?<\/h2>/gi) ?? []
+
+  return matches.map((match) =>
+    match
+      .replace(/^<h2[^>]*>/i, '')
+      .replace(/<\/h2>$/i, '')
+      .replace(/<[^>]*>/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+  )
 }
 
 /** Extracts every href value from <a> tags in the given HTML, unresolved. */
@@ -557,4 +794,196 @@ export function extractHrefs(html: string): string[] {
   }
 
   return hrefs
+}
+
+/**
+ * Unified webioom engine, Prompt 2 — deterministic, regex-based evidence
+ * extraction for the Performance/Accessibility/Security canonical engines,
+ * mirroring every prior extractor in this file: no HTML parser, no DOM, no
+ * headless browser — the same already-fetched HTML every other extractor
+ * here already processes, computed once at crawl time (see
+ * lib/crawler/pillar-extract.ts). Each function is a narrow, honestly-named
+ * fact about the markup, never a claim beyond what static inspection can
+ * actually prove (see each engine's own doc comment for the exact
+ * evidence-vs-verdict boundary).
+ */
+
+function getAttr(tag: string, name: string): string | null {
+  const match = tag.match(new RegExp(`\\b${name}\\s*=\\s*["']([^"']*)["']`, 'i'))
+  return match ? match[1] : null
+}
+
+/** True if `tag` carries the named attribute, EITHER as a valued attribute (`name="..."`) or a bare HTML boolean attribute (`defer`, `async`, with no `=` at all) — both are valid HTML and must both count. */
+function hasAttr(tag: string, name: string): boolean {
+  return new RegExp(`\\b${name}\\s*(=|[\\s/>])`, 'i').test(tag)
+}
+
+function stripTagsToText(fragment: string): string {
+  return fragment
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+/** Every <img ...> opening tag, verbatim, in document order. */
+export function getImgTags(html: string): string[] {
+  return html.match(/<img\b[^>]*>/gi) ?? []
+}
+
+/** The <html> tag's own `lang` attribute value, or null if the tag/attribute is missing or empty — WCAG 3.1.1, a fully static, zero-ambiguity check. */
+export function getHtmlLangAttribute(html: string): string | null {
+  const match = html.match(/<html\b[^>]*\blang\s*=\s*["']([^"']*)["']/i)
+  if (!match) return null
+  const lang = match[1].trim()
+  return lang.length > 0 ? lang : null
+}
+
+/** Images with NO `alt` attribute at all — deliberately NOT `alt=""`, which is a legitimate, valid "decorative image" pattern per WCAG and must never be counted as a defect. */
+export function countImagesMissingAlt(html: string): number {
+  return getImgTags(html).filter((tag) => !hasAttr(tag, 'alt')).length
+}
+
+const MAX_MISSING_ALT_SRCS_PER_PAGE = 20
+
+/**
+ * Unified webioom Prompt 3 — the exact `src` of every image missing an alt
+ * attribute (same "attribute absent, not merely empty" definition as
+ * countImagesMissingAlt above — deliberately NOT getImagesMissingAlt's own
+ * definition, which also treats `alt=""` as missing; that's the right call
+ * for the LEGACY single-page scanner's scoring but would contradict this
+ * engine's own documented "empty alt is a valid decorative pattern" rule).
+ * Bounded to MAX_MISSING_ALT_SRCS_PER_PAGE — a genuine per-image identity
+ * list, not unlimited DOM data, so the crawler can persist real,
+ * individually-actionable evidence (needed to safely target a specific
+ * image for an image-alt fix) without storing raw HTML or an unbounded
+ * array. Reuses getImages' own {src, alt} extraction — no new regex.
+ */
+export function getImageSrcsMissingAlt(html: string): string[] {
+  return getImages(html)
+    .filter((image) => image.alt === null)
+    .map((image) => image.src)
+    .slice(0, MAX_MISSING_ALT_SRCS_PER_PAGE)
+}
+
+/** Images missing an explicit `width` or `height` attribute — a real, common cause of layout shift (CLS) the browser cannot reserve space for ahead of time. */
+export function countImagesMissingDimensions(html: string): number {
+  return getImgTags(html).filter((tag) => !hasAttr(tag, 'width') || !hasAttr(tag, 'height')).length
+}
+
+/** The first few images on a page are commonly above-the-fold content that SHOULD load eagerly (lazy-loading them would hurt, not help, perceived load speed) — only images beyond this count are considered for the lazy-loading opportunity below. */
+const LAZY_LOAD_EXEMPT_IMAGE_COUNT = 3
+
+/** Images beyond the first few without `loading="lazy"` — a deliberately conservative opportunity signal, never applied to the images most likely to be above the fold. */
+export function countImagesMissingLazyLoading(html: string): number {
+  return getImgTags(html)
+    .slice(LAZY_LOAD_EXEMPT_IMAGE_COUNT)
+    .filter((tag) => getAttr(tag, 'loading')?.toLowerCase() !== 'lazy').length
+}
+
+/** External `<script src="...">` tags — a page's total script-request burden. */
+export function countExternalScripts(html: string): number {
+  return (html.match(/<script\b[^>]*\bsrc\s*=\s*["'][^"']+["'][^>]*>/gi) ?? []).length
+}
+
+/** External scripts inside `<head>` with neither `async` nor `defer` — these block HTML parsing until they load and execute, a well-established, purely structural render-blocking signal. */
+export function countRenderBlockingHeadScripts(html: string): number {
+  const headMatch = html.match(/<head[^>]*>([\s\S]*?)<\/head>/i)
+  if (!headMatch) return 0
+  const scripts = headMatch[1].match(/<script\b[^>]*\bsrc\s*=\s*["'][^"']+["'][^>]*>/gi) ?? []
+  return scripts.filter((tag) => !hasAttr(tag, 'async') && !hasAttr(tag, 'defer')).length
+}
+
+/** External `<link rel="stylesheet">` tags — every one is a render-blocking request by default. */
+export function countStylesheets(html: string): number {
+  return (html.match(/<link\b[^>]*\brel\s*=\s*["']stylesheet["'][^>]*>/gi) ?? []).length
+}
+
+const LABEL_EXEMPT_INPUT_TYPES = new Set(['hidden', 'submit', 'button', 'reset', 'image'])
+
+/** Form fields (input/select/textarea, excluding hidden/submit/button/reset/image inputs) with no associated `<label for>`, no `aria-label`, `aria-labelledby`, or `title` — a screen-reader user would hear no name for the field at all. */
+export function countFormInputsMissingLabel(html: string): number {
+  const labelForTargets = new Set(
+    (html.match(/<label\b[^>]*\bfor\s*=\s*["']([^"']+)["'][^>]*>/gi) ?? [])
+      .map((tag) => getAttr(tag, 'for'))
+      .filter((value): value is string => !!value)
+  )
+
+  const fields = html.match(/<(?:input|select|textarea)\b[^>]*>/gi) ?? []
+
+  return fields.filter((tag) => {
+    const type = getAttr(tag, 'type')?.toLowerCase()
+    if (type && LABEL_EXEMPT_INPUT_TYPES.has(type)) return false
+    if (hasAttr(tag, 'aria-label') || hasAttr(tag, 'aria-labelledby') || hasAttr(tag, 'title')) return false
+    const id = getAttr(tag, 'id')
+    return !(id && labelForTargets.has(id))
+  }).length
+}
+
+/** Links with no visible text AND no `aria-label`/`aria-labelledby`/`title` — a screen-reader/assistive-tech user has no way to know what an icon-only link does. */
+export function countLinksMissingAccessibleName(html: string): number {
+  const anchors = html.match(/<a\b[^>]*>[\s\S]*?<\/a>/gi) ?? []
+
+  return anchors.filter((anchor) => {
+    const openTag = anchor.match(/^<a\b[^>]*>/i)?.[0] ?? ''
+    if (hasAttr(openTag, 'aria-label') || hasAttr(openTag, 'aria-labelledby') || hasAttr(openTag, 'title')) return false
+    const innerText = stripTagsToText(anchor.replace(/^<a\b[^>]*>/i, '').replace(/<\/a>$/i, ''))
+    return innerText.length === 0
+  }).length
+}
+
+/** Count of `id="..."` values that appear more than once anywhere on the page — duplicate ids can break `label for`/ARIA references and fragment-link navigation. */
+export function countDuplicateIds(html: string): number {
+  const ids = (html.match(/\bid\s*=\s*["']([^"']+)["']/gi) ?? [])
+    .map((match) => match.match(/["']([^"']+)["']/)?.[1])
+    .filter((value): value is string => !!value)
+
+  const seen = new Set<string>()
+  let duplicates = 0
+  for (const id of ids) {
+    if (seen.has(id)) duplicates++
+    else seen.add(id)
+  }
+  return duplicates
+}
+
+/** `<iframe>` elements with no (or empty) `title` attribute — a screen-reader user has no way to know what an embedded frame contains. */
+export function countIframesMissingTitle(html: string): number {
+  return (html.match(/<iframe\b[^>]*>/gi) ?? []).filter((tag) => !getAttr(tag, 'title')?.trim()).length
+}
+
+const MIXED_CONTENT_REFERENCE_PATTERN = /\b(?:src|href|action)\s*=\s*["'](http:\/\/[^"']+)["']/gi
+const MAX_MIXED_CONTENT_URLS_PER_PAGE = 10
+
+/** `src`/`href`/`action` attributes referencing a plain `http://` URL, counted ONLY when the page itself was served over https — a genuine mixed-content signal (browsers actively block/warn on this), never evaluated on an already-insecure page where it would be redundant noise. */
+export function countMixedContentReferences(html: string, pageIsHttps: boolean): number {
+  if (!pageIsHttps) return 0
+  return (html.match(MIXED_CONTENT_REFERENCE_PATTERN) ?? []).length
+}
+
+/**
+ * PAYABLE-V1 remediation-depth pass — the exact insecure `http://` URL of
+ * each mixed-content reference (bounded, mirroring
+ * getImageSrcsMissingAlt's own per-page cap), so the finding can name
+ * WHICH resource is insecure instead of only how many exist. Reuses the
+ * identical matching pattern countMixedContentReferences already applies
+ * — this is not a new detection, only capturing what that regex already
+ * matches instead of discarding it via .length.
+ */
+export function getMixedContentUrls(html: string, pageIsHttps: boolean): string[] {
+  if (!pageIsHttps) return []
+  const urls: string[] = []
+  for (const match of html.matchAll(MIXED_CONTENT_REFERENCE_PATTERN)) {
+    if (match[1]) urls.push(match[1])
+    if (urls.length >= MAX_MIXED_CONTENT_URLS_PER_PAGE) break
+  }
+  return urls
+}
+
+/** `<form action="http://...">` — a form that submits its data over plain HTTP, the clearest possible static evidence of an insecure form regardless of what page it lives on. */
+export function countInsecureForms(html: string): number {
+  return (html.match(/<form\b[^>]*>/gi) ?? []).filter((tag) => {
+    const action = getAttr(tag, 'action')
+    return !!action && action.toLowerCase().startsWith('http://')
+  }).length
 }

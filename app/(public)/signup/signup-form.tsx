@@ -6,9 +6,11 @@ import { createClient } from '@/lib/supabase/client'
 import Container from '@/components/ui/container'
 import Card from '@/components/ui/card'
 import { Input, Label } from '@/components/ui/input'
+import { PasswordInput } from '@/components/ui/password-input'
 import Button from '@/components/ui/button'
 import Alert from '@/components/ui/alert'
 import Logo from '@/components/brand/logo'
+import { MIN_PASSWORD_LENGTH } from '@/lib/auth/password-policy'
 
 export default function SignupForm() {
   const [email, setEmail] = useState('')
@@ -67,13 +69,12 @@ export default function SignupForm() {
 
           <div>
             <Label htmlFor="password">Password</Label>
-            <Input
+            <PasswordInput
               id="password"
-              type="password"
               value={password}
               onChange={(event) => setPassword(event.target.value)}
               required
-              minLength={6}
+              minLength={MIN_PASSWORD_LENGTH}
               className="mt-1"
               autoComplete="new-password"
             />

@@ -15,20 +15,38 @@ import { BUDGET_SKIP_REASON } from '@/lib/crawler/limits'
  * reviewable by inspection, and not something a single-threaded in-memory
  * fake could meaningfully prove either way.
  */
-export function createFakeCrawlStore(): CrawlStore & { _pages: CrawlPageRow[]; _runs: CrawlRunRow[]; _links: CrawlLinkInsert[] } {
+export function createFakeCrawlStore(): CrawlStore & {
+  _pages: CrawlPageRow[]
+  _runs: CrawlRunRow[]
+  _links: CrawlLinkInsert[]
+  /** Test-only fault injection: when set, the NEXT updatePage() call throws once (then clears itself) — used to prove processCrawlBatch survives a single page's persistence failure without silently treating it as succeeded. */
+  _failNextUpdatePage: boolean
+} {
   const runs: CrawlRunRow[] = []
   const pages: CrawlPageRow[] = []
   const links: CrawlLinkInsert[] = []
+  const state = { failNextUpdatePage: false }
 
   function isStale(page: CrawlPageRow, staleAfterMinutes: number): boolean {
     if (page.status !== 'processing' || !page.claimed_at) return false
     return Date.now() - new Date(page.claimed_at).getTime() > staleAfterMinutes * 60_000
   }
 
-  const store: CrawlStore & { _pages: CrawlPageRow[]; _runs: CrawlRunRow[]; _links: CrawlLinkInsert[] } = {
+  const store: CrawlStore & {
+    _pages: CrawlPageRow[]
+    _runs: CrawlRunRow[]
+    _links: CrawlLinkInsert[]
+    _failNextUpdatePage: boolean
+  } = {
     _pages: pages,
     _runs: runs,
     _links: links,
+    get _failNextUpdatePage() {
+      return state.failNextUpdatePage
+    },
+    set _failNextUpdatePage(value: boolean) {
+      state.failNextUpdatePage = value
+    },
 
     async createCrawlRun(input: NewCrawlRunInput): Promise<CrawlRunRow> {
       const now = new Date().toISOString()
@@ -90,6 +108,10 @@ export function createFakeCrawlStore(): CrawlStore & { _pages: CrawlPageRow[]; _
     },
 
     async updatePage(id, patch) {
+      if (state.failNextUpdatePage) {
+        state.failNextUpdatePage = false
+        throw new Error('Simulated Supabase update failure (fake store fault injection)')
+      }
       const page = pages.find((p) => p.id === id)
       if (!page) return
       Object.assign(page, patch)
@@ -120,6 +142,12 @@ export function createFakeCrawlStore(): CrawlStore & { _pages: CrawlPageRow[]; _
           meta_description: null,
           h1_text: null,
           h1_count: 0,
+          content_text: null,
+          content_word_count: 0,
+          content_paragraph_count: 0,
+          content_heading_texts: [],
+          content_hash: null,
+          content_extraction_confidence: 'high',
           response_time_ms: null,
           response_size_bytes: null,
           error_reason: null,
@@ -128,6 +156,9 @@ export function createFakeCrawlStore(): CrawlStore & { _pages: CrawlPageRow[]; _
           structured_data_valid: null,
           structured_data_error: null,
           hreflang_tags: [],
+          performance_evidence: {},
+          accessibility_evidence: {},
+          security_evidence: {},
           discovered_at: new Date().toISOString(),
           fetched_at: null,
         })

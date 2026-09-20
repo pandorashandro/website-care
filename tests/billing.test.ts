@@ -31,21 +31,39 @@ import { getCheckoutErrorMessage } from '@/lib/billing/checkout-error-message'
  *   way lib/paddle/client.ts's live HTTP calls are not unit tested.
  */
 
-describe('A: pricing plan metadata corresponds to free/bloom/bloom_pro', () => {
-  it('PLAN_PRESENTATION has exactly the three plan keys, in the same maxWebsites the entitlement engine enforces', () => {
-    expect(Object.keys(PLAN_PRESENTATION).sort()).toEqual(['bloom', 'bloom_pro', 'free'])
-    expect(PLAN_ORDER).toEqual<PlanKey[]>(['free', 'bloom', 'bloom_pro'])
+describe('A: pricing plan metadata corresponds to free/bloom/bloom_pro/agency', () => {
+  it('PLAN_PRESENTATION has exactly the four plan keys, in the same maxWebsites the entitlement engine enforces', () => {
+    expect(Object.keys(PLAN_PRESENTATION).sort()).toEqual(['agency', 'bloom', 'bloom_pro', 'free'])
+    expect(PLAN_ORDER).toEqual<PlanKey[]>(['free', 'bloom', 'bloom_pro', 'agency'])
 
     for (const plan of PLAN_ORDER) {
       expect(PLAN_PRESENTATION[plan].maxWebsites).toBe(PLAN_CAPABILITIES[plan].maxWebsites)
     }
   })
 
-  it('does not present monitoring/alerts as already live — every planned feature carries the honest "not yet" note', () => {
+  it('locked website limits: Free=1, Bloom=1, Bloom Pro=5, Agency=20', () => {
+    expect(PLAN_PRESENTATION.free.maxWebsites).toBe(1)
+    expect(PLAN_PRESENTATION.bloom.maxWebsites).toBe(1)
+    expect(PLAN_PRESENTATION.bloom_pro.maxWebsites).toBe(5)
+    expect(PLAN_PRESENTATION.agency.maxWebsites).toBe(20)
+  })
+
+  it('annual price is always exactly 10x the monthly price (2 months free) for every paid plan', () => {
+    for (const plan of PLAN_ORDER) {
+      const presentation = PLAN_PRESENTATION[plan]
+      if (presentation.monthlyPrice === null) {
+        expect(presentation.annualPrice).toBeNull()
+      } else {
+        expect(presentation.annualPrice).toBe(presentation.monthlyPrice * 10)
+      }
+    }
+  })
+
+  it('does not present monitoring/alerts/agency-only capability as already live — every planned feature is clearly labeled', () => {
     for (const plan of PLAN_ORDER) {
       const presentation = PLAN_PRESENTATION[plan]
       if (presentation.plannedFeatures.length > 0) {
-        expect(presentation.plannedNote.toLowerCase()).toContain('when')
+        expect(presentation.plannedNote.toLowerCase()).toContain('coming soon')
       }
     }
   })
@@ -70,6 +88,22 @@ describe('C: Bloom current-plan state', () => {
 describe('D: Bloom Pro current-plan state', () => {
   it('logged in, on Bloom Pro -> current', () => {
     expect(getPlanCtaKind('bloom_pro', true, 'bloom_pro')).toBe('current')
+  })
+})
+
+describe('D2: Agency current-plan state', () => {
+  it('logged in, on Agency -> current', () => {
+    expect(getPlanCtaKind('agency', true, 'agency')).toBe('current')
+  })
+
+  it('a Bloom Pro user viewing the Agency card sees upgrade — Agency is the top tier', () => {
+    expect(getPlanCtaKind('agency', true, 'bloom_pro')).toBe('upgrade')
+  })
+
+  it('an Agency user viewing any lower card never sees upgrade', () => {
+    expect(getPlanCtaKind('free', true, 'agency')).toBe('included')
+    expect(getPlanCtaKind('bloom', true, 'agency')).toBe('included')
+    expect(getPlanCtaKind('bloom_pro', true, 'agency')).toBe('included')
   })
 })
 
@@ -122,9 +156,10 @@ describe('H: unsafe/unsupported downgrade does not produce a checkout CTA', () =
 })
 
 describe('I: browser plan input limited to trusted plan keys', () => {
-  it('only bloom/bloom_pro are ever accepted as a checkout plan key', () => {
+  it('only bloom/bloom_pro/agency are ever accepted as a checkout plan key', () => {
     expect(isPaddlePlanKey('bloom')).toBe(true)
     expect(isPaddlePlanKey('bloom_pro')).toBe(true)
+    expect(isPaddlePlanKey('agency')).toBe(true)
   })
 })
 
@@ -143,14 +178,20 @@ describe('L: website-limit reason maps to upgrade UX', () => {
     expect(free.showUpgradeLink).toBe(true)
 
     const bloom = getWebsiteLimitUpgradeMessage('website_limit_reached', 'bloom')
-    expect(bloom.message).toBe("You've reached the 3 websites limit on Bloom.")
+    expect(bloom.message).toBe("You've reached the 1 website limit on Bloom.")
     expect(bloom.showUpgradeLink).toBe(true)
   })
 
-  it('Bloom Pro (the top tier) still gets a message but no further upgrade link', () => {
+  it('Bloom Pro still gets a message and an upgrade link — Agency is now the top tier', () => {
     const bloomPro = getWebsiteLimitUpgradeMessage('website_limit_reached', 'bloom_pro')
-    expect(bloomPro.message).toBe("You've reached the 10 websites limit on Bloom Pro.")
-    expect(bloomPro.showUpgradeLink).toBe(false)
+    expect(bloomPro.message).toBe("You've reached the 5 websites limit on Bloom Pro.")
+    expect(bloomPro.showUpgradeLink).toBe(true)
+  })
+
+  it('Agency (the top tier) still gets a message but no further upgrade link', () => {
+    const agency = getWebsiteLimitUpgradeMessage('website_limit_reached', 'agency')
+    expect(agency.message).toBe("You've reached the 20 websites limit on Agency.")
+    expect(agency.showUpgradeLink).toBe(false)
   })
 
   it('a non-website-limit reason produces no upgrade message at all', () => {

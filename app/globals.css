@@ -64,6 +64,28 @@
   --color-danger-subtle: #fef2f2;
   --color-info: #2563eb;
   --color-info-subtle: #eff6ff;
+
+  /*
+   * Plan-accent system (pricing page, Prompt: "Pricing, Free-Scan Funnel &
+   * Visual System") — one accent per paid tier above Free, related but
+   * visually distinct so the four pricing cards read as a deliberate,
+   * premium ladder rather than four unrelated colors:
+   *   - Bloom reuses --color-brand (the logo's own green) directly — no
+   *     second green is invented.
+   *   - --color-violet is Bloom Pro's accent — deliberately distinct hue
+   *     from --color-brand and --color-info so "most popular" never reads
+   *     as ambiguous with either.
+   *   - --color-sky is Agency's accent — deliberately a different blue
+   *     from --color-info (which is reserved for status/info badges, never
+   *     branding, per the note above) so the two are never visually
+   *     interchangeable even though both are "blue."
+   */
+  --color-violet: #7c3aed;
+  --color-violet-hover: #6d28d9;
+  --color-violet-subtle: #f5f3ff;
+  --color-sky: #0284c7;
+  --color-sky-hover: #0369a1;
+  --color-sky-subtle: #f0f9ff;
 }
 
 @theme inline {
@@ -94,6 +116,12 @@
   --color-danger-subtle: var(--color-danger-subtle);
   --color-info: var(--color-info);
   --color-info-subtle: var(--color-info-subtle);
+  --color-violet: var(--color-violet);
+  --color-violet-hover: var(--color-violet-hover);
+  --color-violet-subtle: var(--color-violet-subtle);
+  --color-sky: var(--color-sky);
+  --color-sky-hover: var(--color-sky-hover);
+  --color-sky-subtle: var(--color-sky-subtle);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }

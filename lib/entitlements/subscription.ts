@@ -28,7 +28,7 @@ export type SubscriptionRecord = {
   trial_end: string | null
 } | null
 
-const KNOWN_PLAN_KEYS = new Set<string>(['free', 'bloom', 'bloom_pro'] satisfies PlanKey[])
+const KNOWN_PLAN_KEYS = new Set<string>(['free', 'bloom', 'bloom_pro', 'agency'] satisfies PlanKey[])
 const KNOWN_STATUSES = new Set<string>(['active', 'trialing', 'past_due', 'paused', 'canceled'] satisfies SubscriptionStatus[])
 /**
  * Which known statuses currently grant the row's own plan. `past_due`

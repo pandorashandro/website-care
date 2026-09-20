@@ -40,16 +40,20 @@ import { createHmac } from 'node:crypto'
  * TypeScript: reconcileSubscriptionSnapshot's decision logic (below).
  */
 
-const mapping: PaddlePriceMapping = { bloom: 'pri_bloom_configured', bloom_pro: 'pri_bloom_pro_configured' }
+const mapping: PaddlePriceMapping = {
+  bloom: 'pri_bloom_configured',
+  bloom_pro: 'pri_bloom_pro_configured',
+  agency: 'pri_agency_configured',
+}
 
 describe('plan/price mapping (A-F)', () => {
   it('A: free has no Paddle price — there is no PaddlePlanKey value for it at all', () => {
     // resolvePaddlePriceId's own parameter type (PaddlePlanKey = 'bloom' |
-    // 'bloom_pro') makes calling it with 'free' a compile error — this is
-    // the actual guarantee, not a runtime branch to exercise. This test
-    // instead confirms the mapping object itself never carries a 'free'
-    // entry that could be reached by any means.
-    expect(Object.keys(mapping)).toEqual(['bloom', 'bloom_pro'])
+    // 'bloom_pro' | 'agency') makes calling it with 'free' a compile error
+    // — this is the actual guarantee, not a runtime branch to exercise.
+    // This test instead confirms the mapping object itself never carries a
+    // 'free' entry that could be reached by any means.
+    expect(Object.keys(mapping).sort()).toEqual(['agency', 'bloom', 'bloom_pro'])
   })
 
   it('B: Bloom resolves only to the configured Bloom price', () => {
@@ -62,9 +66,15 @@ describe('plan/price mapping (A-F)', () => {
     expect(resolvePaddlePriceId('bloom_pro', mapping)).not.toBe(mapping.bloom)
   })
 
+  it('C2: Agency resolves only to the configured Agency price', () => {
+    expect(resolvePaddlePriceId('agency', mapping)).toBe('pri_agency_configured')
+    expect(resolvePaddlePriceId('agency', mapping)).not.toBe(mapping.bloom_pro)
+  })
+
   it('D: an unconfigured plan fails closed to null, never a guessed price', () => {
-    const unconfigured: PaddlePriceMapping = { bloom: null, bloom_pro: 'pri_bloom_pro_configured' }
+    const unconfigured: PaddlePriceMapping = { bloom: null, bloom_pro: 'pri_bloom_pro_configured', agency: null }
     expect(resolvePaddlePriceId('bloom', unconfigured)).toBeNull()
+    expect(resolvePaddlePriceId('agency', unconfigured)).toBeNull()
   })
 
   it('E: an unknown price ID grants no paid plan', () => {
@@ -72,9 +82,10 @@ describe('plan/price mapping (A-F)', () => {
     expect(derivePlanFromPriceId('', mapping)).toBeNull()
   })
 
-  it('F: only "bloom"/"bloom_pro" are ever accepted as a browser-submitted plan key', () => {
+  it('F: only "bloom"/"bloom_pro"/"agency" are ever accepted as a browser-submitted plan key', () => {
     expect(isPaddlePlanKey('bloom')).toBe(true)
     expect(isPaddlePlanKey('bloom_pro')).toBe(true)
+    expect(isPaddlePlanKey('agency')).toBe(true)
     expect(isPaddlePlanKey('free')).toBe(false)
     expect(isPaddlePlanKey('enterprise')).toBe(false)
     expect(isPaddlePlanKey('pri_bloom_configured')).toBe(false) // a price ID itself is never a valid plan key
@@ -268,7 +279,7 @@ describe('event mapping and plan derivation (I-P)', () => {
   it('an unconfigured plan is never silently granted as Bloom or any other plan', () => {
     // A price ID that is not configured for EITHER plan must never fall
     // back to the "closest" or "cheapest" plan.
-    const partiallyConfigured: PaddlePriceMapping = { bloom: 'pri_bloom_configured', bloom_pro: null }
+    const partiallyConfigured: PaddlePriceMapping = { bloom: 'pri_bloom_configured', bloom_pro: null, agency: null }
     const result = mapPaddleSubscriptionEvent(subscriptionData({ items: [{ price: { id: 'pri_bloom_pro_configured' } }] }), partiallyConfigured)
     expect(result).toEqual({ ok: false, reason: 'unknown_price' })
   })

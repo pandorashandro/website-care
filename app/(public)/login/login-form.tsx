@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase/client'
 import Container from '@/components/ui/container'
 import Card from '@/components/ui/card'
 import { Input, Label } from '@/components/ui/input'
+import { PasswordInput } from '@/components/ui/password-input'
 import Button from '@/components/ui/button'
 import Alert from '@/components/ui/alert'
 import Logo from '@/components/brand/logo'
@@ -66,10 +67,14 @@ export default function LoginForm() {
           </div>
 
           <div>
-            <Label htmlFor="password">Password</Label>
-            <Input
+            <div className="flex items-center justify-between">
+              <Label htmlFor="password">Password</Label>
+              <Link href="/forgot-password" className="text-xs font-medium text-brand hover:text-brand-hover">
+                Forgot password?
+              </Link>
+            </div>
+            <PasswordInput
               id="password"
-              type="password"
               value={password}
               onChange={(event) => setPassword(event.target.value)}
               required

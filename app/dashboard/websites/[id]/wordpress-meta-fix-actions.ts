@@ -14,6 +14,7 @@ import { validateAiMetaDescription } from '@/lib/ai/meta-description-recommendat
 import { getMetaDescriptionIssueKind } from '@/lib/fixes/fix-preview'
 import { getConnectedWordPressCredentials } from './wordpress-credentials'
 import { recordFixHistory } from './fix-history'
+import { canUseDirectFix } from '@/lib/entitlements/service'
 
 export type ApplyMetaDescriptionFixState =
   | {
@@ -52,6 +53,14 @@ export async function applyMetaDescriptionFix(
   _prevState: ApplyMetaDescriptionFixState,
   formData: FormData
 ): Promise<ApplyMetaDescriptionFixState> {
+  // Free-scan -> paid funnel: authoritative server-side gate, checked fresh
+  // regardless of what prepareFix decided earlier — see
+  // lib/entitlements/service.ts's canUseDirectFix doc comment.
+  const directFixCheck = await canUseDirectFix()
+  if (!directFixCheck.allowed) {
+    return { writeStatus: 'failed', reason: 'Upgrade to a paid plan to apply fixes with webioom.' }
+  }
+
   const previewToken = formData.get('previewToken') as string | null
 
   if (!previewToken) {

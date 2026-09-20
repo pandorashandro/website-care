@@ -1,10 +1,8 @@
 import Link from 'next/link'
-import { Wrench, Network, Search } from 'lucide-react'
+import { Wrench, Network, Search, FileText, Gauge, Accessibility as AccessibilityIcon, Shield } from 'lucide-react'
 import Card from '@/components/ui/card'
 import Badge from '@/components/ui/badge'
-import type { CategoryScores } from '@/lib/scanner/calculate-health-score'
 import { healthLabel } from '@/lib/scanner/health-label'
-import { CATEGORY_ORDER, CATEGORY_LABELS, CATEGORY_ICONS } from './report-helpers'
 import type { CategorySummary } from '@/lib/category-engine/types'
 
 function barColor(score: number): string {
@@ -15,35 +13,15 @@ function barColor(score: number): string {
 }
 
 /**
- * Phase 26B correction / Phase 27 / Phase 28 — 'technical' and 'seo' are
- * excluded from CATEGORY_ORDER's own legacy rendering below; all three
- * canonical category engines built so far (Technical SEO, Site
- * Architecture, On-Page SEO) render their own tile in THIS SAME grid from a
- * `CategorySummary` (see lib/category-engine/types.ts) instead. This is the
- * fix for the exact duplicate-scoring bug a prior attempt introduced: a
- * canonical category must live INSIDE this existing "Category Health" grid
- * (never a standalone card above the report), and its score/status/
- * finding-count must come from the ONE authoritative persisted analysis —
- * the exact same source its own dedicated page reads — never recomputed
- * here.
- *
- * Phase 28 specifically: the legacy generic 'seo' category (title/meta/H1
- * checks bucketed under a single "SEO" score alongside checks that
- * genuinely belong to Technical SEO — see
- * docs/technical-seo-legacy-classification.md) is retired from this grid
- * now that canonical On-Page SEO exists — never shown alongside it as a
- * second, competing category. The remaining legacy categories
- * (accessibility/performance/content) stay unchanged placeholders until
- * their own canonical engines are built.
- */
-const OTHER_CATEGORY_ORDER = CATEGORY_ORDER.filter((category) => category !== 'technical' && category !== 'seo')
-
-/**
- * One reusable tile for any canonical category engine's CategorySummary —
- * Technical SEO was the first (Phase 26B), Site Architecture the second
- * (Phase 27). A future category engine's Overview tile should use this
- * same component rather than re-deriving the not_analyzed/analyzed
- * rendering logic again.
+ * Unified webioom engine, Prompt 2 — ALL SEVEN canonical categories
+ * (Technical SEO, On-Page SEO, Site Architecture, Content, Performance,
+ * Accessibility, Security) now render from a real, persisted
+ * `CategorySummary` via this ONE shared tile component. The legacy
+ * single-homepage-page scanner's own Accessibility/Performance categories
+ * (calculate-health-score.ts's `categories` map) and the old placeholder
+ * "Not yet available" Security tile are RETIRED from this grid — every
+ * category shown here now comes from a genuine site-wide crawl-based
+ * canonical engine, never a second, competing score.
  */
 function CategoryEngineTile({
   href,
@@ -73,8 +51,8 @@ function CategoryEngineTile({
   }
 
   // score/findingsCount are non-null whenever status === 'analyzed' (see
-  // e.g. buildTechnicalSeoCategorySummary/buildSiteArchitectureCategorySummary)
-  // — asserted here rather than widening CategorySummary's own types with a
+  // e.g. buildTechnicalSeoCategorySummary/buildPillarCategorySummary) —
+  // asserted here rather than widening CategorySummary's own types with a
   // redundant discriminant duplication.
   const score = summary.score as number
   const findingsCount = summary.findingsCount as number
@@ -110,22 +88,28 @@ function CategoryEngineTile({
 }
 
 export default function CategoryScoreGrid({
-  categories,
   websiteId,
   technicalSeo,
   siteArchitecture,
   onPageSeo,
+  content,
+  performance,
+  accessibility,
+  security,
 }: {
-  categories: CategoryScores
   websiteId: string
   technicalSeo: CategorySummary
   siteArchitecture: CategorySummary
   onPageSeo: CategorySummary
+  content: CategorySummary
+  performance: CategorySummary
+  accessibility: CategorySummary
+  security: CategorySummary
 }) {
   return (
     <div>
       <h2 className="text-base font-semibold text-gray-900">Category Health</h2>
-      <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         <CategoryEngineTile href={`/dashboard/websites/${websiteId}/technical-seo`} label="Technical SEO" icon={Wrench} summary={technicalSeo} />
         <CategoryEngineTile href={`/dashboard/websites/${websiteId}/on-page-seo`} label="On-Page SEO" icon={Search} summary={onPageSeo} />
         <CategoryEngineTile
@@ -134,30 +118,10 @@ export default function CategoryScoreGrid({
           icon={Network}
           summary={siteArchitecture}
         />
-
-        {OTHER_CATEGORY_ORDER.map((category) => {
-          const score = categories[category]
-          const Icon = CATEGORY_ICONS[category]
-          return (
-            <Card key={category} padding="sm">
-              <div className="flex items-center gap-2">
-                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-brand-subtle text-brand">
-                  <Icon className="h-4 w-4" aria-hidden="true" />
-                </div>
-                <span className="text-sm font-medium text-gray-900">{CATEGORY_LABELS[category]}</span>
-              </div>
-
-              <div className="mt-3 flex items-baseline justify-between">
-                <span className="text-xl font-semibold text-gray-900">{score}</span>
-                <span className="text-xs text-muted">{healthLabel(score)}</span>
-              </div>
-
-              <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-surface-muted">
-                <div className={`h-full rounded-full ${barColor(score)}`} style={{ width: `${score}%` }} />
-              </div>
-            </Card>
-          )
-        })}
+        <CategoryEngineTile href={`/dashboard/websites/${websiteId}/content`} label="Content" icon={FileText} summary={content} />
+        <CategoryEngineTile href={`/dashboard/websites/${websiteId}/performance`} label="Performance" icon={Gauge} summary={performance} />
+        <CategoryEngineTile href={`/dashboard/websites/${websiteId}/accessibility`} label="Accessibility" icon={AccessibilityIcon} summary={accessibility} />
+        <CategoryEngineTile href={`/dashboard/websites/${websiteId}/security`} label="Security" icon={Shield} summary={security} />
       </div>
     </div>
   )

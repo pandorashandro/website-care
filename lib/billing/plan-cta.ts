@@ -13,7 +13,7 @@ export type PlanCtaKind =
   | 'upgrade' // this plan is strictly higher than the viewer's current plan — safe to offer checkout
   | 'included' // this plan is the viewer's current plan or lower — never invite a downgrade through a frontend-only action
 
-const PLAN_RANK: Record<PlanKey, number> = { free: 0, bloom: 1, bloom_pro: 2 }
+const PLAN_RANK: Record<PlanKey, number> = { free: 0, bloom: 1, bloom_pro: 2, agency: 3 }
 
 /**
  * `currentPlan` is only meaningful when `isLoggedIn` is true — for a

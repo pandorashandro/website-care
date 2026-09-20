@@ -47,6 +47,16 @@ function htmlResult(html: string, finalUrl: string, contentType = 'text/html') {
     redirectCount: 0,
     xRobotsTag: null,
     contentType,
+    responseHeaders: {
+      contentEncoding: null,
+      cacheControl: null,
+      strictTransportSecurity: null,
+      contentSecurityPolicy: null,
+      xContentTypeOptions: null,
+      referrerPolicy: null,
+      xFrameOptions: null,
+      permissionsPolicy: null,
+    },
   }
 }
 

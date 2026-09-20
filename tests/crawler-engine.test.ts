@@ -9,6 +9,17 @@ import { fetchPage } from '@/lib/scanner/checks'
 import { startCrawlRun, processCrawlBatch, selectNewDiscoveries } from '@/lib/crawler/engine'
 import { createFakeCrawlStore } from './helpers/fake-crawl-store'
 
+const NO_RESPONSE_HEADERS = {
+  contentEncoding: null,
+  cacheControl: null,
+  strictTransportSecurity: null,
+  contentSecurityPolicy: null,
+  xContentTypeOptions: null,
+  referrerPolicy: null,
+  xFrameOptions: null,
+  permissionsPolicy: null,
+}
+
 function htmlResult(html: string, overrides: Partial<Awaited<ReturnType<typeof fetchPage>> & { ok: true }> = {}) {
   return {
     ok: true as const,
@@ -21,6 +32,7 @@ function htmlResult(html: string, overrides: Partial<Awaited<ReturnType<typeof f
     redirectCount: 0,
     xRobotsTag: null,
     contentType: 'text/html',
+    responseHeaders: NO_RESPONSE_HEADERS,
     ...overrides,
   }
 }
@@ -67,6 +79,19 @@ describe('startCrawlRun', () => {
     const store = createFakeCrawlStore()
     const { crawlRun } = await startCrawlRun(store, 'website-1', 'not a url at all')
     expect(crawlRun.status).toBe('failed')
+  })
+
+  it('allows a genuinely NEW crawl when the previous one is "partial" — a partial run must never be mistaken for an active one that blocks a fresh Site Scan (Phase 29 validation-blocker root cause)', async () => {
+    const store = createFakeCrawlStore()
+    const first = await startCrawlRun(store, 'website-1', 'https://example.com/')
+    await store.updateCrawlRun(first.crawlRun.id, { status: 'partial', completed_at: new Date().toISOString() })
+
+    const second = await startCrawlRun(store, 'website-1', 'https://example.com/')
+    expect(second.alreadyActive).toBe(false)
+    expect(second.crawlRun.id).not.toBe(first.crawlRun.id)
+    // Both runs must remain in history — starting fresh must never delete/overwrite the prior partial run.
+    expect(store._runs).toHaveLength(2)
+    expect(store._runs.find((r) => r.id === first.crawlRun.id)?.status).toBe('partial')
   })
 
   describe('robots/sitemap outcome persistence (Phase 26)', () => {
@@ -203,6 +228,39 @@ describe('processCrawlBatch — persistence, discovery, duplicate prevention, fi
     expect(aboutPages[0].title).toBe('About')
   })
 
+  it('a persistence failure on ONE page must never look like a silent success — the page is left unresolved (not falsely "completed"), and the batch continues for other pages, when updatePage throws', async () => {
+    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    vi.mocked(fetchPage).mockImplementation(async (url: string) => {
+      if (url === 'https://example.com/') return htmlResult('<title>Home</title>', { finalUrl: 'https://example.com/' })
+      return NO_ROBOTS as never
+    })
+
+    const store = createFakeCrawlStore()
+    const { crawlRun } = await startCrawlRun(store, 'website-1', 'https://example.com/')
+
+    // Simulate exactly the bug this test guards against: a Supabase update
+    // silently failing (e.g. a schema mismatch) for the seed page's final
+    // completion write.
+    store._failNextUpdatePage = true
+    const outcome = await processCrawlBatch(store, crawlRun.id)
+
+    // The batch itself must not crash on this one page's failure.
+    expect(outcome.done).toBe(true)
+
+    const seedPage = store._pages.find((p) => p.url === 'https://example.com/')
+    // Must NOT be silently marked 'completed' with no evidence — the failed
+    // write must leave it exactly as claimPages left it (still 'processing'),
+    // never advancing as though the write had succeeded.
+    expect(seedPage?.status).toBe('processing')
+    expect(seedPage?.title).not.toBe('Home')
+
+    // The failure must be surfaced (logged), never silent.
+    expect(consoleErrorSpy).toHaveBeenCalled()
+
+    consoleErrorSpy.mockRestore()
+  })
+
   it('persists the redirect count fetchPage reports for a completed page (Phase 26 evidence)', async () => {
     vi.mocked(fetchPage).mockImplementation(async (url: string) => {
       if (url === 'https://example.com/') return htmlResult('<title>Home</title>', { finalUrl: 'https://example.com/', redirectCount: 3 })
@@ -233,6 +291,30 @@ describe('processCrawlBatch — persistence, discovery, duplicate prevention, fi
 
     const seedPage = store._pages.find((p) => p.url === 'https://example.com/')
     expect(seedPage?.meta_description).toBe('A page-specific summary describing this page.')
+  })
+
+  it('persists real content_word_count from a div-based page-builder page — NOT the DB DEFAULT 0 masquerading as observed evidence (Phase 29 real-world evidence-quality pass, root-cause regression)', async () => {
+    vi.mocked(fetchPage).mockImplementation(async (url: string) => {
+      if (url === 'https://example.com/') {
+        return htmlResult(
+          '<title>Home</title><div class="elementor-text-editor">We help growing businesses build tailored marketing and systems integrations that actually move the needle for their bottom line.</div>',
+          { finalUrl: 'https://example.com/' }
+        )
+      }
+      return NO_ROBOTS as never
+    })
+
+    const store = createFakeCrawlStore()
+    const { crawlRun } = await startCrawlRun(store, 'website-1', 'https://example.com/')
+    await processCrawlBatch(store, crawlRun.id)
+
+    const seedPage = store._pages.find((p) => p.url === 'https://example.com/')
+    // Proves the fresh crawl row was EXPLICITLY overwritten with the real
+    // extracted value (> 0) on this exact updatePage call that marks the
+    // page completed — the crawl_pages.content_word_count column's own
+    // `DEFAULT 0` never gets a chance to masquerade as an observed result.
+    expect(seedPage?.content_word_count).toBeGreaterThan(15)
+    expect(seedPage?.content_extraction_confidence).toBe('high')
   })
 
   it('persists null meta_description when no meta description tag is present (genuine absence, not an extraction/persistence bug)', async () => {
@@ -279,6 +361,7 @@ describe('processCrawlBatch — persistence, discovery, duplicate prevention, fi
           redirectCount: 0,
           xRobotsTag: null,
           contentType: 'application/pdf',
+          responseHeaders: NO_RESPONSE_HEADERS,
         }
       }
       return NO_ROBOTS as never

@@ -1,7 +1,8 @@
 'use server'
 
 import { getValidShopifyAccessToken } from './shopify-credentials'
-import { getTrustedShopifyTitleIssue } from './shopify-title-issue'
+import { getTrustedShopifyTitleIssue, type TrustedShopifyTitleIssueResult } from './shopify-title-issue'
+import { getTrustedOnPageTitleFindingForShopify } from './on-page-finding-issue'
 import { resolveShopifyResource, mappingFailureMessage } from '@/lib/integrations/shopify/resource-mapping'
 import { getGrantedShopifyScopes } from '@/lib/integrations/shopify/scopes'
 import { evaluateShopifyFixCapability, type ShopifyResourceFamily } from '@/lib/integrations/shopify/capabilities'
@@ -23,6 +24,7 @@ import { SHOPIFY_PLATFORM } from '@/lib/integrations/shopify/platform'
 import { recordFixHistory, type FixHistoryInsertResult } from './fix-history'
 import { getTitleText } from '@/lib/scanner/checks'
 import { verifyShopifyPublicValue, type ShopifyPublicVerification } from '@/lib/fixes/verify-shopify-public-value'
+import { canUseAiFix, canUseDirectFix } from '@/lib/entitlements/service'
 
 /**
  * Phase 20.1D — Shopify Safe Title Fix backend foundation. Phase 20.1F adds
@@ -43,7 +45,27 @@ import { verifyShopifyPublicValue, type ShopifyPublicVerification } from '@/lib/
  * collapsed into `writeStatus`, which stays 'admin_write_succeeded'
  * regardless of what verification finds. No UI trigger exists for this yet
  * — that is Phase 20.1H's job.
+ *
+ * PAYABLE-V1 CLOSURE: an opaque `issueId` now resolves through ONE of two
+ * trusted tables, distinguished by a literal `onpage:` prefix the browser
+ * never has reason to fabricate (it only ever echoes back an id webioom
+ * itself rendered) — mirroring wordpress-fix-actions.ts's identical
+ * `pillar:` dispatch convention for the exact same reason. `onpage:<uuid>`
+ * means an `on_page_finding_pages` row from the canonical On-Page SEO
+ * engine; a bare uuid means a legacy `issues` row, exactly as before this
+ * pass. Both resolvers return the IDENTICAL TrustedShopifyTitleIssueResult
+ * shape, so every line of code after this point (resource mapping,
+ * capability check, proposal, write, verify, history, rollback) is
+ * completely unchanged and unaware which table proved ownership.
  */
+const ON_PAGE_ISSUE_ID_PREFIX = 'onpage:'
+
+function resolveTrustedShopifyTitleIssue(websiteId: string, issueId: string): Promise<TrustedShopifyTitleIssueResult> {
+  if (issueId.startsWith(ON_PAGE_ISSUE_ID_PREFIX)) {
+    return getTrustedOnPageTitleFindingForShopify(websiteId, issueId.slice(ON_PAGE_ISSUE_ID_PREFIX.length))
+  }
+  return getTrustedShopifyTitleIssue(websiteId, issueId)
+}
 
 // ---------------------------------------------------------------------------
 // Prepare
@@ -60,6 +82,8 @@ export type PrepareShopifyTitleFixState =
       previewToken: string
     }
   | { status: 'unavailable'; reason: string }
+  /** Free-scan -> paid funnel — see wordpress-fix-actions.ts's prepareFix doc comment for the full reasoning; identical gate, same lib/entitlements/service.ts's canUseAiFix. */
+  | { status: 'requires_upgrade'; reason: string }
   | null
 
 function pathFromUrl(url: string): string {
@@ -90,10 +114,17 @@ export async function prepareShopifyTitleFix(
     return { status: 'unavailable', reason: 'Missing information for this request.' }
   }
 
+  // Free-scan -> paid funnel: checked before any credential lookup or
+  // Shopify request — see wordpress-fix-actions.ts's prepareFix doc comment.
+  const aiFixCheck = await canUseAiFix()
+  if (!aiFixCheck.allowed) {
+    return { status: 'requires_upgrade', reason: 'Upgrade to a paid plan to prepare fixes with webioom.' }
+  }
+
   // Re-verifies webioom session + website ownership, and walks the full
-  // issue -> scan -> website ownership chain — never trusts the form's
-  // websiteId/issueId as proof on their own.
-  const trustedIssue = await getTrustedShopifyTitleIssue(websiteId, issueId)
+  // ownership chain for whichever table the id belongs to — never trusts
+  // the form's websiteId/issueId as proof on their own.
+  const trustedIssue = await resolveTrustedShopifyTitleIssue(websiteId, issueId)
   if (!trustedIssue.ok) {
     return { status: 'unavailable', reason: trustedIssue.reason }
   }
@@ -266,6 +297,13 @@ export async function executeTitleMutation(
  * this file's.
  */
 export async function applyShopifyTitleFix(_prevState: ApplyShopifyTitleFixState, formData: FormData): Promise<ApplyShopifyTitleFixState> {
+  // Free-scan -> paid funnel: authoritative server-side gate, checked fresh
+  // regardless of what prepare decided earlier.
+  const directFixCheck = await canUseDirectFix()
+  if (!directFixCheck.allowed) {
+    return { writeStatus: 'failed', reason: 'Upgrade to a paid plan to apply fixes with webioom.' }
+  }
+
   const previewToken = formData.get('previewToken') as string | null
 
   if (!previewToken) {
@@ -282,10 +320,10 @@ export async function applyShopifyTitleFix(_prevState: ApplyShopifyTitleFixState
 
   const { payload } = verified
 
-  // 1 & 3. Re-authenticate and re-walk the full issue -> scan -> website
-  // ownership chain fresh — never trusts the token's own websiteId/issueId
-  // as proof the current session may act on them.
-  const trustedIssue = await getTrustedShopifyTitleIssue(payload.websiteId, payload.issueId)
+  // 1 & 3. Re-authenticate and re-walk the full ownership chain fresh —
+  // never trusts the token's own websiteId/issueId as proof the current
+  // session may act on them.
+  const trustedIssue = await resolveTrustedShopifyTitleIssue(payload.websiteId, payload.issueId)
   if (!trustedIssue.ok) {
     return { writeStatus: 'failed', reason: trustedIssue.reason }
   }

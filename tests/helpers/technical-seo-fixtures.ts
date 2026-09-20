@@ -62,6 +62,15 @@ export function makePage(overrides: Partial<CrawlPageRow> & { url: string }): Cr
     structured_data_error: null,
     hreflang_tags: [],
     h1_count: 1,
+    content_text: null,
+    content_word_count: 0,
+    content_paragraph_count: 0,
+    content_heading_texts: [],
+    content_hash: null,
+    content_extraction_confidence: 'high',
+    performance_evidence: {},
+    accessibility_evidence: {},
+    security_evidence: {},
     ...overrides,
   }
 }

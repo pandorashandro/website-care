@@ -20,6 +20,16 @@ function htmlResult(html: string, status = 200) {
     redirectCount: 0,
     xRobotsTag: null,
     contentType: 'application/xml',
+    responseHeaders: {
+      contentEncoding: null,
+      cacheControl: null,
+      strictTransportSecurity: null,
+      contentSecurityPolicy: null,
+      xContentTypeOptions: null,
+      referrerPolicy: null,
+      xFrameOptions: null,
+      permissionsPolicy: null,
+    },
   }
 }
 

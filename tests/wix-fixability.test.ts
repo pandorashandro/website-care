@@ -45,6 +45,17 @@ describe('evaluateWixIssueFixability — Title/Meta Description ARE direct-fix c
     const result = evaluateWixIssueFixability({ issueTitle: 'Missing page title', connectionState: 'needs_attention' })
     expect(result?.level).toBe('unavailable')
   })
+
+  it('PAYABLE-V1 CLOSURE: also recognizes the CANONICAL On-Page SEO engine\'s own title strings, not just the legacy scanner\'s — this is what lets the canonical report page reach Wix\'s real fix pipeline', () => {
+    expect(evaluateWixIssueFixability({ issueTitle: 'Pages have no title tag', connectionState: 'connected' })?.level).toBe('assisted')
+    expect(evaluateWixIssueFixability({ issueTitle: 'Pages have no meta description', connectionState: 'connected' })?.level).toBe('assisted')
+  })
+
+  it('still returns null for canonical findings with no real Wix fix (weak/duplicate titles, headings)', () => {
+    expect(evaluateWixIssueFixability({ issueTitle: 'Pages use a generic, placeholder-style title', connectionState: 'connected' })).toBeNull()
+    expect(evaluateWixIssueFixability({ issueTitle: 'Multiple pages share the same title', connectionState: 'connected' })).toBeNull()
+    expect(evaluateWixIssueFixability({ issueTitle: 'Pages have no H1 heading', connectionState: 'connected' })).toBeNull()
+  })
 })
 
 describe('Static Page is not an eligible resource (item E) — type-level guarantee', () => {

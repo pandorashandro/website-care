@@ -23,7 +23,7 @@ export const metadata: Metadata = {
 }
 
 function isPlanKey(value: string): value is PlanKey {
-  return value === 'free' || value === 'bloom' || value === 'bloom_pro'
+  return value === 'free' || value === 'bloom' || value === 'bloom_pro' || value === 'agency'
 }
 
 export default async function BillingPage(props: PageProps<'/dashboard/billing'>) {
@@ -147,7 +147,7 @@ export default async function BillingPage(props: PageProps<'/dashboard/billing'>
                   </div>
                   <p className="mt-1 text-xs text-muted">{optionPresentation.tagline}</p>
                   <div className="mt-3">
-                    <UpgradePlanButton plan={plan as 'bloom' | 'bloom_pro'} label={`Upgrade to ${optionPresentation.name}`} />
+                    <UpgradePlanButton plan={plan as 'bloom' | 'bloom_pro' | 'agency'} label={`Upgrade to ${optionPresentation.name}`} />
                   </div>
                 </Card>
               )
