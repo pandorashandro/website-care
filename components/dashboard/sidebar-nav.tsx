@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { LayoutDashboard, CreditCard } from 'lucide-react'
+import { LayoutDashboard, CreditCard, UserCircle } from 'lucide-react'
 
 /**
  * Every icon this nav can show. A CLOSED set of serializable string keys —
@@ -19,6 +19,7 @@ import { LayoutDashboard, CreditCard } from 'lucide-react'
 const ICONS = {
   dashboard: LayoutDashboard,
   billing: CreditCard,
+  account: UserCircle,
 } as const
 
 export type SidebarNavIconKey = keyof typeof ICONS
@@ -47,7 +48,7 @@ export default function SidebarNav({ items }: { items: SidebarNavItem[] }) {
           <Link
             key={item.href}
             href={item.href}
-            className="group flex items-center gap-2 whitespace-nowrap rounded-md px-3 py-2 text-sm font-medium text-text-on-dark-muted hover:bg-brand-dark-hover hover:text-text-on-dark aria-[current=page]:bg-brand-dark-hover aria-[current=page]:text-text-on-dark"
+            className="group flex items-center gap-2 whitespace-nowrap rounded-md px-3 py-2 text-sm font-medium text-text-on-dark-muted transition-colors duration-150 ease-out hover:bg-brand-dark-hover hover:text-text-on-dark aria-[current=page]:bg-brand-dark-hover aria-[current=page]:text-text-on-dark"
             aria-current={isActive ? 'page' : undefined}
           >
             <Icon className="h-4 w-4 group-aria-[current=page]:text-brand-vivid" aria-hidden="true" />

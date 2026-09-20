@@ -11,6 +11,7 @@ import Alert from '@/components/ui/alert'
 import EmptyState from '@/components/ui/empty-state'
 import { buttonStyles } from '@/components/ui/button'
 import WebsiteSubNav from '@/components/website/website-sub-nav'
+import PillarSubNav from '@/components/website/pillar-sub-nav'
 import { formatDate, SEVERITY_DISPLAY_ORDER, SEVERITY_LABELS, severityTone } from '@/components/report/report-helpers'
 import SiteArchitectureControls from './site-architecture-controls'
 
@@ -79,7 +80,9 @@ const CATEGORY_LABELS: Record<FindingCategory, string> = {
 }
 
 const ACTIONABILITY_LABELS: Record<Actionability, string> = {
-  safe_fix: 'WEBIOOM CAN FIX',
+  // Sprint 3, Prompt 2: never render the brand name inside an all-caps
+  // badge (customer-facing spelling must stay "Webioom," never "WEBIOOM").
+  safe_fix: 'SAFE FIX AVAILABLE',
   prepared_fix: 'SOLUTION READY FOR APPROVAL',
   guided_fix: 'GUIDED FIX',
   developer_required: 'DEVELOPER REQUIRED',
@@ -253,7 +256,7 @@ export default async function SiteArchitecturePage(props: PageProps<'/dashboard/
   const sortedFindings = [...findings].sort((a, b) => SEVERITY_DISPLAY_ORDER.indexOf(a.severity) - SEVERITY_DISPLAY_ORDER.indexOf(b.severity))
 
   return (
-    <Container size="xl" className="py-10">
+    <Container size="2xl" className="py-10">
       <Link href={`/dashboard/websites/${website.id}`} className="text-sm text-muted hover:text-gray-700">
         ← Back to {website.name}
       </Link>
@@ -277,6 +280,7 @@ export default async function SiteArchitecturePage(props: PageProps<'/dashboard/
       </Card>
 
       <WebsiteSubNav websiteId={website.id} active="site-architecture" />
+      <PillarSubNav websiteId={website.id} active="site-architecture" />
 
       {!crawlRun ? (
         <EmptyState

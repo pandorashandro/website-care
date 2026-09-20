@@ -2,15 +2,9 @@ import Link from 'next/link'
 import { Wrench, Network, Search, FileText, Gauge, Accessibility as AccessibilityIcon, Shield } from 'lucide-react'
 import Card from '@/components/ui/card'
 import Badge from '@/components/ui/badge'
+import ScoreMeter from '@/components/ui/score-meter'
 import { healthLabel } from '@/lib/scanner/health-label'
 import type { CategorySummary } from '@/lib/category-engine/types'
-
-function barColor(score: number): string {
-  if (score >= 90) return 'bg-green-500'
-  if (score >= 75) return 'bg-emerald-500'
-  if (score >= 50) return 'bg-amber-500'
-  return 'bg-red-500'
-}
 
 /**
  * Unified webioom engine, Prompt 2 — ALL SEVEN canonical categories
@@ -58,26 +52,24 @@ function CategoryEngineTile({
   const findingsCount = summary.findingsCount as number
 
   return (
-    <Link href={href}>
-      <Card padding="sm" className="h-full hover:border-border-strong">
+    <Link href={href} className="block motion-safe:transition-transform motion-safe:duration-150 motion-safe:ease-out motion-safe:hover:-translate-y-0.5">
+      <Card padding="sm" className="h-full transition-colors duration-150 ease-out hover:border-border-strong">
         <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-brand-subtle text-brand">
-              <Icon className="h-4 w-4" aria-hidden="true" />
+          <div className="flex min-w-0 items-center gap-2">
+            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-brand-subtle text-brand">
+              <Icon className="h-3.5 w-3.5" aria-hidden="true" />
             </div>
-            <span className="text-sm font-medium text-gray-900">{label}</span>
+            <span className="truncate text-sm font-medium text-gray-900">{label}</span>
           </div>
           {summary.partial && <Badge tone="neutral">Partial</Badge>}
         </div>
 
         <div className="mt-3 flex items-baseline justify-between">
-          <span className="text-xl font-semibold text-gray-900">{score}</span>
+          <span className="text-xl font-semibold tabular-nums text-gray-900">{score}</span>
           <span className="text-xs text-muted">{healthLabel(score)}</span>
         </div>
 
-        <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-surface-muted">
-          <div className={`h-full rounded-full ${barColor(score)}`} style={{ width: `${score}%` }} />
-        </div>
+        <ScoreMeter score={score} size="sm" className="mt-2" aria-label={`${label}: ${score} out of 100, ${healthLabel(score)}`} />
 
         <p className="mt-2 text-xs text-muted">
           {findingsCount} finding{findingsCount === 1 ? '' : 's'}
@@ -108,8 +100,9 @@ export default function CategoryScoreGrid({
 }) {
   return (
     <div>
-      <h2 className="text-base font-semibold text-gray-900">Category Health</h2>
-      <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+      <h2 className="text-base font-semibold text-gray-900">The seven pillars</h2>
+      <p className="mt-0.5 text-sm text-muted">Every canonical category webioom analyzes, at a glance.</p>
+      <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-7">
         <CategoryEngineTile href={`/dashboard/websites/${websiteId}/technical-seo`} label="Technical SEO" icon={Wrench} summary={technicalSeo} />
         <CategoryEngineTile href={`/dashboard/websites/${websiteId}/on-page-seo`} label="On-Page SEO" icon={Search} summary={onPageSeo} />
         <CategoryEngineTile

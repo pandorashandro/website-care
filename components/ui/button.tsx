@@ -4,8 +4,9 @@ import { cn } from '@/lib/ui/cn'
 export type ButtonVariant = 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger'
 export type ButtonSize = 'sm' | 'md' | 'lg'
 
+/** `motion-safe:` is Tailwind's own prefers-reduced-motion guard (no motion at all unless the visitor allows it) — the hover/active translate is the one restrained "premium feel" touch every button gets for free. */
 const BASE =
-  'inline-flex items-center justify-center gap-2 rounded-md font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50'
+  'inline-flex items-center justify-center gap-2 rounded-md font-medium transition-[color,background-color,border-color,transform,box-shadow] duration-150 ease-out motion-safe:hover:-translate-y-px motion-safe:active:translate-y-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0'
 
 const VARIANT_STYLES: Record<ButtonVariant, string> = {
   primary: 'bg-brand text-brand-foreground hover:bg-brand-hover',

@@ -18,11 +18,12 @@ export type DashboardLatestScan = {
   created_at: string
 }
 
+/** Sprint 3, Prompt 2 — token-based, replacing hardcoded Tailwind gray-scale colors (border-green-500 etc.) that could drift from the semantic palette in globals.css. */
 const RING_COLOR_CLASS: Record<BadgeTone, string> = {
-  success: 'border-green-500',
-  warning: 'border-amber-500',
-  danger: 'border-red-500',
-  info: 'border-blue-500',
+  success: 'border-success',
+  warning: 'border-warning',
+  danger: 'border-danger',
+  info: 'border-info',
   neutral: 'border-border-strong',
   brand: 'border-brand',
   violet: 'border-violet',
@@ -62,7 +63,7 @@ export default function WebsiteCard({
   const isCompleteWithScore = latestScan?.status === 'completed' && latestScan.score !== null
 
   return (
-    <Card padding="md">
+    <Card padding="md" className="transition-shadow duration-150 ease-out hover:shadow-md">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <h3 className="truncate font-medium text-gray-900">{website.name}</h3>

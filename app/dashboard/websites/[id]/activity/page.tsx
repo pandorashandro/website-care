@@ -64,13 +64,18 @@ export default async function WebsiteActivityPage(props: PageProps<'/dashboard/w
 
       <WebsiteSubNav websiteId={website.id} active="activity" />
 
-      <div className="mt-6">
-        <p className="text-xs font-semibold uppercase tracking-wide text-subtle">{website.url}</p>
-        <h1 className="mt-1 text-2xl font-semibold text-gray-900">Activity</h1>
-        <p className="mt-2 max-w-xl text-sm text-muted">
-          Changes webioom has applied to this website. Review supported fixes, verification results,
-          and Undo availability.
-        </p>
+      <div className="mt-6 flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wide text-subtle">{website.url}</p>
+          <h1 className="mt-1 text-2xl font-semibold text-gray-900">Activity</h1>
+          <p className="mt-2 max-w-xl text-sm text-muted">
+            Changes webioom has applied to this website. Review supported fixes, verification results,
+            and Undo availability.
+          </p>
+        </div>
+        <Link href={`/dashboard/websites/${website.id}/history`} className="text-sm font-medium text-brand hover:text-brand-hover">
+          View scan history →
+        </Link>
       </div>
 
       {fixes.length === 0 ? (

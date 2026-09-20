@@ -11,6 +11,7 @@ import Alert from '@/components/ui/alert'
 import EmptyState from '@/components/ui/empty-state'
 import { buttonStyles } from '@/components/ui/button'
 import WebsiteSubNav from '@/components/website/website-sub-nav'
+import PillarSubNav from '@/components/website/pillar-sub-nav'
 import { formatDate, SEVERITY_DISPLAY_ORDER, SEVERITY_LABELS, severityTone } from '@/components/report/report-helpers'
 import ContentControls from './content-controls'
 import { computeDimensionStatuses, type DimensionResult, type DimensionStatus } from '@/lib/content/dimensions'
@@ -111,7 +112,9 @@ const DIMENSION_STATUS_TONE: Record<DimensionStatus, BadgeTone> = {
 }
 
 const ACTIONABILITY_LABELS: Record<Actionability, string> = {
-  safe_fix: 'WEBIOOM CAN FIX',
+  // Sprint 3, Prompt 2: never render the brand name inside an all-caps
+  // badge (customer-facing spelling must stay "Webioom," never "WEBIOOM").
+  safe_fix: 'SAFE FIX AVAILABLE',
   prepared_fix: 'SOLUTION READY FOR APPROVAL',
   guided_fix: 'GUIDED FIX',
   developer_required: 'DEVELOPER REQUIRED',
@@ -383,7 +386,7 @@ export default async function ContentPage(props: PageProps<'/dashboard/websites/
   })
 
   return (
-    <Container size="xl" className="py-10">
+    <Container size="2xl" className="py-10">
       <Link href={`/dashboard/websites/${website.id}`} className="text-sm text-muted hover:text-gray-700">
         ← Back to {website.name}
       </Link>
@@ -407,6 +410,7 @@ export default async function ContentPage(props: PageProps<'/dashboard/websites/
       </Card>
 
       <WebsiteSubNav websiteId={website.id} active="content" />
+      <PillarSubNav websiteId={website.id} active="content" />
 
       {!crawlRun ? (
         <EmptyState

@@ -4,42 +4,33 @@ import { cn } from '@/lib/ui/cn'
 export type LogoProps = {
   /** Controls the rendered height; width follows automatically to preserve the source aspect ratio. Defaults to a compact size — pass a taller value (e.g. 'h-10') at call sites that want the logo more prominent. */
   className?: string
-  /** 'light' (default) renders the logo as-is, for white/light surfaces matching its own background. 'dark' wraps it in a small white card so it stays legible on the webioom navy (sidebar, dark footer/hero). */
+  /** 'light' (default) renders the on-light wordmark (dark glyph), for white/light surfaces. 'dark' renders the on-dark wordmark (white glyph), for the webioom navy (sidebar, dark footer/hero, pre-launch splash). */
   variant?: 'light' | 'dark'
 }
 
-const LOGO_WIDTH = 1193
-const LOGO_HEIGHT = 241
+const LOGO_WIDTH = 2172
+const LOGO_HEIGHT = 724
 
 /**
- * The approved webioom wordmark — brand-reference/webioom-logo1.png, copied
- * unmodified to public/brand/webioom-logo.png and rendered directly via
- * next/image. This is the actual supplied artwork, not a recreation.
+ * Sprint 3, Prompt 2 — brand asset normalization. The two approved webioom
+ * wordmark files, copied byte-for-byte (no re-encoding, no recoloring) from
+ * brand-reference/ into public/brand/ under names that describe their
+ * ACTUAL use, not the misleading source filenames:
+ *   - webioom-logo-dark.png.png (dark glyph)  -> public/brand/webioom-logo-on-light.png
+ *   - webioom-logo-light.png.png (white glyph) -> public/brand/webioom-logo-on-dark.png
+ * (Sprint 3 Prompt 1's audit confirmed this mapping by decoding the actual
+ * pixel content — the supplied filenames name the wordmark's own color,
+ * not the background it's meant for, and are easy to invert by mistake.)
  *
- * The source file has a solid white background baked in (verified: every
- * pixel, including all four corners, is fully opaque). On the app's dark
- * navy surfaces it's presented inside a small white card instead of an
- * algorithmically "de-whited" version — extracting alpha from a flat
- * background is reliable for the near-black glyph strokes but measurably
- * distorts the brand-green stroke at partial pixel coverage, and the logo
- * must not be recolored or approximated. A transparent production export
- * would remove the need for the card.
+ * Both files are true RGBA PNGs (verified: PNG color-type 6, real alpha
+ * channel) — unlike the old brand-reference/webioom-logo1.png (removed;
+ * baked-in solid white background), so no white-card wrapper is needed on
+ * dark surfaces anymore. This is the actual supplied artwork in both
+ * cases, rendered directly via next/image — never recreated, redrawn, or
+ * recolored.
  */
 export default function Logo({ className, variant = 'light' }: LogoProps) {
-  const image = (
-    <Image
-      src="/brand/webioom-logo.png"
-      alt="webioom"
-      width={LOGO_WIDTH}
-      height={LOGO_HEIGHT}
-      priority
-      className={cn('h-7 w-auto', className)}
-    />
-  )
+  const src = variant === 'dark' ? '/brand/webioom-logo-on-dark.png' : '/brand/webioom-logo-on-light.png'
 
-  if (variant === 'dark') {
-    return <span className="inline-flex items-center rounded-md bg-white px-2 py-1.5">{image}</span>
-  }
-
-  return image
+  return <Image src={src} alt="Webioom" width={LOGO_WIDTH} height={LOGO_HEIGHT} priority className={cn('h-7 w-auto', className)} />
 }

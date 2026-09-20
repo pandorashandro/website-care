@@ -6,11 +6,14 @@ import { detectWordPress } from '@/lib/integrations/wordpress/detect-wordpress'
 import { getWordPressConnectionSummary } from '../wordpress-capabilities'
 import { getShopifyConnectionStatus } from '../shopify-connection-status'
 import { getWixConnectionStatus } from '../wix-connection-status'
+import { getMonitoringSettings } from '../monitoring-settings'
+import { getCurrentUserEntitlements } from '@/lib/entitlements'
 import Container from '@/components/ui/container'
 import Card from '@/components/ui/card'
 import Alert from '@/components/ui/alert'
 import WebsiteSubNav from '@/components/website/website-sub-nav'
 import IntegrationList from '@/components/integrations/integration-list'
+import MonitoringSettingsForm from '@/components/monitoring/monitoring-settings-form'
 
 type Website = {
   id: string
@@ -55,11 +58,13 @@ export default async function WebsiteIntegrationsPage(props: PageProps<'/dashboa
   // getWordPressConnectionSummary/getShopifyConnectionStatus each
   // independently re-verify session + ownership themselves — neither trusts
   // this page's earlier check.
-  const [wordpress, wordpressConnection, shopifyConnection, wixConnection] = await Promise.all([
+  const [wordpress, wordpressConnection, shopifyConnection, wixConnection, monitoringSettings, entitlements] = await Promise.all([
     detectWordPress(website.url),
     getWordPressConnectionSummary(website.id),
     getShopifyConnectionStatus(website.id),
     getWixConnectionStatus(website.id),
+    getMonitoringSettings(website.id),
+    getCurrentUserEntitlements(),
   ])
 
   // Set only by the Shopify OAuth callback route
@@ -76,16 +81,21 @@ export default async function WebsiteIntegrationsPage(props: PageProps<'/dashboa
         ← Back to {website.name}
       </Link>
 
-      <WebsiteSubNav websiteId={website.id} active="integrations" />
+      <WebsiteSubNav websiteId={website.id} active="settings" />
 
       <div className="mt-6">
         <p className="text-xs font-semibold uppercase tracking-wide text-subtle">{website.url}</p>
-        <h1 className="mt-1 text-2xl font-semibold text-gray-900">Integrations</h1>
+        <h1 className="mt-1 text-2xl font-semibold text-gray-900">Settings</h1>
         <p className="mt-2 max-w-xl text-sm text-muted">
-          Connect supported platforms to let webioom prepare and apply supported changes after your
-          review. Scanning and reporting work without an integration.
+          Connected platforms and monitoring preferences for this website.
         </p>
       </div>
+
+      <h2 className="mt-8 text-sm font-semibold uppercase tracking-wide text-subtle">Integrations</h2>
+      <p className="mt-1 max-w-xl text-sm text-muted">
+        Connect supported platforms to let webioom prepare and apply supported changes after your review. Scanning
+        and reporting work without an integration.
+      </p>
 
       {shopifyOAuthResult === 'connected' && (
         <Alert tone="success" className="mt-6">
@@ -137,6 +147,17 @@ export default async function WebsiteIntegrationsPage(props: PageProps<'/dashboa
         <Puzzle className="mt-0.5 h-4 w-4 shrink-0 text-muted" aria-hidden="true" />
         <p className="text-sm text-muted">More integrations are planned.</p>
       </div>
+
+      {/* Sprint 3, Prompt 2 — moved here from the History page (Prompt 1's
+          audit: monitoring on/off/cadence is a preference, not a history
+          record). Same MonitoringSettingsForm, same data, no behavior
+          change — presentation location only. */}
+      <h2 className="mt-10 text-sm font-semibold uppercase tracking-wide text-subtle">Monitoring</h2>
+      {monitoringSettings && (
+        <Card padding="md" className="mt-3">
+          <MonitoringSettingsForm websiteId={website.id} initialSettings={monitoringSettings} grantedCadence={entitlements.monitoringCadence} />
+        </Card>
+      )}
     </Container>
   )
 }

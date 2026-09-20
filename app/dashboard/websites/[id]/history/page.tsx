@@ -3,14 +3,11 @@ import { notFound } from 'next/navigation'
 import { History as HistoryIcon } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { listScanHistoryWithHealth } from '../scan-history'
-import { getMonitoringSettings } from '../monitoring-settings'
-import { getCurrentUserEntitlements } from '@/lib/entitlements'
 import Container from '@/components/ui/container'
 import Card from '@/components/ui/card'
 import Badge from '@/components/ui/badge'
 import EmptyState from '@/components/ui/empty-state'
 import WebsiteSubNav from '@/components/website/website-sub-nav'
-import MonitoringSettingsForm from '@/components/monitoring/monitoring-settings-form'
 import { formatDate } from '@/components/report/report-helpers'
 import { healthTone } from '@/lib/scanner/health-label'
 import { CANONICAL_PILLARS, CANONICAL_PILLAR_LABELS } from '@/lib/monitoring/types'
@@ -52,8 +49,6 @@ export default async function WebsiteHistoryPage(props: PageProps<'/dashboard/we
   }
 
   const scans = await listScanHistoryWithHealth(website.id, HISTORY_LIMIT)
-  const monitoringSettings = await getMonitoringSettings(website.id)
-  const entitlements = await getCurrentUserEntitlements()
 
   return (
     <Container size="lg" className="py-10">
@@ -63,19 +58,18 @@ export default async function WebsiteHistoryPage(props: PageProps<'/dashboard/we
 
       <WebsiteSubNav websiteId={website.id} active="history" />
 
-      <div className="mt-6">
-        <p className="text-xs font-semibold uppercase tracking-wide text-subtle">{website.url}</p>
-        <h1 className="mt-1 text-2xl font-semibold text-gray-900">Scan History</h1>
-        <p className="mt-2 max-w-xl text-sm text-muted">
-          Overall Health and pillar scores from this website&apos;s past scans.
-        </p>
+      <div className="mt-6 flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wide text-subtle">{website.url}</p>
+          <h1 className="mt-1 text-2xl font-semibold text-gray-900">Scan History</h1>
+          <p className="mt-2 max-w-xl text-sm text-muted">
+            Overall Health and pillar scores from this website&apos;s past scans.
+          </p>
+        </div>
+        <Link href={`/dashboard/websites/${website.id}/integrations`} className="text-sm font-medium text-brand hover:text-brand-hover">
+          Manage monitoring in Settings →
+        </Link>
       </div>
-
-      {monitoringSettings && (
-        <Card padding="md" className="mt-6">
-          <MonitoringSettingsForm websiteId={website.id} initialSettings={monitoringSettings} grantedCadence={entitlements.monitoringCadence} />
-        </Card>
-      )}
 
       {scans.length === 0 ? (
         <EmptyState

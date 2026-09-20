@@ -9,6 +9,7 @@ import Alert from '@/components/ui/alert'
 import EmptyState from '@/components/ui/empty-state'
 import { buttonStyles } from '@/components/ui/button'
 import WebsiteSubNav, { type WebsiteSubNavActive } from '@/components/website/website-sub-nav'
+import PillarSubNav from '@/components/website/pillar-sub-nav'
 import { formatDate, SEVERITY_DISPLAY_ORDER, SEVERITY_LABELS, severityTone } from '@/components/report/report-helpers'
 import PillarControls from './pillar-controls'
 import PrepareFixButton from './prepare-fix-button'
@@ -62,7 +63,9 @@ type FindingRow = {
 type FindingInstanceRow = { id: string; finding_id: string; url: string; affected_resource_url: string | null; current_state: StateValue | null; detail: Record<string, unknown> | null }
 
 const ACTION_PATH_LABELS: Record<Actionability, string> = {
-  safe_fix: 'WEBIOOM CAN FIX THIS',
+  // Sprint 3, Prompt 2: never render the brand name inside an all-caps
+  // badge (customer-facing spelling must stay "Webioom," never "WEBIOOM").
+  safe_fix: 'SAFE FIX AVAILABLE',
   prepared_fix: 'PREPARE WITH AI',
   guided_fix: 'SHOW ME HOW TO FIX IT',
   developer_required: 'SHOW ME HOW (DEVELOPER)',
@@ -383,7 +386,7 @@ export async function renderPillarReportPage(websiteId: string, config: PillarRe
   const Icon = config.icon
 
   return (
-    <Container size="xl" className="py-10">
+    <Container size="2xl" className="py-10">
       <Link href={`/dashboard/websites/${website.id}`} className="text-sm text-muted hover:text-gray-700">
         ← Back to {website.name}
       </Link>
@@ -407,6 +410,7 @@ export async function renderPillarReportPage(websiteId: string, config: PillarRe
       </Card>
 
       <WebsiteSubNav websiteId={website.id} active={config.navKey} />
+      <PillarSubNav websiteId={website.id} active={config.navKey} />
 
       {!crawlRun ? (
         <EmptyState

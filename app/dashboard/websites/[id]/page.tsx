@@ -343,7 +343,7 @@ export default async function WebsiteReportPage(props: PageProps<'/dashboard/web
   const otherIssues = decoratedIssues.filter((issue) => !isKnownCategory(issue.type))
 
   return (
-    <Container size="xl" className="py-10">
+    <Container size="2xl" className="py-10">
       <Link href="/dashboard" className="text-sm text-muted hover:text-gray-700">
         ← Back to Websites
       </Link>

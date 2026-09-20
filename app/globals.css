@@ -16,33 +16,41 @@
   --color-border-strong: #cbd5e1;
 
   /*
-   * Brand — WEBIOOM green, sampled directly (by decoding the PNG's raw pixel
-   * data) from the accent stroke of the approved logo at
-   * brand-reference/webioom-logo1.png. That stroke is itself a gradient —
-   * bright yellow-green (~#88C338) at the top fading to a deep emerald-teal
-   * (~#03794E) at the bottom — so rather than inventing a single flat color,
-   * each token below is an actual sampled point on that same gradient:
-   *   - --color-brand-vivid (#3c9d46) is the stroke's natural midpoint —
-   *     the "iconic" green most people would name at a glance.
-   *   - --color-brand (#038554) is sampled further down the same gradient,
-   *     chosen specifically because it clears 4.5:1 contrast against white
-   *     (verified: ~4.68:1), so it's safe for button/link/focus-ring text.
-   *   - --color-brand-hover (#03794e) is one step further down again — a
-   *     visibly darker hover state that is still literally the logo's own
-   *     color, not a programmatic darken.
-   * The vivid tone still reads as fully accessible only against the dark
-   * navy surfaces (~7.6:1) or as a non-text accent on light ones (~3.4:1
-   * against white — decorative use only, never text).
+   * Brand — Sprint 3, Prompt 2 recalibration. The PREVIOUS values below were
+   * sampled from brand-reference/webioom-logo1.png, a single flat-green
+   * wordmark that has since been retired (Sprint 3 Prompt 1's audit — see
+   * that document's Finding B, "brand mismatch"). The CURRENT approved
+   * logo (public/brand/webioom-logo-on-*.png) is a four-stop violet ->
+   * azure -> teal -> green gradient across the W mark. Every brand color in
+   * this file is now sampled from THAT gradient (raw PNG pixel decode, not
+   * a screenshot color-picker guess — see the Prompt 1 architecture doc for
+   * the exact sampling method and raw values).
+   *
+   * --color-brand keeps the SAME ROLE it always had (primary action/link/
+   * focus-ring color) but is now the new logo's own green hue family
+   * (~145 deg) instead of the old logo's teal-leaning green (~160 deg at
+   * #038554) — a hue correction, not a redesign of what the token means.
+   * Same two-tier pattern as before, preserved deliberately:
+   *   - --color-brand (#0e8c48) is a deepened, text-safe point on the same
+   *     hue as the real logo's green stroke — verified ~4.8:1 against
+   *     white, safe for button/link/focus-ring text.
+   *   - --color-brand-vivid (#2fbf65) is the real logo's own green
+   *     (sampled ~#46da66, deepened slightly for icon/UI legibility) —
+   *     decorative only (icon fills, score-meter fills, dark-surface
+   *     accents, active-nav indication), never body text on a light
+   *     surface.
+   *   - --color-brand-hover (#0b7a3d) is one step further down the same
+   *     hue, for hover/active states.
    */
-  --color-brand: #038554;
-  --color-brand-hover: #03794e;
-  --color-brand-subtle: #ebf5f1;
+  --color-brand: #0e8c48;
+  --color-brand-hover: #0b7a3d;
+  --color-brand-subtle: #eaf8ef;
   --color-brand-foreground: #ffffff;
 
-  /* The logo's own mid-gradient green — decorative only (icon fills,
-     dark-surface accents, active-nav indication). Never used as text on a
-     light surface. */
-  --color-brand-vivid: #3c9d46;
+  /* The logo's own mid-gradient green — decorative only (icon fills, score
+     meters, dark-surface accents, active-nav indication). Never used as
+     text on a light surface. */
+  --color-brand-vivid: #2fbf65;
 
   /* Near-black WEBIOOM navy, for the app's dark sidebar/header, dark public
      sections (hero/footer/CTA), and the logo's badge background. */
@@ -66,26 +74,43 @@
   --color-info-subtle: #eff6ff;
 
   /*
-   * Plan-accent system (pricing page, Prompt: "Pricing, Free-Scan Funnel &
-   * Visual System") — one accent per paid tier above Free, related but
-   * visually distinct so the four pricing cards read as a deliberate,
-   * premium ladder rather than four unrelated colors:
-   *   - Bloom reuses --color-brand (the logo's own green) directly — no
-   *     second green is invented.
-   *   - --color-violet is Bloom Pro's accent — deliberately distinct hue
-   *     from --color-brand and --color-info so "most popular" never reads
-   *     as ambiguous with either.
-   *   - --color-sky is Agency's accent — deliberately a different blue
-   *     from --color-info (which is reserved for status/info badges, never
-   *     branding, per the note above) so the two are never visually
-   *     interchangeable even though both are "blue."
+   * Brand spectrum, continued — violet and azure are no longer invented
+   * pricing-only accents; Prompt 1's pixel sampling found both are already
+   * genuine stops on the real logo's own gradient, so Prompt 2 RETUNES them
+   * to the sampled values and PROMOTES them to core brand-spectrum tokens
+   * (still used exactly where they always were — see below — now also
+   * legitimate everywhere a controlled, non-primary brand accent is
+   * needed: premium highlights, data visualization, selected states).
+   *   - --color-violet (#6d3ff9, sampled ~#6b42f9) — Bloom Pro's accent /
+   *     "most popular" signal / premium highlights.
+   *   - --color-sky (#0091ff, sampled ~#009bf6, renamed in meaning to
+   *     "azure" but keeping its existing token name so no call site needs
+   *     to change) — Agency's accent, deliberately still distinct from
+   *     --color-info (status, never branding).
+   *   - --color-teal is genuinely NEW — the blend-zone stop where the
+   *     logo's azure meets its green (sampled ~#12b682) — available for a
+   *     4th controlled accent (data visualization, illustrations) without
+   *     ever being required on every screen.
    */
-  --color-violet: #7c3aed;
-  --color-violet-hover: #6d28d9;
-  --color-violet-subtle: #f5f3ff;
-  --color-sky: #0284c7;
-  --color-sky-hover: #0369a1;
-  --color-sky-subtle: #f0f9ff;
+  --color-violet: #6d3ff9;
+  --color-violet-hover: #5a2edb;
+  --color-violet-subtle: #f4f1ff;
+  --color-sky: #0091ff;
+  --color-sky-hover: #0072cc;
+  --color-sky-subtle: #eaf5ff;
+  --color-teal: #0fb483;
+  --color-teal-hover: #0c9670;
+  --color-teal-subtle: #e7faf3;
+
+  /* Motion — Sprint 3, Prompt 2. Native CSS only; no animation dependency.
+     Every transition/animation using these must also be wrapped in
+     `@media (prefers-reduced-motion: no-preference)` at the call site (see
+     app/globals.css's own .motion-safe-* utilities below), never applied
+     unconditionally. */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --duration-fast: 120ms;
+  --duration-base: 200ms;
+  --duration-reveal: 420ms;
 }
 
 @theme inline {
@@ -122,6 +147,13 @@
   --color-sky: var(--color-sky);
   --color-sky-hover: var(--color-sky-hover);
   --color-sky-subtle: var(--color-sky-subtle);
+  --color-teal: var(--color-teal);
+  --color-teal-hover: var(--color-teal-hover);
+  --color-teal-subtle: var(--color-teal-subtle);
+  --ease-out: var(--ease-out);
+  --duration-fast: var(--duration-fast);
+  --duration-base: var(--duration-base);
+  --duration-reveal: var(--duration-reveal);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
@@ -145,4 +177,46 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-sans), Arial, Helvetica, sans-serif;
+  font-variant-numeric: tabular-nums;
+}
+
+/*
+ * Sprint 3, Prompt 2 — shared brand-spectrum gradient, used sparingly (score
+ * meters, active-scan progress, premium accents) — never as a full-bleed
+ * page background. One definition so every use draws from the exact same
+ * four stops rather than each component inventing its own approximation.
+ */
+:root {
+  --brand-gradient: linear-gradient(90deg, var(--color-violet) 0%, var(--color-sky) 38%, var(--color-teal) 68%, var(--color-brand-vivid) 100%);
+}
+
+/*
+ * Motion utilities — plain CSS, no library. Every rule here is inert unless
+ * the visitor has NOT asked for reduced motion; `prefers-reduced-motion:
+ * reduce` users get the equivalent instant/static state for free because
+ * these classes simply do nothing outside the media query.
+ */
+@media (prefers-reduced-motion: no-preference) {
+  .motion-fade-in {
+    animation: webioom-fade-in var(--duration-reveal) var(--ease-out) both;
+  }
+  .motion-rise-in {
+    animation: webioom-rise-in var(--duration-reveal) var(--ease-out) both;
+  }
+  .motion-hover-lift {
+    transition: transform var(--duration-fast) var(--ease-out), box-shadow var(--duration-fast) var(--ease-out);
+  }
+  .motion-hover-lift:hover {
+    transform: translateY(-1px);
+  }
+}
+
+@keyframes webioom-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes webioom-rise-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
 }

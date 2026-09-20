@@ -1,5 +1,6 @@
 import Card from '@/components/ui/card'
 import Badge from '@/components/ui/badge'
+import ScoreMeter from '@/components/ui/score-meter'
 import { healthLabel, healthTone } from '@/lib/scanner/health-label'
 import type { OverallWebsiteHealth } from '@/lib/category-engine/overall-health'
 
@@ -13,11 +14,14 @@ import type { OverallWebsiteHealth } from '@/lib/category-engine/overall-health'
  * whichever canonical categories (Technical SEO, On-Page SEO, Site
  * Architecture, Content) have a genuine analysis from the current crawl.
  *
- * Never shows a number it cannot honestly justify: `score === null` means
- * zero canonical categories have been analyzed yet, and the card says so
- * plainly rather than defaulting to 0 or 100. Whenever a score IS shown,
- * the contributing-category count is always visible alongside it — a
- * customer can always tell whether this reflects "all 4" or "just 1."
+ * Sprint 3, Prompt 2 — presentation redesign per the approved Prompt 1
+ * blueprint: a horizontal brand-gradient meter (ScoreMeter) instead of a
+ * donut/ring — a ring implies "percent of a whole," inviting exactly the
+ * false-complete-coverage impression this card must never give on a
+ * partial crawl. The coverage disclosure line is now the SAME visual
+ * weight as the score's own state label, never a smaller caption — a
+ * customer must never have to squint to learn "how much of my site was
+ * actually checked." No change to the underlying computation.
  */
 export default function OverallWebsiteHealthCard({ health }: { health: OverallWebsiteHealth }) {
   return (
@@ -31,14 +35,19 @@ export default function OverallWebsiteHealthCard({ health }: { health: OverallWe
         </>
       ) : (
         <>
-          <div className="mt-2 flex flex-wrap items-baseline gap-3">
-            <span className="text-4xl font-semibold tracking-tight text-gray-900">{health.score}</span>
-            <span className="text-base text-muted">/ 100</span>
-            <Badge tone={healthTone(health.score)} className="text-sm">
+          <div className="mt-2 flex flex-wrap items-end gap-3">
+            <span className="text-5xl font-semibold tracking-tight tabular-nums text-gray-900 motion-safe:animate-[webioom-rise-in_var(--duration-reveal)_var(--ease-out)_both]">
+              {health.score}
+            </span>
+            <span className="pb-1 text-base text-muted">/ 100</span>
+            <Badge tone={healthTone(health.score)} className="mb-1 text-sm">
               {healthLabel(health.score)}
             </Badge>
           </div>
-          <p className="mt-3 text-sm text-muted">
+
+          <ScoreMeter score={health.score} size="lg" className="mt-4 max-w-md" aria-label={`Overall Website Health: ${health.score} out of 100, ${healthLabel(health.score)}`} />
+
+          <p className="mt-3 text-sm font-medium text-gray-700">
             Based on {health.contributingCategoryCount} of {health.totalCanonicalCategories} canonical categories analyzed so far.
           </p>
         </>
