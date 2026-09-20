@@ -1,4 +1,5 @@
 import type { PlanEntitlements } from './subscription'
+import type { MonitoringCadence } from './plans'
 
 /**
  * Domain-safe failure reasons a Server Action can return to the browser —
@@ -87,6 +88,44 @@ export function evaluateAlerts(entitlements: PlanEntitlements): EntitlementCheck
 /** Not yet consumed by anything — Phase 24's scheduler is the intended reader. */
 export function getMonitoringCadence(entitlements: PlanEntitlements) {
   return entitlements.monitoringCadence
+}
+
+/**
+ * Sprint 2, Prompt 1 — MONITORING FOUNDATION. Whether this session's own
+ * plan permits turning on RECURRING scheduled monitoring at all (as
+ * opposed to comparing two scans the customer ran manually, which is a
+ * Free-tier diagnosis capability with no entitlement gate — see
+ * app/dashboard/websites/[id]/scan-history.ts's getLatestChangeSummary,
+ * which never calls this). `entitlements.monitoringCadence === 'none'` for
+ * Free (see plans.ts) is what actually denies this; every paid plan
+ * ('weekly' or 'daily') allows enabling monitoring at some cadence.
+ */
+export function evaluateMonitoringEnable(entitlements: PlanEntitlements): EntitlementCheckResult {
+  if (entitlements.monitoringCadence === 'none') {
+    return { allowed: false, reason: entitlements.subscriptionInactive ? 'subscription_inactive' : 'feature_not_in_plan' }
+  }
+  return { allowed: true }
+}
+
+const CADENCE_RANK: Record<MonitoringCadence, number> = { none: 0, weekly: 1, daily: 2 }
+
+/**
+ * A plan that permits 'daily' monitoring may still choose the LESS
+ * frequent 'weekly' cadence if they prefer — this only rejects a REQUESTED
+ * cadence more frequent than the plan actually grants, never silently
+ * clamping it to something the customer didn't ask for (a clamp would be a
+ * confusing, unannounced downgrade; a clear denial lets the caller show an
+ * honest upgrade message instead, mirroring every other entitlement denial
+ * in this module).
+ */
+export function evaluateMonitoringCadenceChoice(entitlements: PlanEntitlements, requestedCadence: MonitoringCadence): EntitlementCheckResult {
+  const enableCheck = evaluateMonitoringEnable(entitlements)
+  if (!enableCheck.allowed) return enableCheck
+
+  if (CADENCE_RANK[requestedCadence] > CADENCE_RANK[entitlements.monitoringCadence]) {
+    return { allowed: false, reason: 'feature_not_in_plan' }
+  }
+  return { allowed: true }
 }
 
 /**

@@ -10,6 +10,8 @@ import {
   evaluateDirectFix,
   evaluateAlerts,
   getMonitoringCadence,
+  evaluateMonitoringEnable,
+  evaluateMonitoringCadenceChoice,
 } from '@/lib/entitlements/capabilities'
 
 /**
@@ -241,6 +243,47 @@ describe('monitoring cadence by plan', () => {
 
   it('Agency monitoring cadence is daily', () => {
     expect(getMonitoringCadence(resolveEntitlements(activeAgencyRow))).toBe('daily')
+  })
+})
+
+describe('evaluateMonitoringEnable — Sprint 2, Prompt 1', () => {
+  it('Free is denied, with a plan-based reason (monitoringCadence is none)', () => {
+    expect(evaluateMonitoringEnable(resolveEntitlements(null))).toEqual({ allowed: false, reason: 'feature_not_in_plan' })
+  })
+
+  it('Bloom (weekly cadence) is allowed to enable monitoring', () => {
+    expect(evaluateMonitoringEnable(resolveEntitlements(activeBloomRow))).toEqual({ allowed: true })
+  })
+
+  it('Bloom Pro (daily cadence) is allowed to enable monitoring', () => {
+    expect(evaluateMonitoringEnable(resolveEntitlements(activeBloomProRow))).toEqual({ allowed: true })
+  })
+
+  it('a lapsed-paid user is denied with subscription_inactive, not feature_not_in_plan', () => {
+    const lapsed = resolveEntitlements({ ...activeBloomProRow, status: 'canceled' })
+    expect(evaluateMonitoringEnable(lapsed)).toEqual({ allowed: false, reason: 'subscription_inactive' })
+  })
+})
+
+describe('evaluateMonitoringCadenceChoice — Sprint 2, Prompt 1', () => {
+  it('Free is denied any cadence choice, since it cannot enable monitoring at all', () => {
+    expect(evaluateMonitoringCadenceChoice(resolveEntitlements(null), 'weekly')).toEqual({ allowed: false, reason: 'feature_not_in_plan' })
+  })
+
+  it('Bloom may choose weekly (its own granted cadence)', () => {
+    expect(evaluateMonitoringCadenceChoice(resolveEntitlements(activeBloomRow), 'weekly')).toEqual({ allowed: true })
+  })
+
+  it('Bloom is denied requesting daily — more frequent than its plan grants — never silently clamped to weekly', () => {
+    expect(evaluateMonitoringCadenceChoice(resolveEntitlements(activeBloomRow), 'daily')).toEqual({ allowed: false, reason: 'feature_not_in_plan' })
+  })
+
+  it('Bloom Pro (daily-granting plan) may still choose the LESS frequent weekly cadence if it prefers', () => {
+    expect(evaluateMonitoringCadenceChoice(resolveEntitlements(activeBloomProRow), 'weekly')).toEqual({ allowed: true })
+  })
+
+  it('Bloom Pro may choose daily (its own granted cadence)', () => {
+    expect(evaluateMonitoringCadenceChoice(resolveEntitlements(activeBloomProRow), 'daily')).toEqual({ allowed: true })
   })
 })
 

@@ -12,6 +12,7 @@ export type WebsiteSubNavActive =
   | 'accessibility'
   | 'security'
   | 'integrations'
+  | 'history'
   | 'activity'
 
 /**
@@ -42,6 +43,7 @@ export default function WebsiteSubNav({ websiteId, active }: { websiteId: string
     { key: 'accessibility', label: 'Accessibility', href: `/dashboard/websites/${websiteId}/accessibility` },
     { key: 'security', label: 'Security', href: `/dashboard/websites/${websiteId}/security` },
     { key: 'integrations', label: 'Integrations', href: `/dashboard/websites/${websiteId}/integrations` },
+    { key: 'history', label: 'History', href: `/dashboard/websites/${websiteId}/history` },
     { key: 'activity', label: 'Activity', href: `/dashboard/websites/${websiteId}/activity` },
   ]
 

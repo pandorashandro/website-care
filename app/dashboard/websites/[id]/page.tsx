@@ -26,6 +26,11 @@ import CategoryScoreGrid from '@/components/report/category-score-grid'
 import ScanWebsiteControls from './scan-website-controls'
 import { getUnifiedCategorySummaries } from './unified-summary'
 import { getFixTheseFirst } from './fix-these-first'
+import { getLatestChangeSummary } from './scan-history'
+import SinceLastScan from '@/components/report/since-last-scan'
+import { getMonitoringSettings } from './monitoring-settings'
+import MonitoringStatus from '@/components/monitoring/monitoring-status'
+import { getCurrentUserEntitlements } from '@/lib/entitlements'
 import { computeOverallWebsiteHealth } from '@/lib/category-engine/overall-health'
 import FixTheseFirst from '@/components/report/fix-these-first'
 import PriorityIssues from '@/components/report/priority-issues'
@@ -202,6 +207,13 @@ export default async function WebsiteReportPage(props: PageProps<'/dashboard/web
   // crawl_run with no analyzed categories yet.
   const fixTheseFirst = crawlRun ? await getFixTheseFirst(website.id, crawlRun.id) : []
 
+  // Sprint 2, Prompt 1 — MONITORING FOUNDATION, Step 9. Re-derives its own
+  // ownership-checked scan history rather than reusing crawlRun/unifiedSummariesPromise
+  // above (those reflect only the LATEST scan; this needs the current/previous PAIR).
+  const latestChange = await getLatestChangeSummary(website.id)
+  const monitoringSettings = await getMonitoringSettings(website.id)
+  const entitlements = await getCurrentUserEntitlements()
+
   const wordpress = await wordpressPromise
   const wordpressConnection = await wordpressConnectionPromise
   const shopifyConnection = await shopifyConnectionPromise
@@ -356,6 +368,8 @@ export default async function WebsiteReportPage(props: PageProps<'/dashboard/web
                 ? 'Scanning in progress…'
                 : 'Not scanned yet'}
           </p>
+
+          {monitoringSettings && <MonitoringStatus settings={monitoringSettings} grantedCadence={entitlements.monitoringCadence} />}
         </div>
 
         <div className="sm:w-48 sm:shrink-0">
@@ -378,6 +392,8 @@ export default async function WebsiteReportPage(props: PageProps<'/dashboard/web
       {(crawlRun || latestScan) && (
         <div className="mt-6 space-y-6">
           <OverallWebsiteHealthCard health={overallHealth} />
+
+          <SinceLastScan result={latestChange} />
 
           <FixTheseFirst problems={fixTheseFirst} />
 

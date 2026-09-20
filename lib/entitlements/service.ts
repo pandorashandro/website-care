@@ -7,6 +7,8 @@ import {
   evaluateAiFix,
   evaluateDirectFix,
   evaluateAlerts,
+  evaluateMonitoringEnable,
+  evaluateMonitoringCadenceChoice,
   getMonitoringCadence as pureGetMonitoringCadence,
   type EntitlementCheckResult,
 } from './capabilities'
@@ -143,7 +145,17 @@ export async function canReceiveAlerts(): Promise<EntitlementCheckResult> {
   return evaluateAlerts(await getCurrentUserEntitlements())
 }
 
-/** Not yet consumed by any feature — scheduling doesn't exist yet (Phase 24). */
+/** Not yet consumed by a scheduler (none exists yet) — read directly by the monitoring-settings UI to explain the customer's own available cadence options. */
 export async function getCurrentUserMonitoringCadence(): Promise<MonitoringCadence> {
   return pureGetMonitoringCadence(await getCurrentUserEntitlements())
+}
+
+/** The authoritative server-side gate for turning recurring monitoring on at all — see evaluateMonitoringEnable's own doc comment. */
+export async function canEnableMonitoring(): Promise<EntitlementCheckResult> {
+  return evaluateMonitoringEnable(await getCurrentUserEntitlements())
+}
+
+/** The authoritative server-side gate for a SPECIFIC requested cadence — see evaluateMonitoringCadenceChoice's own doc comment. */
+export async function canUseMonitoringCadence(requestedCadence: MonitoringCadence): Promise<EntitlementCheckResult> {
+  return evaluateMonitoringCadenceChoice(await getCurrentUserEntitlements(), requestedCadence)
 }
