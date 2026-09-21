@@ -55,6 +55,7 @@ export function createResendEmailProvider(apiKey: string, fromAddress: string): 
             to: [message.to],
             subject: message.subject,
             text: message.text,
+            ...(message.html ? { html: message.html } : {}),
           }),
           signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
         })

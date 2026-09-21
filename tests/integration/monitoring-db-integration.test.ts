@@ -276,6 +276,91 @@ describe.skipIf(!RUN)('Sprint 2 Prompt 3 — REAL Postgres integration (local Su
     })
   })
 
+  describe('Sprint 3 (monitoring + notifications completion) — notification read-state security', () => {
+    it('AUTHENTICATED WRITE BOUNDARY: the owning user\'s own authenticated client cannot write read_at directly — only the service-role admin client (after app-level ownership verification, see app/dashboard/notifications/actions.ts) can', async () => {
+      const { createMeaningfulChangeEvent } = await import('@/lib/monitoring/event-service')
+      const owner = await createTestUserAndWebsite('https://example.com')
+
+      const { data: crawlRun } = await admin
+        .from('crawl_runs')
+        .insert({ website_id: owner.websiteId, status: 'completed', requested_page_budget: 30, effective_page_budget: 30, completed_at: new Date().toISOString() })
+        .select('id')
+        .single()
+
+      const summary = {
+        previousCrawlRunId: 'prev',
+        currentCrawlRunId: crawlRun!.id,
+        previousCompletedAt: null,
+        currentCompletedAt: new Date().toISOString(),
+        overallHealth: { previousScore: null, currentScore: null, delta: null, comparability: 'not_comparable' as const },
+        pillarDeltas: [],
+        findingChanges: [],
+        counts: { new: 1, resolved: 0, persistent: 0, worsened: 0, improved: 0, unverified: 0 },
+      }
+      const event = await createMeaningfulChangeEvent({ websiteId: owner.websiteId, currentCrawlRunId: crawlRun!.id, previousCrawlRunId: crawlRun!.id, summary, reasons: ['new_high_severity_finding'] })
+
+      const ownerEmail = (await admin.auth.admin.getUserById(owner.userId)).data.user!.email!
+      const clientOwner = createSupabaseJsClient(LOCAL_SUPABASE_URL, LOCAL_ANON_KEY)
+      const signIn = await clientOwner.auth.signInWithPassword({ email: ownerEmail, password: 'Test-Password-123!' })
+      expect(signIn.error).toBeNull()
+
+      // Even the row's own owner, using their own authenticated session, is
+      // REJECTED by Postgres itself (no update grant on monitoring_events to
+      // `authenticated` — see the migration's own doc comment) — this is a
+      // database-level guarantee, not merely an application-code convention.
+      const { error: updateError } = await clientOwner.from('monitoring_events').update({ read_at: new Date().toISOString() }).eq('id', event.id)
+      expect(updateError).not.toBeNull()
+
+      const { data: stillUnread } = await admin.from('monitoring_events').select('read_at').eq('id', event.id).single()
+      expect(stillUnread?.read_at).toBeNull()
+
+      // The admin client (the ONLY path app/dashboard/notifications/actions.ts
+      // uses, and only after its own session-client ownership check) can.
+      const { error: adminUpdateError } = await admin.from('monitoring_events').update({ read_at: new Date().toISOString() }).eq('id', event.id)
+      expect(adminUpdateError).toBeNull()
+
+      const { data: nowRead } = await admin.from('monitoring_events').select('read_at').eq('id', event.id).single()
+      expect(nowRead?.read_at).not.toBeNull()
+    })
+
+    it('CROSS-USER LEAKAGE ON READ_AT: user B cannot even see user A\'s event to target it, exactly like every other column on this row', async () => {
+      const { createMeaningfulChangeEvent } = await import('@/lib/monitoring/event-service')
+      const ownerA = await createTestUserAndWebsite('https://example.com')
+      const ownerB = await createTestUserAndWebsite('https://example.com')
+
+      const { data: crawlRun } = await admin
+        .from('crawl_runs')
+        .insert({ website_id: ownerA.websiteId, status: 'completed', requested_page_budget: 30, effective_page_budget: 30, completed_at: new Date().toISOString() })
+        .select('id')
+        .single()
+
+      const summary = {
+        previousCrawlRunId: 'prev',
+        currentCrawlRunId: crawlRun!.id,
+        previousCompletedAt: null,
+        currentCompletedAt: new Date().toISOString(),
+        overallHealth: { previousScore: null, currentScore: null, delta: null, comparability: 'not_comparable' as const },
+        pillarDeltas: [],
+        findingChanges: [],
+        counts: { new: 1, resolved: 0, persistent: 0, worsened: 0, improved: 0, unverified: 0 },
+      }
+      const event = await createMeaningfulChangeEvent({ websiteId: ownerA.websiteId, currentCrawlRunId: crawlRun!.id, previousCrawlRunId: crawlRun!.id, summary, reasons: ['new_high_severity_finding'] })
+
+      const ownerBEmail = (await admin.auth.admin.getUserById(ownerB.userId)).data.user!.email!
+      const clientB = createSupabaseJsClient(LOCAL_SUPABASE_URL, LOCAL_ANON_KEY)
+      const signInB = await clientB.auth.signInWithPassword({ email: ownerBEmail, password: 'Test-Password-123!' })
+      expect(signInB.error).toBeNull()
+
+      // This is exactly what markNotificationRead's own ownership check
+      // (app/dashboard/notifications/actions.ts's currentUserCanSeeEvent)
+      // relies on: RLS makes user A's event simply not exist from user B's
+      // point of view, so the ownership check fails closed automatically.
+      const { data: invisibleToB, error } = await clientB.from('monitoring_events').select('id').eq('id', event.id).maybeSingle()
+      expect(error).toBeNull()
+      expect(invisibleToB).toBeNull()
+    })
+  })
+
   describe('REAL end-to-end monitoring cycle against a live, safe, public test URL', () => {
     it(
       'BASELINE THEN SECOND CYCLE: a real crawl of https://example.com, twice, with no fabricated change on the honest baseline cycle',

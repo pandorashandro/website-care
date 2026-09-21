@@ -16,6 +16,8 @@ export type EmailMessage = {
   to: string
   subject: string
   text: string
+  /** Optional premium HTML alternative — Resend (and every mainstream provider) sends a proper multipart message when both are present, so `text` always stays the honest, fully-functional fallback for clients/screen readers that prefer or require it. */
+  html?: string
 }
 
 export type EmailSendResult = { ok: true; providerMessageId?: string } | { ok: false; error: string }

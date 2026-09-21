@@ -6,6 +6,7 @@ function baseEvent(overrides: Partial<RenderableMonitoringEvent> = {}): Renderab
     websiteId: 'website-123',
     websiteName: 'example.com',
     eventType: 'meaningful_change',
+    reasons: [],
     overallHealthPrevious: null,
     overallHealthCurrent: null,
     overallHealthDelta: null,
@@ -23,24 +24,24 @@ function baseEvent(overrides: Partial<RenderableMonitoringEvent> = {}): Renderab
 const FORBIDDEN_PHRASES = ['traffic', 'ranking', 'rankings', 'search engine result', 'serp']
 
 describe('renderMonitoringEmail — subject selection', () => {
-  it('NEEDS ATTENTION: new findings produce the "found changes that need your attention" subject', () => {
+  it('NEEDS ATTENTION: new findings produce the shared classifyNotification "needs attention" headline', () => {
     const { subject } = renderMonitoringEmail(baseEvent({ newCount: 2 }))
-    expect(subject).toBe('webioom found changes that need your attention on example.com')
+    expect(subject).toBe('Your website needs attention — example.com')
   })
 
   it('WORSENED findings alone also produce the needs-attention subject', () => {
     const { subject } = renderMonitoringEmail(baseEvent({ worsenedCount: 1 }))
-    expect(subject).toContain('need your attention')
+    expect(subject).toContain('needs attention')
   })
 
   it('GOOD NEWS ONLY: resolved/improved with nothing new/worsened produces the good-news subject', () => {
     const { subject } = renderMonitoringEmail(baseEvent({ resolvedCount: 3 }))
-    expect(subject).toBe('Good news — webioom verified improvements on example.com')
+    expect(subject).toBe('Good news — your website improved — example.com')
   })
 
   it('neither good nor bad (e.g. pure health/pillar movement) falls back to the neutral subject', () => {
     const { subject } = renderMonitoringEmail(baseEvent({ overallHealthCurrent: 70, overallHealthPrevious: 82, overallHealthDelta: -12 }))
-    expect(subject).toBe('Your website health changed on example.com')
+    expect(subject).toBe('webioom has an update on your website — example.com')
   })
 
   it('MONITORING FAILURE gets its own distinct subject, never confused with a change subject', () => {
@@ -108,9 +109,55 @@ describe('renderMonitoringEmail — link safety', () => {
 })
 
 describe('renderMonitoringEmail — untrusted input handling', () => {
-  it('NO EMAIL/HEADER INJECTION: a customer-supplied website name containing CR/LF is stripped from both subject and body', () => {
+  it('NO EMAIL/HEADER INJECTION: a customer-supplied website name containing CR/LF can never start a new line in the subject or body', () => {
+    // render.ts deliberately shows the website name inline in the body so the
+    // customer knows which site an email concerns — so injected text (like
+    // the literal string "Bcc:") may still appear as harmless inline
+    // display text. The actual invariant sanitizeForEmail defends is that
+    // the injected CR/LF is stripped so that text can never start its OWN
+    // line, which is what would matter if this string were ever fed into a
+    // raw header-construction path in the future.
     const { subject, text } = renderMonitoringEmail(baseEvent({ websiteName: 'evil\r\nBcc: attacker@example.com', newCount: 1 }))
     expect(subject).not.toMatch(/[\r\n]/)
-    expect(text).not.toMatch(/Bcc:/)
+    expect(text).not.toMatch(/[\r\n]Bcc:/)
+  })
+
+  it('HTML-ESCAPES the customer-supplied website name so it cannot inject markup into the branded template', () => {
+    const { html } = renderMonitoringEmail(baseEvent({ websiteName: '<img src=x onerror=alert(1)>', newCount: 1 }))
+    expect(html).not.toContain('<img src=x onerror=alert(1)>')
+    expect(html).toContain('&lt;img src=x onerror=alert(1)&gt;')
+  })
+})
+
+describe('renderMonitoringEmail — premium branded HTML alternative', () => {
+  it('produces a table-based, inline-styled HTML document alongside the plain-text fallback', () => {
+    const { html, text } = renderMonitoringEmail(baseEvent({ newCount: 1 }))
+    expect(html).toContain('<!doctype html>')
+    expect(html).toContain('<table')
+    expect(text.length).toBeGreaterThan(0)
+  })
+
+  it('uses the dark-surface logo asset and includes an accessible alt text fallback', () => {
+    const { html } = renderMonitoringEmail(baseEvent({ appBaseUrl: 'https://app.webioom.com' }))
+    expect(html).toContain('https://app.webioom.com/brand/webioom-logo-on-dark.png')
+    expect(html).toContain('alt="webioom"')
+  })
+
+  it('gives Outlook (no CSS gradient support) an honest solid dark background-color fallback alongside the gradient', () => {
+    const { html } = renderMonitoringEmail(baseEvent({}))
+    expect(html).toContain('bgcolor="#12141c"')
+    expect(html).toContain('background-color:#12141c')
+  })
+
+  it('routes the CTA to this event\'s own website overview — never a generic dashboard link', () => {
+    const { html } = renderMonitoringEmail(baseEvent({ websiteId: 'website-999' }))
+    expect(html).toContain('href="https://app.webioom.com/dashboard/websites/website-999"')
+  })
+
+  it('renders a distinct accent color per communication severity (attention vs. positive)', () => {
+    const attention = renderMonitoringEmail(baseEvent({ newCount: 1 }))
+    const positive = renderMonitoringEmail(baseEvent({ resolvedCount: 1 }))
+    expect(attention.html).toContain('#d97706')
+    expect(positive.html).toContain('#16a34a')
   })
 })

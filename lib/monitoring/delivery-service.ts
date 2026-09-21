@@ -109,7 +109,7 @@ async function loadEventForRendering(eventId: string): Promise<{ userId: string;
 
   const { data: eventRow } = await admin
     .from('monitoring_events')
-    .select('website_id, event_type, overall_health_previous, overall_health_current, overall_health_delta, new_count, resolved_count, worsened_count, improved_count, top_findings, failure_reason')
+    .select('website_id, event_type, reasons, overall_health_previous, overall_health_current, overall_health_delta, new_count, resolved_count, worsened_count, improved_count, top_findings, failure_reason')
     .eq('id', eventId)
     .maybeSingle()
   if (!eventRow) return null
@@ -123,6 +123,7 @@ async function loadEventForRendering(eventId: string): Promise<{ userId: string;
       websiteId: website.id,
       websiteName: website.name || website.url,
       eventType: eventRow.event_type,
+      reasons: eventRow.reasons ?? [],
       overallHealthPrevious: eventRow.overall_health_previous,
       overallHealthCurrent: eventRow.overall_health_current,
       overallHealthDelta: eventRow.overall_health_delta,
@@ -166,8 +167,8 @@ async function attemptDelivery(deliveryId: string, eventId: string, claimToken: 
     return
   }
 
-  const { subject, text } = renderMonitoringEmail(loaded.event)
-  const result = await getEmailProvider().send({ to: recipientEmail, subject, text })
+  const { subject, text, html } = renderMonitoringEmail(loaded.event)
+  const result = await getEmailProvider().send({ to: recipientEmail, subject, text, html })
 
   if (result.ok) {
     await admin

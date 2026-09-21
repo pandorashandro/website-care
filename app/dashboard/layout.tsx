@@ -4,6 +4,8 @@ import { createClient } from '@/lib/supabase/server'
 import Logo from '@/components/brand/logo'
 import SidebarNav, { type SidebarNavItem } from '@/components/dashboard/sidebar-nav'
 import WebsiteSwitcher from '@/components/dashboard/website-switcher'
+import NotificationBell from '@/components/notifications/notification-bell'
+import { countUnreadNotificationsForCurrentUser, currentUserHasActiveMonitoring, listNotificationsForCurrentUser } from '@/lib/monitoring/notification-service'
 
 /**
  * Only routes that actually exist belong here. The Phase 18.1 audit found
@@ -50,6 +52,11 @@ export default async function DashboardLayout(props: LayoutProps<'/dashboard'>) 
   }
 
   const { data: websites } = await supabase.from('websites').select('id, name, url').eq('user_id', user.id).order('created_at', { ascending: true })
+  const [notifications, unreadCount, hasActiveMonitoring] = await Promise.all([
+    listNotificationsForCurrentUser(8),
+    countUnreadNotificationsForCurrentUser(),
+    currentUserHasActiveMonitoring(),
+  ])
 
   return (
     <div className="flex min-h-screen w-full flex-col lg:flex-row">
@@ -72,6 +79,9 @@ export default async function DashboardLayout(props: LayoutProps<'/dashboard'>) 
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
+        <header className="flex items-center justify-end border-b border-border bg-background px-6 py-3">
+          <NotificationBell initialNotifications={notifications} initialUnreadCount={unreadCount} hasActiveMonitoring={hasActiveMonitoring} />
+        </header>
         <main className="flex-1 bg-background">{props.children}</main>
       </div>
     </div>

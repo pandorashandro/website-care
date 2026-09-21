@@ -92,7 +92,16 @@ export default async function PricingPage() {
         </p>
       </Container>
 
-      <Container size="xl" className="pb-20 pt-8 sm:pb-24">
+      {/*
+        Sprint 3 (monitoring + notifications completion) — width fix: four
+        plan cards in `size="xl"` (max-w-6xl, 1152px) left each card too
+        narrow, causing feature copy to wrap awkwardly. `2xl` is this design
+        system's existing wide-desktop container (max-w-[1440px], built for
+        exactly this "too much unused space at modern desktop widths"
+        problem — see components/ui/container.tsx's own doc comment) rather
+        than a new hardcoded width.
+      */}
+      <Container size="2xl" className="pb-20 pt-8 sm:pb-24">
         <PricingCards isLoggedIn={isLoggedIn} currentPlan={currentPlan} />
       </Container>
 

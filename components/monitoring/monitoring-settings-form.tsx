@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { updateMonitoringSettings, type MonitoringSettings } from '@/app/dashboard/websites/[id]/monitoring-settings'
 import type { MonitoringCadence } from '@/lib/entitlements/plans'
+import { recommendedCadence } from '@/lib/entitlements/capabilities'
 import Button from '@/components/ui/button'
 import Alert from '@/components/ui/alert'
 import Badge from '@/components/ui/badge'
@@ -11,7 +12,15 @@ import { Label } from '@/components/ui/input'
 import UpgradePrompt from '@/components/billing/upgrade-prompt'
 import { formatDate } from '@/components/report/report-helpers'
 
-const CADENCE_LABELS: Record<'weekly' | 'daily', string> = { weekly: 'Weekly', daily: 'Daily' }
+const CADENCE_LABELS: Record<'biweekly' | 'weekly' | 'daily', string> = { biweekly: 'Every 2 weeks', weekly: 'Weekly', daily: 'Daily' }
+
+/** Every cadence at or below the plan's own ceiling, in slowest-first order — matches evaluateMonitoringCadenceChoice's own "may always choose slower" rule, so the dropdown never offers a value the backend would reject. */
+function availableCadencesForPlan(grantedCadence: MonitoringCadence): ('biweekly' | 'weekly' | 'daily')[] {
+  if (grantedCadence === 'daily') return ['biweekly', 'weekly', 'daily']
+  if (grantedCadence === 'weekly') return ['biweekly', 'weekly']
+  if (grantedCadence === 'biweekly') return ['biweekly']
+  return []
+}
 
 /**
  * Sprint 2, Prompt 2 — STEP 11. The minimum customer-facing control needed
@@ -39,13 +48,15 @@ export default function MonitoringSettingsForm({
 }) {
   const router = useRouter()
   const [enabled, setEnabled] = useState(initialSettings.monitoringEnabled)
-  const [cadence, setCadence] = useState<MonitoringCadence>(initialSettings.cadence === 'none' ? (grantedCadence === 'none' ? 'weekly' : grantedCadence) : initialSettings.cadence)
+  const [cadence, setCadence] = useState<MonitoringCadence>(
+    initialSettings.cadence === 'none' ? recommendedCadence(grantedCadence) : initialSettings.cadence
+  )
   const [notificationPreference, setNotificationPreference] = useState<'none' | 'email'>(initialSettings.notificationPreference)
   const [pending, setPending] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [showUpgrade, setShowUpgrade] = useState(false)
 
-  const availableCadences: ('weekly' | 'daily')[] = grantedCadence === 'daily' ? ['weekly', 'daily'] : grantedCadence === 'weekly' ? ['weekly'] : []
+  const availableCadences = availableCadencesForPlan(grantedCadence)
   const monitoringAvailableOnPlan = grantedCadence !== 'none'
 
   function handleToggle(next: boolean) {
@@ -92,7 +103,7 @@ export default function MonitoringSettingsForm({
           <p className="mt-1 text-sm text-muted">
             {monitoringAvailableOnPlan
               ? 'Automatically re-scan this website on a schedule and see what changed.'
-              : 'Automatic recurring scans are included on Bloom and above.'}
+              : 'Automatic monitoring is available with Bloom.'}
           </p>
         </div>
 
@@ -117,18 +128,27 @@ export default function MonitoringSettingsForm({
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
           <div>
             <Label htmlFor="monitoring-cadence">How often</Label>
-            <select
-              id="monitoring-cadence"
-              value={cadence === 'none' ? availableCadences[0] : cadence}
-              onChange={(e) => setCadence(e.target.value as MonitoringCadence)}
-              className="mt-1 block w-full rounded-md border border-border bg-surface px-3 py-2 text-sm text-gray-900 focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand"
-            >
-              {availableCadences.map((option) => (
-                <option key={option} value={option}>
-                  {CADENCE_LABELS[option]}
-                </option>
-              ))}
-            </select>
+            {availableCadences.length > 1 ? (
+              <select
+                id="monitoring-cadence"
+                value={cadence === 'none' ? availableCadences[0] : cadence}
+                onChange={(e) => setCadence(e.target.value as MonitoringCadence)}
+                className="mt-1 block w-full rounded-md border border-border bg-surface px-3 py-2 text-sm text-gray-900 focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand"
+              >
+                {availableCadences.map((option) => (
+                  <option key={option} value={option}>
+                    {CADENCE_LABELS[option]}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              // Bloom's plan grants exactly one cadence — a single-option
+              // dropdown would be a dead control, so this plan's own fixed
+              // cadence is shown as plain text instead.
+              <p id="monitoring-cadence" className="mt-1.5 text-sm font-medium text-gray-900">
+                {CADENCE_LABELS[availableCadences[0] ?? 'biweekly']}
+              </p>
+            )}
           </div>
 
           <div>

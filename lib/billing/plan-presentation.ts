@@ -86,7 +86,7 @@ export const PLAN_PRESENTATION: Record<PlanKey, PlanPresentation> = {
     liveFeatures: [
       '1 website',
       'Full 7-pillar analysis',
-      'Detailed reports — plain-language summaries with technical details',
+      'Detailed, plain-language reports',
       'Prioritized findings ("Fix These First")',
       'Guided fixes and recommendations',
       'Safe Fix where supported',
@@ -94,8 +94,10 @@ export const PLAN_PRESENTATION: Record<PlanKey, PlanPresentation> = {
       'Integrations (e.g. WordPress)',
       'Manual scans',
       'Improvement history',
+      'Automatic monitoring every 2 weeks',
+      'Notifications when something meaningful changes',
     ],
-    plannedFeatures: ['Weekly monitoring'],
+    plannedFeatures: [],
     plannedNote: PLANNED_NOTE,
   },
   bloom_pro: {
@@ -107,8 +109,14 @@ export const PLAN_PRESENTATION: Record<PlanKey, PlanPresentation> = {
     monthlyPrice: 99,
     annualPrice: 990,
     priceLabel: '€99/month',
-    liveFeatures: ['Up to 5 websites', 'Everything in Bloom', 'Higher page-crawl limits per scan', 'Priority support'],
-    plannedFeatures: ['Daily monitoring', 'Alerts for critical issues'],
+    liveFeatures: [
+      'Up to 5 websites',
+      'Everything in Bloom',
+      'Weekly automatic monitoring',
+      'Higher page-crawl limits per scan',
+      'Priority support',
+    ],
+    plannedFeatures: [],
     plannedNote: PLANNED_NOTE,
   },
   agency: {
@@ -120,7 +128,7 @@ export const PLAN_PRESENTATION: Record<PlanKey, PlanPresentation> = {
     monthlyPrice: 299,
     annualPrice: 2990,
     priceLabel: '€299/month',
-    liveFeatures: ['Up to 20 websites', 'Everything in Bloom Pro', 'Priority support'],
+    liveFeatures: ['Up to 20 websites', 'Everything in Bloom Pro', 'Configurable weekly or daily monitoring', 'Priority support'],
     // Client organization / team access / white-label reporting / a
     // portfolio overview do not exist in the product yet — never presented
     // as live (see docs/entitlements.md and this phase's final report).

@@ -17,13 +17,17 @@
 export type PlanKey = 'free' | 'bloom' | 'bloom_pro' | 'agency'
 
 /**
- * Represented now so Phase 24's monitoring/scheduling work has a field to
- * read from day one, even though no scan is currently scheduled by
- * anything — 'none' is the only value that describes today's actual
- * product behavior (manual scans only). 'weekly'/'daily' are reserved for
- * Phase 24 to interpret; this module makes no scheduling decisions itself.
+ * Sprint 3 (monitoring + notifications completion) — LOCKED cadence model.
+ * `monitoringCadence` on each plan below is that plan's own CEILING (the
+ * most frequent cadence it may run at), not necessarily its default:
+ * Bloom's ceiling is its only real option (biweekly); Bloom Pro's ceiling
+ * is weekly; Agency's ceiling is daily, but Agency's own settings default
+ * to weekly (see monitoring-settings-form.tsx's `recommendedCadence`) —
+ * daily is Agency's one genuinely configurable upgrade, not its default.
+ * `'daily'` is kept as a real, valid cadence value specifically so Agency
+ * retains that configurable ceiling; no plan actually defaults to it.
  */
-export type MonitoringCadence = 'none' | 'weekly' | 'daily'
+export type MonitoringCadence = 'none' | 'biweekly' | 'weekly' | 'daily'
 
 /**
  * Only fields with a real, immediate consumer (Part 7's website limit) or
@@ -84,8 +88,11 @@ export type PlanCapabilities = {
  *
  * `maxWebsites` is the LOCKED commercial dimension for the website-based
  * pricing model: Free/Bloom = 1, Bloom Pro = 5, Agency = 20.
- * `monitoringCadence`/`alertsAllowed` remain forward-looking hooks, not
- * consumed by anything yet (no monitoring engine exists).
+ * `monitoringCadence`/`alertsAllowed` are both live, server-enforced
+ * entitlements consumed by the monitoring scheduler
+ * (lib/monitoring/entitlement-reconciliation.ts) and the delivery pipeline
+ * (lib/monitoring/delivery-service.ts) respectively — not forward-looking
+ * hooks.
  */
 export const PLAN_CAPABILITIES: Record<PlanKey, PlanCapabilities> = {
   free: {
@@ -102,7 +109,7 @@ export const PLAN_CAPABILITIES: Record<PlanKey, PlanCapabilities> = {
     manualScansAllowed: true,
     aiFixesAllowed: true,
     directFixesAllowed: true,
-    monitoringCadence: 'weekly',
+    monitoringCadence: 'biweekly',
     alertsAllowed: true,
     maxCrawlPages: 150,
   },
@@ -111,7 +118,7 @@ export const PLAN_CAPABILITIES: Record<PlanKey, PlanCapabilities> = {
     manualScansAllowed: true,
     aiFixesAllowed: true,
     directFixesAllowed: true,
-    monitoringCadence: 'daily',
+    monitoringCadence: 'weekly',
     alertsAllowed: true,
     // Deliberately equal to lib/crawler/limits.ts's MAX_CRAWL_PAGES product-wide
     // safety ceiling (tests/entitlements.test.ts asserts this equality directly

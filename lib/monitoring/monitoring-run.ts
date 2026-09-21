@@ -4,6 +4,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { listCompletedScansForWebsite, getCanonicalSnapshotForWebsite, selectComparisonPair } from '@/app/dashboard/websites/[id]/scan-history'
 import { buildChangeSummary } from './compare'
 import { evaluateMeaningfulChange } from './notification-rules'
+import { classifyNotification, shouldEmailForSeverity } from './notification-copy'
 import { reconcileCadenceWithEntitlements } from './entitlement-reconciliation'
 import { computeNextDueAt } from './cadence'
 import { runCrawlToCompletion, runCategoryAnalysesForMonitoring } from './run-canonical-scan'
@@ -101,8 +102,31 @@ export async function runMonitoringCycleForWebsite(claimed: ClaimedMonitoringWeb
             summary,
             reasons,
           })
-          await createDeliveryForEvent(event.id, claimed.notificationPreference)
-          await processPendingDeliveries(5)
+
+          // Email decision engine (Section 19): every meaningful event is
+          // ALREADY persisted and visible in-app above — this second,
+          // narrower classification decides whether it ALSO clears the bar
+          // for an email, so a routine "coverage degraded" event (the one
+          // case classifyNotification calls merely 'informational' despite
+          // passing evaluateMeaningfulChange's own threshold) never emails
+          // a customer who has email alerts on.
+          const classified = classifyNotification({
+            eventType: 'meaningful_change',
+            reasons,
+            overallHealthPrevious: summary.overallHealth.previousScore,
+            overallHealthCurrent: summary.overallHealth.currentScore,
+            overallHealthDelta: summary.overallHealth.delta,
+            newCount: summary.counts.new,
+            resolvedCount: summary.counts.resolved,
+            worsenedCount: summary.counts.worsened,
+            improvedCount: summary.counts.improved,
+            failureReason: null,
+          })
+
+          if (shouldEmailForSeverity(classified.severity)) {
+            await createDeliveryForEvent(event.id, claimed.notificationPreference)
+            await processPendingDeliveries(5)
+          }
         }
       }
     }

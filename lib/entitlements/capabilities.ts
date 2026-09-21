@@ -107,7 +107,7 @@ export function evaluateMonitoringEnable(entitlements: PlanEntitlements): Entitl
   return { allowed: true }
 }
 
-const CADENCE_RANK: Record<MonitoringCadence, number> = { none: 0, weekly: 1, daily: 2 }
+const CADENCE_RANK: Record<MonitoringCadence, number> = { none: 0, biweekly: 1, weekly: 2, daily: 3 }
 
 /**
  * A plan that permits 'daily' monitoring may still choose the LESS
@@ -126,6 +126,24 @@ export function evaluateMonitoringCadenceChoice(entitlements: PlanEntitlements, 
     return { allowed: false, reason: 'feature_not_in_plan' }
   }
   return { allowed: true }
+}
+
+/**
+ * Sprint 3 (monitoring + notifications completion) — the cadence a
+ * website's Monitoring Settings should PRE-SELECT the first time a
+ * customer turns monitoring on, distinct from `monitoringCadence` (that
+ * plan's own CEILING). Bloom's ceiling (biweekly) IS its default — there
+ * is nothing more frequent to default away from. Bloom Pro's ceiling
+ * (weekly) is also its default. Agency's ceiling (daily) is deliberately
+ * NOT its default — "weekly by default, daily configurable" is this
+ * plan's own locked behavior — so this recommends the SLOWER of (the
+ * plan's ceiling, weekly) rather than always maxing out the ceiling.
+ * `evaluateMonitoringCadenceChoice` above remains the actual enforcement;
+ * this only decides what a fresh settings form shows pre-selected.
+ */
+export function recommendedCadence(grantedCadence: MonitoringCadence): MonitoringCadence {
+  if (grantedCadence === 'none') return 'none'
+  return CADENCE_RANK[grantedCadence] >= CADENCE_RANK.weekly ? 'weekly' : grantedCadence
 }
 
 /**

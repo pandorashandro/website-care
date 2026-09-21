@@ -31,6 +31,7 @@ import { getLatestChangeSummary } from './scan-history'
 import SinceLastScan from '@/components/report/since-last-scan'
 import { getMonitoringSettings } from './monitoring-settings'
 import MonitoringStatus from '@/components/monitoring/monitoring-status'
+import { latestNotificationForWebsite } from '@/lib/monitoring/notification-service'
 import { getCurrentUserEntitlements } from '@/lib/entitlements'
 import { computeOverallWebsiteHealth } from '@/lib/category-engine/overall-health'
 import FixTheseFirst from '@/components/report/fix-these-first'
@@ -214,6 +215,7 @@ export default async function WebsiteReportPage(props: PageProps<'/dashboard/web
   const latestChange = await getLatestChangeSummary(website.id)
   const monitoringSettings = await getMonitoringSettings(website.id)
   const entitlements = await getCurrentUserEntitlements()
+  const latestNotification = monitoringSettings?.monitoringEnabled ? await latestNotificationForWebsite(website.id) : null
 
   const wordpress = await wordpressPromise
   const wordpressConnection = await wordpressConnectionPromise
@@ -379,7 +381,7 @@ export default async function WebsiteReportPage(props: PageProps<'/dashboard/web
                   : 'Not scanned yet'}
             </p>
 
-            {monitoringSettings && <MonitoringStatus settings={monitoringSettings} grantedCadence={entitlements.monitoringCadence} />}
+            {monitoringSettings && <MonitoringStatus settings={monitoringSettings} grantedCadence={entitlements.monitoringCadence} latestNotification={latestNotification} />}
 
             <div className="mt-5 sm:w-56">
               <ScanWebsiteControls websiteId={website.id} crawlRun={crawlRun} allCategoriesAnalyzed={allCategoriesAnalyzed} />

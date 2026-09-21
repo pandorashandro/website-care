@@ -11,7 +11,8 @@ import type { MonitoringCadence } from '@/lib/entitlements/plans'
  * never a wall-clock time in any particular zone.
  */
 
-export const CADENCE_INTERVAL_MS: Record<'weekly' | 'daily', number> = {
+export const CADENCE_INTERVAL_MS: Record<'biweekly' | 'weekly' | 'daily', number> = {
+  biweekly: 14 * 24 * 60 * 60 * 1000,
   weekly: 7 * 24 * 60 * 60 * 1000,
   daily: 24 * 60 * 60 * 1000,
 }

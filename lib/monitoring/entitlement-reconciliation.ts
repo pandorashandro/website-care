@@ -32,11 +32,11 @@ export type CadenceReconciliation =
   /** The plan no longer permits scheduled monitoring at all — monitoring must be fully disabled, not merely slowed down. */
   | { action: 'disable' }
   /** The stored cadence exceeded what the current plan grants — clamped down to the plan's own ceiling. */
-  | { action: 'downgrade'; cadence: 'weekly' | 'daily' }
+  | { action: 'downgrade'; cadence: 'biweekly' | 'weekly' | 'daily' }
   /** The stored cadence is still within (or equal to) what the current plan grants — nothing to change. */
-  | { action: 'keep'; cadence: 'weekly' | 'daily' }
+  | { action: 'keep'; cadence: 'biweekly' | 'weekly' | 'daily' }
 
-const CADENCE_RANK: Record<MonitoringCadence, number> = { none: 0, weekly: 1, daily: 2 }
+const CADENCE_RANK: Record<MonitoringCadence, number> = { none: 0, biweekly: 1, weekly: 2, daily: 3 }
 
 export function reconcileCadenceWithEntitlements(storedCadence: MonitoringCadence, entitlements: PlanEntitlements): CadenceReconciliation {
   // Defensive only: the settings write path never persists this

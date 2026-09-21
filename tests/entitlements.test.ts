@@ -12,6 +12,7 @@ import {
   getMonitoringCadence,
   evaluateMonitoringEnable,
   evaluateMonitoringCadenceChoice,
+  recommendedCadence,
 } from '@/lib/entitlements/capabilities'
 
 /**
@@ -233,15 +234,15 @@ describe('monitoring cadence by plan', () => {
     expect(getMonitoringCadence(resolveEntitlements(null))).toBe('none')
   })
 
-  it('Bloom monitoring cadence is weekly', () => {
-    expect(getMonitoringCadence(resolveEntitlements(activeBloomRow))).toBe('weekly')
+  it('Bloom monitoring cadence is biweekly', () => {
+    expect(getMonitoringCadence(resolveEntitlements(activeBloomRow))).toBe('biweekly')
   })
 
-  it('Bloom Pro monitoring cadence is daily', () => {
-    expect(getMonitoringCadence(resolveEntitlements(activeBloomProRow))).toBe('daily')
+  it('Bloom Pro monitoring cadence is weekly', () => {
+    expect(getMonitoringCadence(resolveEntitlements(activeBloomProRow))).toBe('weekly')
   })
 
-  it('Agency monitoring cadence is daily', () => {
+  it('Agency monitoring cadence ceiling is daily (its default is weekly — see recommendedCadence)', () => {
     expect(getMonitoringCadence(resolveEntitlements(activeAgencyRow))).toBe('daily')
   })
 })
@@ -251,11 +252,11 @@ describe('evaluateMonitoringEnable — Sprint 2, Prompt 1', () => {
     expect(evaluateMonitoringEnable(resolveEntitlements(null))).toEqual({ allowed: false, reason: 'feature_not_in_plan' })
   })
 
-  it('Bloom (weekly cadence) is allowed to enable monitoring', () => {
+  it('Bloom (biweekly cadence) is allowed to enable monitoring', () => {
     expect(evaluateMonitoringEnable(resolveEntitlements(activeBloomRow))).toEqual({ allowed: true })
   })
 
-  it('Bloom Pro (daily cadence) is allowed to enable monitoring', () => {
+  it('Bloom Pro (weekly cadence) is allowed to enable monitoring', () => {
     expect(evaluateMonitoringEnable(resolveEntitlements(activeBloomProRow))).toEqual({ allowed: true })
   })
 
@@ -270,20 +271,47 @@ describe('evaluateMonitoringCadenceChoice — Sprint 2, Prompt 1', () => {
     expect(evaluateMonitoringCadenceChoice(resolveEntitlements(null), 'weekly')).toEqual({ allowed: false, reason: 'feature_not_in_plan' })
   })
 
-  it('Bloom may choose weekly (its own granted cadence)', () => {
-    expect(evaluateMonitoringCadenceChoice(resolveEntitlements(activeBloomRow), 'weekly')).toEqual({ allowed: true })
+  it('Bloom may choose biweekly (its own granted cadence)', () => {
+    expect(evaluateMonitoringCadenceChoice(resolveEntitlements(activeBloomRow), 'biweekly')).toEqual({ allowed: true })
   })
 
-  it('Bloom is denied requesting daily — more frequent than its plan grants — never silently clamped to weekly', () => {
-    expect(evaluateMonitoringCadenceChoice(resolveEntitlements(activeBloomRow), 'daily')).toEqual({ allowed: false, reason: 'feature_not_in_plan' })
+  it('Bloom is denied requesting weekly — more frequent than its plan grants — never silently clamped to biweekly', () => {
+    expect(evaluateMonitoringCadenceChoice(resolveEntitlements(activeBloomRow), 'weekly')).toEqual({ allowed: false, reason: 'feature_not_in_plan' })
   })
 
-  it('Bloom Pro (daily-granting plan) may still choose the LESS frequent weekly cadence if it prefers', () => {
+  it('Bloom Pro (weekly-granting plan) may still choose the LESS frequent biweekly cadence if it prefers', () => {
+    expect(evaluateMonitoringCadenceChoice(resolveEntitlements(activeBloomProRow), 'biweekly')).toEqual({ allowed: true })
+  })
+
+  it('Bloom Pro may choose weekly (its own granted cadence)', () => {
     expect(evaluateMonitoringCadenceChoice(resolveEntitlements(activeBloomProRow), 'weekly')).toEqual({ allowed: true })
   })
 
-  it('Bloom Pro may choose daily (its own granted cadence)', () => {
-    expect(evaluateMonitoringCadenceChoice(resolveEntitlements(activeBloomProRow), 'daily')).toEqual({ allowed: true })
+  it('Bloom Pro is denied requesting daily — more frequent than its plan grants', () => {
+    expect(evaluateMonitoringCadenceChoice(resolveEntitlements(activeBloomProRow), 'daily')).toEqual({ allowed: false, reason: 'feature_not_in_plan' })
+  })
+
+  it('Agency (daily-granting plan) defaults are weekly but daily remains a genuine, allowed configuration choice', () => {
+    expect(evaluateMonitoringCadenceChoice(resolveEntitlements(activeAgencyRow), 'weekly')).toEqual({ allowed: true })
+    expect(evaluateMonitoringCadenceChoice(resolveEntitlements(activeAgencyRow), 'daily')).toEqual({ allowed: true })
+  })
+})
+
+describe('recommendedCadence — Sprint 3 (monitoring + notifications completion)', () => {
+  it('Bloom recommends its own ceiling (biweekly) — there is nothing slower to default to', () => {
+    expect(recommendedCadence('biweekly')).toBe('biweekly')
+  })
+
+  it('Bloom Pro recommends its own ceiling (weekly)', () => {
+    expect(recommendedCadence('weekly')).toBe('weekly')
+  })
+
+  it('Agency recommends weekly, NOT its daily ceiling — daily is a configurable upgrade, never the default', () => {
+    expect(recommendedCadence('daily')).toBe('weekly')
+  })
+
+  it('a plan with no monitoring at all recommends none', () => {
+    expect(recommendedCadence('none')).toBe('none')
   })
 })
 

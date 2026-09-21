@@ -1,4 +1,7 @@
+import Link from 'next/link'
 import { formatDate } from '@/components/report/report-helpers'
+import { formatRelativeTime } from '@/lib/monitoring/format-relative-time'
+import type { LatestWebsiteNotification } from '@/lib/monitoring/notification-service'
 import type { MonitoringSettings } from '@/app/dashboard/websites/[id]/monitoring-settings'
 import type { MonitoringCadence } from '@/lib/entitlements/plans'
 
@@ -16,7 +19,27 @@ import type { MonitoringCadence } from '@/lib/entitlements/plans'
  * this pass's own "no constant pulse" motion rule — color alone, not
  * motion, carries the status.
  */
-export default function MonitoringStatus({ settings, grantedCadence }: { settings: MonitoringSettings; grantedCadence: MonitoringCadence }) {
+function LastMeaningfulChange({ latestNotification }: { latestNotification: LatestWebsiteNotification }) {
+  return (
+    <p className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-muted">
+      Last update: {latestNotification.classified.headline} ({formatRelativeTime(latestNotification.createdAt)})
+      <Link href="/dashboard/notifications" className="font-medium text-brand hover:text-brand-hover">
+        View
+      </Link>
+    </p>
+  )
+}
+
+export default function MonitoringStatus({
+  settings,
+  grantedCadence,
+  latestNotification,
+}: {
+  settings: MonitoringSettings
+  grantedCadence: MonitoringCadence
+  /** Section 4: "last meaningful change," shown right alongside status/cadence — omitted entirely (never fabricated) when this website has no monitoring_events row yet. */
+  latestNotification?: LatestWebsiteNotification | null
+}) {
   if (!settings.monitoringEnabled) {
     return (
       <p className="mt-1.5 flex items-center gap-1.5 text-xs text-muted">
@@ -38,13 +61,16 @@ export default function MonitoringStatus({ settings, grantedCadence }: { setting
   }
 
   return (
-    <p className="mt-1.5 flex flex-wrap items-center gap-1.5 text-xs">
-      <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-success" aria-hidden="true" />
-      <span className="font-medium text-gray-700">Monitoring active</span>
-      <span className="text-muted">
-        · {settings.lastRunAt ? `Last checked ${formatDate(settings.lastRunAt)}` : 'Not checked yet'}
-        {settings.nextDueAt ? ` · Next check ${formatDate(settings.nextDueAt)}` : ''}
-      </span>
-    </p>
+    <>
+      <p className="mt-1.5 flex flex-wrap items-center gap-1.5 text-xs">
+        <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-success" aria-hidden="true" />
+        <span className="font-medium text-gray-700">Monitoring active</span>
+        <span className="text-muted">
+          · {settings.lastRunAt ? `Last checked ${formatDate(settings.lastRunAt)}` : 'Not checked yet'}
+          {settings.nextDueAt ? ` · Next check ${formatDate(settings.nextDueAt)}` : ''}
+        </span>
+      </p>
+      {latestNotification && <LastMeaningfulChange latestNotification={latestNotification} />}
+    </>
   )
 }

@@ -11,24 +11,29 @@ describe('reconcileCadenceWithEntitlements — Sprint 2, Prompt 2', () => {
     expect(reconcileCadenceWithEntitlements('weekly', entitlements)).toEqual({ action: 'disable' })
   })
 
-  it('DOWNGRADE BEHAVIOR: a stored daily cadence on a plan that only grants weekly is clamped down, never silently kept at daily', () => {
+  it('DOWNGRADE BEHAVIOR: a stored daily cadence on a plan that only grants biweekly is clamped down, never silently kept at daily', () => {
     const entitlements = resolveEntitlements(activeBloomRow)
-    expect(reconcileCadenceWithEntitlements('daily', entitlements)).toEqual({ action: 'downgrade', cadence: 'weekly' })
+    expect(reconcileCadenceWithEntitlements('daily', entitlements)).toEqual({ action: 'downgrade', cadence: 'biweekly' })
   })
 
   it('PAID ALLOWED CADENCE WORKS: a stored cadence within the plan grant is kept unchanged', () => {
     const entitlements = resolveEntitlements(activeBloomRow)
-    expect(reconcileCadenceWithEntitlements('weekly', entitlements)).toEqual({ action: 'keep', cadence: 'weekly' })
+    expect(reconcileCadenceWithEntitlements('biweekly', entitlements)).toEqual({ action: 'keep', cadence: 'biweekly' })
   })
 
-  it('a plan that grants daily lets a stored weekly preference stay weekly — never force-upgraded to the plan maximum', () => {
+  it('a plan that grants weekly lets a stored biweekly preference stay biweekly — never force-upgraded to the plan maximum', () => {
+    const entitlements = resolveEntitlements(activeBloomProRow)
+    expect(reconcileCadenceWithEntitlements('biweekly', entitlements)).toEqual({ action: 'keep', cadence: 'biweekly' })
+  })
+
+  it('a plan that grants weekly keeps a stored weekly preference', () => {
     const entitlements = resolveEntitlements(activeBloomProRow)
     expect(reconcileCadenceWithEntitlements('weekly', entitlements)).toEqual({ action: 'keep', cadence: 'weekly' })
   })
 
-  it('a plan that grants daily keeps a stored daily preference', () => {
-    const entitlements = resolveEntitlements(activeBloomProRow)
-    expect(reconcileCadenceWithEntitlements('daily', entitlements)).toEqual({ action: 'keep', cadence: 'daily' })
+  it('a downgrade from Bloom Pro to Bloom clamps a stored weekly preference down to biweekly', () => {
+    const entitlements = resolveEntitlements(activeBloomRow)
+    expect(reconcileCadenceWithEntitlements('weekly', entitlements)).toEqual({ action: 'downgrade', cadence: 'biweekly' })
   })
 
   it('a lapsed paid subscription is disabled exactly like Free, via the same evaluateMonitoringEnable path', () => {

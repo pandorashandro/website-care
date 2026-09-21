@@ -2,6 +2,11 @@ import { describe, expect, it } from 'vitest'
 import { computeNextDueAt, CADENCE_INTERVAL_MS } from '@/lib/monitoring/cadence'
 
 describe('computeNextDueAt', () => {
+  it('DETERMINISTIC NEXT_DUE_AT: biweekly cadence adds exactly 14 days', () => {
+    const from = new Date('2026-01-01T00:00:00.000Z')
+    expect(computeNextDueAt('biweekly', from)).toBe('2026-01-15T00:00:00.000Z')
+  })
+
   it('DETERMINISTIC NEXT_DUE_AT: weekly cadence adds exactly 7 days', () => {
     const from = new Date('2026-01-01T00:00:00.000Z')
     expect(computeNextDueAt('weekly', from)).toBe('2026-01-08T00:00:00.000Z')

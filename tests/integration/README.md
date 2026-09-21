@@ -40,6 +40,7 @@ npx supabase init --workdir .
 # 20261125000000_monitoring_foundation.sql
 # 20261126000000_monitoring_scheduling.sql
 # 20261127000000_monitoring_delivery_provider_message_id.sql
+# 20261128000000_monitoring_notifications.sql
 #
 # Deliberately EXCLUDED (Shopify/Wix-specific, no monitoring dependency,
 # and themselves depend on other untracked legacy tables):
