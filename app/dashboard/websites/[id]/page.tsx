@@ -21,8 +21,9 @@ import EmptyState from '@/components/ui/empty-state'
 import { buttonStyles } from '@/components/ui/button'
 import WebsiteSubNav from '@/components/website/website-sub-nav'
 import HealthOverview from '@/components/report/health-overview'
-import OverallWebsiteHealthCard from '@/components/report/overall-website-health'
+import HealthGauge from '@/components/ui/health-gauge'
 import CategoryScoreGrid from '@/components/report/category-score-grid'
+import { healthLabel, healthTone } from '@/lib/scanner/health-label'
 import ScanWebsiteControls from './scan-website-controls'
 import { getUnifiedCategorySummaries } from './unified-summary'
 import { getFixTheseFirst } from './fix-these-first'
@@ -348,34 +349,69 @@ export default async function WebsiteReportPage(props: PageProps<'/dashboard/web
         ← Back to Websites
       </Link>
 
-      <Card padding="md" className="mt-4 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div className="min-w-0">
-          <p className="text-xs font-semibold uppercase tracking-wide text-subtle">Website Overview</p>
-          <h1 className="mt-1 truncate text-2xl font-semibold text-gray-900">{website.name}</h1>
-          <a
-            href={website.url}
-            target="_blank"
-            rel="noreferrer"
-            className="mt-1 block truncate text-sm text-muted hover:text-gray-700"
-          >
-            {website.url}
-          </a>
+      {/*
+        Sprint 3, Prompt 2B (structural reset) — identity, scan action, and
+        Overall Website Health used to be two stacked plain-white Cards
+        (a header Card, then a separate OverallWebsiteHealthCard). The
+        founder's own grayscale/no-logo test made the problem obvious: two
+        identical white boxes stacked vertically is indistinguishable from
+        the previous design no matter what color is used inside them. This
+        is now ONE bold hero band with a tinted brand-gradient wash and the
+        HealthGauge as its focal shape — the single biggest visual-identity
+        moment on the page, exactly matching "the founder should remember
+        this component."
+      */}
+      <div className="relative mt-4 overflow-hidden rounded-xl border border-border">
+        <div className="pointer-events-none absolute inset-0 opacity-[0.06]" style={{ background: 'var(--brand-gradient)' }} aria-hidden="true" />
+        <div className="relative flex flex-col gap-6 p-6 sm:p-8 lg:flex-row lg:items-center lg:justify-between">
+          <div className="min-w-0 flex-1">
+            <p className="text-xs font-semibold uppercase tracking-wide text-subtle">Website Overview</p>
+            <h1 className="mt-1 truncate text-3xl font-bold tracking-tight text-gray-900">{website.name}</h1>
+            <a href={website.url} target="_blank" rel="noreferrer" className="mt-1 block truncate text-sm text-muted hover:text-gray-700">
+              {website.url}
+            </a>
 
-          <p className="mt-3 text-sm text-muted">
-            {latestAnalysisDate
-              ? `Last analyzed ${formatDate(latestAnalysisDate)}`
-              : crawlRun && (crawlRun.status === 'queued' || crawlRun.status === 'running')
-                ? 'Scanning in progress…'
-                : 'Not scanned yet'}
-          </p>
+            <p className="mt-3 text-sm text-muted">
+              {latestAnalysisDate
+                ? `Last analyzed ${formatDate(latestAnalysisDate)}`
+                : crawlRun && (crawlRun.status === 'queued' || crawlRun.status === 'running')
+                  ? 'Scanning in progress…'
+                  : 'Not scanned yet'}
+            </p>
 
-          {monitoringSettings && <MonitoringStatus settings={monitoringSettings} grantedCadence={entitlements.monitoringCadence} />}
+            {monitoringSettings && <MonitoringStatus settings={monitoringSettings} grantedCadence={entitlements.monitoringCadence} />}
+
+            <div className="mt-5 sm:w-56">
+              <ScanWebsiteControls websiteId={website.id} crawlRun={crawlRun} allCategoriesAnalyzed={allCategoriesAnalyzed} />
+            </div>
+          </div>
+
+          {(crawlRun || latestScan) && (
+            <div className="flex items-center gap-5 border-t border-border pt-6 lg:shrink-0 lg:border-t-0 lg:border-l lg:pl-8 lg:pt-0">
+              <HealthGauge
+                score={overallHealth.score}
+                size="lg"
+                aria-label={overallHealth.score === null ? 'Overall Website Health: not yet available' : `Overall Website Health: ${overallHealth.score} out of 100`}
+              />
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-subtle">Overall Health</p>
+                {overallHealth.score === null ? (
+                  <p className="mt-1 text-sm text-muted">Run a scan to see this.</p>
+                ) : (
+                  <>
+                    <Badge tone={healthTone(overallHealth.score)} className="mt-1">
+                      {healthLabel(overallHealth.score)}
+                    </Badge>
+                    <p className="mt-2 text-xs text-muted">
+                      {overallHealth.contributingCategoryCount} of {overallHealth.totalCanonicalCategories} pillars analyzed
+                    </p>
+                  </>
+                )}
+              </div>
+            </div>
+          )}
         </div>
-
-        <div className="sm:w-48 sm:shrink-0">
-          <ScanWebsiteControls websiteId={website.id} crawlRun={crawlRun} allCategoriesAnalyzed={allCategoriesAnalyzed} />
-        </div>
-      </Card>
+      </div>
 
       <WebsiteSubNav websiteId={website.id} active="overview" />
 
@@ -391,8 +427,6 @@ export default async function WebsiteReportPage(props: PageProps<'/dashboard/web
 
       {(crawlRun || latestScan) && (
         <div className="mt-6 space-y-6">
-          <OverallWebsiteHealthCard health={overallHealth} />
-
           <SinceLastScan result={latestChange} />
 
           <FixTheseFirst problems={fixTheseFirst} />
@@ -416,7 +450,20 @@ export default async function WebsiteReportPage(props: PageProps<'/dashboard/web
         </Alert>
       )}
 
-      {latestScan?.status === 'completed' && healthScore && (
+      {/*
+        Sprint 3, Prompt 2B (structural reset) — this legacy single-page
+        scan report (HealthOverview/PriorityIssues/IssueGroup, predating the
+        seven-pillar canonical engine) used to render UNCONDITIONALLY
+        whenever `latestScan` existed — including alongside the canonical
+        widgets above, for any website that happened to have both a new
+        crawl AND an old scan row. That produced exactly the duplicate,
+        redundant "two reports on one page" experience the founder flagged.
+        It now renders ONLY as a fallback for a website that has never had
+        a canonical crawl at all (`!crawlRun`) — never stacked underneath
+        the real canonical report. No data-fetching or computation above
+        changed; this is a rendering-condition fix, not a backend change.
+      */}
+      {!crawlRun && latestScan?.status === 'completed' && healthScore && (
         <div className="mt-6 space-y-6">
           {isFirstReport && issues.length > 0 && (
             <Alert tone="success">

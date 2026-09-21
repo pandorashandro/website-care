@@ -12,6 +12,7 @@ import EmptyState from '@/components/ui/empty-state'
 import { buttonStyles } from '@/components/ui/button'
 import WebsiteSubNav from '@/components/website/website-sub-nav'
 import PillarSubNav from '@/components/website/pillar-sub-nav'
+import { PILLAR_IDENTITY } from '@/components/website/pillar-identity'
 import FindingList, { type NormalizedFinding } from '@/components/report/finding-list'
 import { formatDate, SEVERITY_DISPLAY_ORDER, SEVERITY_LABELS, severityTone } from '@/components/report/report-helpers'
 import OnPageSeoControls from './on-page-seo-controls'
@@ -337,10 +338,12 @@ export default async function OnPageSeoPage(props: PageProps<'/dashboard/website
         ← Back to {website.name}
       </Link>
 
-      <Card padding="md" className="mt-4 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+      <Card padding="none" className="mt-4 overflow-hidden">
+        <div className="h-1 w-full" style={{ backgroundColor: PILLAR_IDENTITY['on-page-seo'].accent }} aria-hidden="true" />
+        <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
           <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-subtle">
-            <Search className="h-3.5 w-3.5" aria-hidden="true" />
+            <Search className="h-3.5 w-3.5" style={{ color: PILLAR_IDENTITY['on-page-seo'].accent }} aria-hidden="true" />
             On-Page SEO
           </p>
           <h1 className="mt-1 text-2xl font-semibold text-gray-900">On-Page SEO</h1>
@@ -356,6 +359,7 @@ export default async function OnPageSeoPage(props: PageProps<'/dashboard/website
             <OnPageSeoControls websiteId={website.id} crawlRunId={crawlRun.id} hasExistingAnalysis={!!analysis} />
           </div>
         )}
+        </div>
       </Card>
 
       <WebsiteSubNav websiteId={website.id} active="on-page-seo" />

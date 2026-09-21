@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import Badge from '@/components/ui/badge'
 import Card from '@/components/ui/card'
-import ScoreMeter from '@/components/ui/score-meter'
+import HealthGauge from '@/components/ui/health-gauge'
 import { buttonStyles } from '@/components/ui/button'
 import ScanWebsiteControls from '@/app/dashboard/websites/[id]/scan-website-controls'
 import { healthLabel, healthTone } from '@/lib/scanner/health-label'
@@ -29,27 +29,36 @@ function hostnameOf(url: string): string {
   }
 }
 
-function formatDate(value: string): string {
-  return new Date(value).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
-}
-
 /**
- * Sprint 3, Prompt 2B — reads the SAME canonical Overall Website Health
- * Website Overview itself shows (see app/dashboard/page.tsx's own doc
- * comment) and triggers the SAME canonical scan pipeline via
- * ScanWebsiteControls — no second scoring computation, no second scan
- * entry point. Visually redesigned: the health meter now uses the shared
- * ScoreMeter (the same signature visualization as Overview/pillars), and
- * every real state (analyzed, scanning, failed, never scanned) gets its
- * own honest presentation rather than a single "score or nothing" branch.
+ * Sprint 3, Prompt 2B (structural reset) — reads the SAME canonical
+ * Overall Website Health Website Overview itself shows, and triggers the
+ * SAME canonical scan pipeline via ScanWebsiteControls — no second scoring
+ * computation, no second scan entry point.
+ *
+ * Structurally rebuilt around `HealthGauge` (the same radial visual as
+ * Website Overview's flagship metric and the pillar grid) instead of a
+ * horizontal meter plus a separately printed score number — one glance at
+ * the ring now tells a portfolio owner everything the previous stacked
+ * text/badge/bar combination took four separate lines to say. Every real
+ * state (analyzed, scanning, failed, never scanned) renders the same ring
+ * shape, honestly empty when there is no score yet, so the whole portfolio
+ * grid reads as one consistent visual system rather than "a meter for some
+ * cards, nothing for others."
  */
 export default function WebsiteCard({ website }: { website: DashboardWebsite }) {
   const { overallHealth } = website
+  const score = website.status === 'analyzed' ? overallHealth.score : null
 
   return (
-    <Card padding="md" className="flex flex-col transition-shadow duration-150 ease-out hover:shadow-md">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
+    <Card padding="none" className="flex h-full flex-col overflow-hidden transition-shadow duration-150 ease-out hover:shadow-md">
+      <div className="flex items-start gap-4 p-5">
+        <HealthGauge
+          score={score}
+          size="md"
+          aria-label={score === null ? `${website.name}: not yet analyzed` : `${website.name}: ${score} out of 100`}
+        />
+
+        <div className="min-w-0 flex-1">
           <h3 className="truncate text-base font-semibold text-gray-900">{website.name}</h3>
           <a
             href={website.url}
@@ -59,49 +68,29 @@ export default function WebsiteCard({ website }: { website: DashboardWebsite }) 
           >
             {hostnameOf(website.url)}
           </a>
-        </div>
 
-        {website.status === 'analyzed' && overallHealth.score !== null && (
-          <span className="shrink-0 text-2xl font-semibold tabular-nums text-gray-900">{overallHealth.score}</span>
-        )}
+          <div className="mt-2.5">
+            {website.status === 'analyzed' && score !== null ? (
+              <>
+                <Badge tone={healthTone(score)}>{healthLabel(score)}</Badge>
+                {!website.allCategoriesAnalyzed && (
+                  <p className="mt-1.5 text-xs text-subtle">
+                    {overallHealth.contributingCategoryCount} of {overallHealth.totalCanonicalCategories} pillars
+                  </p>
+                )}
+              </>
+            ) : website.status === 'scanning' ? (
+              <Badge tone="info">Scanning…</Badge>
+            ) : website.status === 'failed' ? (
+              <Badge tone="danger">Last scan failed</Badge>
+            ) : (
+              <Badge tone="neutral">Not scanned yet</Badge>
+            )}
+          </div>
+        </div>
       </div>
 
-      {website.status === 'analyzed' && overallHealth.score !== null ? (
-        <>
-          <ScoreMeter
-            score={overallHealth.score}
-            size="sm"
-            className="mt-3"
-            aria-label={`Overall Website Health: ${overallHealth.score} out of 100, ${healthLabel(overallHealth.score)}`}
-          />
-          <div className="mt-3 flex items-center justify-between gap-2">
-            <Badge tone={healthTone(overallHealth.score)}>{healthLabel(overallHealth.score)}</Badge>
-            <span className="text-xs text-subtle">{website.lastAnalyzedAt ? `Analyzed ${formatDate(website.lastAnalyzedAt)}` : null}</span>
-          </div>
-          {!website.allCategoriesAnalyzed && (
-            <p className="mt-1.5 text-xs text-subtle">
-              Based on {overallHealth.contributingCategoryCount} of {overallHealth.totalCanonicalCategories} pillars analyzed so far.
-            </p>
-          )}
-        </>
-      ) : website.status === 'scanning' ? (
-        <div className="mt-4 flex items-center justify-between">
-          <Badge tone="info">Scanning…</Badge>
-          <span className="text-xs text-subtle">This may take a moment</span>
-        </div>
-      ) : website.status === 'failed' ? (
-        <div className="mt-4">
-          <Badge tone="danger">Last scan failed</Badge>
-          <p className="mt-2 text-sm text-muted">Something went wrong during the last scan.</p>
-        </div>
-      ) : (
-        <div className="mt-4 flex items-center justify-between">
-          <Badge tone="neutral">Not scanned yet</Badge>
-          <span className="text-xs text-subtle">Added {formatDate(website.createdAt)}</span>
-        </div>
-      )}
-
-      <div className="mt-4 flex flex-1 flex-col justify-end gap-2">
+      <div className="mt-auto flex flex-col gap-2 border-t border-border p-4">
         {website.status === 'analyzed' && (
           <Link href={`/dashboard/websites/${website.id}`} className={buttonStyles({ variant: 'outline', className: 'text-center' })}>
             View report

@@ -1,10 +1,17 @@
 'use client'
 
 import { useState, type ReactNode } from 'react'
-import Card from '@/components/ui/card'
 import Badge, { type BadgeTone } from '@/components/ui/badge'
 import Tabs from '@/components/ui/tabs'
 import { SEVERITY_LABELS, severityTone } from '@/components/report/report-helpers'
+
+/** Same severity → color mapping as Fix These First's left-edge accent — one visual language for "how urgent is this" across the whole product, not a per-page invention. */
+const SEVERITY_EDGE: Record<NormalizedFinding['severity'], string> = {
+  critical: 'var(--color-danger)',
+  high: 'var(--color-danger)',
+  medium: 'var(--color-warning)',
+  low: 'var(--color-border-strong)',
+}
 
 /**
  * Sprint 3, Prompt 2B — Section 15/16. The ONE coherent finding +
@@ -64,48 +71,51 @@ function FindingCard({ finding, expert }: { finding: NormalizedFinding; expert: 
   const hasEvidence = !!finding.evidence
 
   return (
-    <Card padding="md">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="text-xs font-semibold uppercase tracking-wide text-subtle">{finding.categoryLabel}</p>
-          <h3 className="mt-1 text-base font-semibold text-gray-900">{finding.title}</h3>
+    <div className="relative overflow-hidden rounded-lg border border-border bg-surface">
+      <span className="absolute inset-y-0 left-0 w-1" style={{ backgroundColor: SEVERITY_EDGE[finding.severity] }} aria-hidden="true" />
+      <div className="p-4 pl-5">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-xs font-semibold uppercase tracking-wide text-subtle">{finding.categoryLabel}</p>
+            <h3 className="mt-0.5 text-base font-semibold text-gray-900">{finding.title}</h3>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge tone={severityTone(finding.severity)}>{SEVERITY_LABELS[finding.severity]}</Badge>
+            {expert && finding.confidenceLabel && <Badge tone="neutral">{finding.confidenceLabel}</Badge>}
+          </div>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <Badge tone={severityTone(finding.severity)}>{SEVERITY_LABELS[finding.severity]}</Badge>
-          {expert && finding.confidenceLabel && <Badge tone="neutral">{finding.confidenceLabel}</Badge>}
+
+        <p className="mt-1.5 text-xs font-medium text-muted">{finding.countsSummary}</p>
+
+        <p className="mt-2.5 text-sm text-gray-700">{finding.whyItMatters}</p>
+
+        <div className="mt-3 flex flex-wrap items-center gap-3">
+          <Badge tone={finding.actionabilityTone}>{finding.actionabilityLabel}</Badge>
+          {expert && hasEvidence && (
+            <button
+              type="button"
+              onClick={() => setExpanded((value) => !value)}
+              className="text-xs font-medium text-brand transition-colors duration-150 ease-out hover:text-brand-hover"
+              aria-expanded={expanded}
+            >
+              {expanded ? 'Hide evidence' : 'Show evidence'}
+            </button>
+          )}
         </div>
-      </div>
 
-      <p className="mt-2 text-xs font-medium text-muted">{finding.countsSummary}</p>
+        {finding.primaryAction && <div className="mt-3">{finding.primaryAction}</div>}
 
-      <p className="mt-3 text-sm text-gray-700">{finding.whyItMatters}</p>
-
-      <div className="mt-3 flex flex-wrap items-center gap-3">
-        <Badge tone={finding.actionabilityTone}>{finding.actionabilityLabel}</Badge>
-        {expert && hasEvidence && (
-          <button
-            type="button"
-            onClick={() => setExpanded((value) => !value)}
-            className="text-xs font-medium text-brand transition-colors duration-150 ease-out hover:text-brand-hover"
-            aria-expanded={expanded}
-          >
-            {expanded ? 'Hide evidence' : 'Show evidence'}
-          </button>
+        {expert && (
+          <div className="mt-3 border-t border-border pt-3 text-sm text-gray-700">
+            <p>
+              <span className="font-semibold text-gray-900">Recommendation: </span>
+              {finding.recommendation}
+            </p>
+            {expanded && hasEvidence && <div className="mt-3">{finding.evidence}</div>}
+          </div>
         )}
       </div>
-
-      {finding.primaryAction && <div className="mt-3">{finding.primaryAction}</div>}
-
-      {expert && (
-        <div className="mt-3 border-t border-border pt-3 text-sm text-gray-700">
-          <p>
-            <span className="font-semibold text-gray-900">Recommendation: </span>
-            {finding.recommendation}
-          </p>
-          {expanded && hasEvidence && <div className="mt-3">{finding.evidence}</div>}
-        </div>
-      )}
-    </Card>
+    </div>
   )
 }
 

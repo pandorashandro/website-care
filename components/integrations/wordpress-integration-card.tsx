@@ -31,68 +31,69 @@ export default function WordPressIntegrationCard({
   wordpress: WordPressDetectionResult
   wordpressConnection: WordPressConnectionSummary
 }) {
+  const statusColor = !wordpressConnection.connected
+    ? 'var(--color-border-strong)'
+    : wordpressConnection.connectionValid
+      ? 'var(--color-success)'
+      : 'var(--color-warning)'
+
   return (
-    <Card padding="md">
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="flex h-10 w-10 items-center justify-center rounded-md bg-brand-subtle text-brand">
-          <Plug className="h-5 w-5" aria-hidden="true" />
+    <Card padding="none" className="overflow-hidden">
+      <div className="h-1 w-full" style={{ backgroundColor: statusColor }} aria-hidden="true" />
+      <div className="p-5">
+        <div className="flex flex-wrap items-center gap-3">
+          <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-brand-subtle text-brand">
+            <Plug className="h-6 w-6" aria-hidden="true" />
+          </span>
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <h2 className="text-lg font-semibold text-gray-900">WordPress</h2>
+              {!wordpressConnection.connected ? (
+                <Badge tone="neutral">Not connected</Badge>
+              ) : wordpressConnection.connectionValid ? (
+                <Badge tone="success">Connected</Badge>
+              ) : (
+                <Badge tone="warning">Needs attention</Badge>
+              )}
+            </div>
+            {wordpressConnection.connected && wordpressConnection.displayName && (
+              <p className="mt-0.5 text-sm text-muted">as {wordpressConnection.displayName}</p>
+            )}
+          </div>
         </div>
-        <h2 className="text-lg font-semibold text-gray-900">WordPress</h2>
-        <Badge tone="brand">Integration #1</Badge>
-        <Badge tone="success">Available</Badge>
-      </div>
 
-      <div className="mt-4">
-        {!wordpressConnection.connected ? (
-          <Badge tone="neutral">Not connected</Badge>
-        ) : wordpressConnection.connectionValid ? (
-          <Badge tone="success">Connected</Badge>
-        ) : (
-          <Badge tone="warning">Connection needs attention</Badge>
+        {!wordpressConnection.connected && wordpress.status === 'unknown' && (
+          <p className="mt-3 text-sm text-muted">webioom hasn&apos;t confirmed this website runs WordPress, but you can still connect if it does.</p>
         )}
-        {wordpressConnection.connected && wordpressConnection.displayName && (
-          <span className="ml-2 text-sm text-muted">as {wordpressConnection.displayName}</span>
-        )}
-      </div>
 
-      {!wordpressConnection.connected && wordpress.status === 'unknown' && (
-        <p className="mt-2 text-sm text-muted">
-          webioom hasn&apos;t confirmed this website runs WordPress from scanning it, but you can still
-          connect if it does.
-        </p>
-      )}
-
-      <div className="mt-4 border-t border-border pt-4">
-        <p className="text-xs font-medium uppercase tracking-wide text-subtle">What connecting unlocks</p>
-        <ul className="mt-2 space-y-1.5 text-sm text-gray-700">
-          {SUPPORTED_FIXES.map((item) => (
-            <li key={item}>{item}</li>
-          ))}
-        </ul>
-        <p className="mt-2 text-xs text-muted">
-          Supported fixes depend on the page, permissions, and configuration. Every other issue still gets a
-          clear recommendation, connected or not.
-        </p>
-      </div>
-
-      {wordpressConnection.connected && !wordpressConnection.connectionValid && (
-        <Alert tone="warning" className="mt-4">
-          webioom could not verify this WordPress connection. It may need to be reconnected.
-        </Alert>
-      )}
-
-      {wordpressConnection.connected && wordpressConnection.connectionValid && (
         <div className="mt-4 border-t border-border pt-4">
-          <WordPressCapabilityList capabilities={wordpressConnection.capabilities} />
+          <p className="text-xs font-medium uppercase tracking-wide text-subtle">What connecting unlocks</p>
+          <ul className="mt-2 space-y-1.5 text-sm text-gray-700">
+            {SUPPORTED_FIXES.map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ul>
         </div>
-      )}
 
-      <div className="mt-5">
-        {wordpressConnection.connected ? (
-          <DisconnectWordPressButton websiteId={websiteId} />
-        ) : (
-          <ConnectWordPressButton websiteId={websiteId} />
+        {wordpressConnection.connected && !wordpressConnection.connectionValid && (
+          <Alert tone="warning" className="mt-4">
+            webioom could not verify this WordPress connection. It may need to be reconnected.
+          </Alert>
         )}
+
+        {wordpressConnection.connected && wordpressConnection.connectionValid && (
+          <div className="mt-4 border-t border-border pt-4">
+            <WordPressCapabilityList capabilities={wordpressConnection.capabilities} />
+          </div>
+        )}
+
+        <div className="mt-5">
+          {wordpressConnection.connected ? (
+            <DisconnectWordPressButton websiteId={websiteId} />
+          ) : (
+            <ConnectWordPressButton websiteId={websiteId} />
+          )}
+        </div>
       </div>
     </Card>
   )

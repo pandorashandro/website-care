@@ -36,58 +36,60 @@ export default function ShopifyIntegrationCard({
   websiteId: string
   shopifyConnection: ShopifyConnectionStatus
 }) {
+  const statusColor = !shopifyConnection.connected
+    ? 'var(--color-border-strong)'
+    : shopifyConnection.connectionValid
+      ? 'var(--color-success)'
+      : 'var(--color-warning)'
+
   return (
-    <Card padding="md">
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="flex h-10 w-10 items-center justify-center rounded-md bg-brand-subtle text-brand">
-          <Store className="h-5 w-5" aria-hidden="true" />
+    <Card padding="none" className="overflow-hidden">
+      <div className="h-1 w-full" style={{ backgroundColor: statusColor }} aria-hidden="true" />
+      <div className="p-5">
+        <div className="flex flex-wrap items-center gap-3">
+          <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-brand-subtle text-brand">
+            <Store className="h-6 w-6" aria-hidden="true" />
+          </span>
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <h2 className="text-lg font-semibold text-gray-900">Shopify</h2>
+              {!shopifyConnection.connected ? (
+                <Badge tone="neutral">Not connected</Badge>
+              ) : shopifyConnection.connectionValid ? (
+                <Badge tone="success">Connected</Badge>
+              ) : (
+                <Badge tone="warning">Needs attention</Badge>
+              )}
+            </div>
+            {shopifyConnection.connected && <p className="mt-0.5 text-sm text-muted">as {shopifyConnection.myshopifyDomain}</p>}
+          </div>
         </div>
-        <h2 className="text-lg font-semibold text-gray-900">Shopify</h2>
-        <Badge tone="brand">Integration #2</Badge>
-        <Badge tone="success">Available</Badge>
-      </div>
 
-      <div className="mt-4">
-        {!shopifyConnection.connected ? (
-          <Badge tone="neutral">Not connected</Badge>
-        ) : shopifyConnection.connectionValid ? (
-          <Badge tone="success">Connected</Badge>
-        ) : (
-          <Badge tone="warning">Connection needs attention</Badge>
+        <div className="mt-4 border-t border-border pt-4">
+          <p className="text-xs font-medium uppercase tracking-wide text-subtle">What connecting unlocks</p>
+          <ul className="mt-2 space-y-1.5 text-sm text-gray-700">
+            {SUPPORTED_FIXES.map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ul>
+        </div>
+
+        {shopifyConnection.connected && !shopifyConnection.connectionValid && (
+          <Alert tone="warning" className="mt-4">
+            webioom could not verify this Shopify connection. It may need to be reconnected.
+          </Alert>
         )}
-        {shopifyConnection.connected && (
-          <span className="ml-2 text-sm text-muted">as {shopifyConnection.myshopifyDomain}</span>
-        )}
-      </div>
 
-      <div className="mt-4 border-t border-border pt-4">
-        <p className="text-xs font-medium uppercase tracking-wide text-subtle">What connecting unlocks</p>
-        <ul className="mt-2 space-y-1.5 text-sm text-gray-700">
-          {SUPPORTED_FIXES.map((item) => (
-            <li key={item}>{item}</li>
-          ))}
-        </ul>
-        <p className="mt-2 text-xs text-muted">
-          Supported fixes depend on the resource, permissions, and configuration. Every other issue still
-          gets a clear recommendation, connected or not.
-        </p>
-      </div>
-
-      {shopifyConnection.connected && !shopifyConnection.connectionValid && (
-        <Alert tone="warning" className="mt-4">
-          webioom could not verify this Shopify connection. It may need to be reconnected.
-        </Alert>
-      )}
-
-      <div className="mt-5 flex flex-wrap gap-2">
-        {shopifyConnection.connected ? (
-          <>
-            {!shopifyConnection.connectionValid && <ConnectShopifyButton websiteId={websiteId} />}
-            <DisconnectShopifyButton websiteId={websiteId} />
-          </>
-        ) : (
-          <ConnectShopifyButton websiteId={websiteId} />
-        )}
+        <div className="mt-5 flex flex-wrap gap-2">
+          {shopifyConnection.connected ? (
+            <>
+              {!shopifyConnection.connectionValid && <ConnectShopifyButton websiteId={websiteId} />}
+              <DisconnectShopifyButton websiteId={websiteId} />
+            </>
+          ) : (
+            <ConnectShopifyButton websiteId={websiteId} />
+          )}
+        </div>
       </div>
     </Card>
   )

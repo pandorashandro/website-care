@@ -75,7 +75,7 @@ export default function SinceLastScan({ result }: { result: LatestChangeResult }
         {overallHealth.comparability === 'comparable' ? (
           <p className="text-lg font-semibold text-gray-900">
             Health {overallHealth.previousScore} → {overallHealth.currentScore}{' '}
-            <span className={overallHealth.delta! >= 0 ? 'text-green-700' : 'text-red-700'}>({formatDelta(overallHealth.delta)})</span>
+            <span className={overallHealth.delta! >= 0 ? 'text-success' : 'text-danger'}>({formatDelta(overallHealth.delta)})</span>
           </p>
         ) : (
           <p className="text-sm text-muted">Overall Health movement is not comparable between these two scans.</p>
@@ -85,7 +85,7 @@ export default function SinceLastScan({ result }: { result: LatestChangeResult }
       {comparablePillarDeltas.length > 0 && (
         <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1">
           {comparablePillarDeltas.map((d) => (
-            <span key={d.pillar} className={`text-sm ${d.delta! >= 0 ? 'text-green-700' : 'text-red-700'}`}>
+            <span key={d.pillar} className={`text-sm ${d.delta! >= 0 ? 'text-success' : 'text-danger'}`}>
               {CANONICAL_PILLAR_LABELS[d.pillar]} {formatDelta(d.delta)}
             </span>
           ))}

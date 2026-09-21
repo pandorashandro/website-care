@@ -1,44 +1,51 @@
 import Link from 'next/link'
-import { Wrench, Network, Search, FileText, Gauge, Accessibility as AccessibilityIcon, Shield } from 'lucide-react'
 import Card from '@/components/ui/card'
 import Badge from '@/components/ui/badge'
-import ScoreMeter from '@/components/ui/score-meter'
-import { healthLabel } from '@/lib/scanner/health-label'
+import HealthGauge from '@/components/ui/health-gauge'
+import { PILLAR_IDENTITY, type PillarKey } from '@/components/website/pillar-identity'
 import type { CategorySummary } from '@/lib/category-engine/types'
 
+const PILLAR_LABELS: Record<PillarKey, string> = {
+  'technical-seo': 'Technical SEO',
+  'on-page-seo': 'On-Page SEO',
+  content: 'Content',
+  'site-architecture': 'Site Architecture',
+  performance: 'Performance',
+  accessibility: 'Accessibility',
+  security: 'Security',
+}
+
 /**
- * Unified webioom engine, Prompt 2 — ALL SEVEN canonical categories
- * (Technical SEO, On-Page SEO, Site Architecture, Content, Performance,
- * Accessibility, Security) now render from a real, persisted
- * `CategorySummary` via this ONE shared tile component. The legacy
- * single-homepage-page scanner's own Accessibility/Performance categories
- * (calculate-health-score.ts's `categories` map) and the old placeholder
- * "Not yet available" Security tile are RETIRED from this grid — every
- * category shown here now comes from a genuine site-wide crawl-based
- * canonical engine, never a second, competing score.
+ * Sprint 3, Prompt 2B (structural reset) — the seven-pillar grid, rebuilt
+ * around two things a flat "icon + number + thin bar" card never had: a
+ * `HealthGauge` (the same radial visual used for Overall Website Health, at
+ * a smaller size, so a pillar tile visibly belongs to the same system as
+ * the flagship metric) and a genuine per-pillar identity color from
+ * `PILLAR_IDENTITY`, expressed as a colored top edge — the same "colored
+ * accent bar" convention already used for Billing's plan card and Overall
+ * Website Health, now extended here so the whole product reads as one
+ * visual system rather than seven identical gray cards with different
+ * labels.
  */
-function CategoryEngineTile({
-  href,
-  label,
-  icon: Icon,
-  summary,
-}: {
-  href: string
-  label: string
-  icon: typeof Wrench
-  summary: CategorySummary
-}) {
+function CategoryEngineTile({ pillarKey, href, summary }: { pillarKey: PillarKey; href: string; summary: CategorySummary }) {
+  const identity = PILLAR_IDENTITY[pillarKey]
+  const Icon = identity.icon
+  const label = PILLAR_LABELS[pillarKey]
+
   if (summary.status === 'not_analyzed') {
     return (
       <Link href={href} className="block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2">
-        <Card padding="sm" className="h-full border-dashed hover:border-border-strong">
-          <div className="flex items-center gap-2">
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-surface-muted text-muted">
+        <Card padding="none" className="h-full overflow-hidden border-dashed hover:border-border-strong">
+          <div className="h-1 w-full bg-border" aria-hidden="true" />
+          <div className="flex items-center gap-3 p-3">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-surface-muted text-muted">
               <Icon className="h-4 w-4" aria-hidden="true" />
+            </span>
+            <div className="min-w-0">
+              <p className="truncate text-sm font-semibold text-gray-900">{label}</p>
+              <p className="text-xs text-muted">Not analyzed yet</p>
             </div>
-            <span className="text-sm font-medium text-gray-900">{label}</span>
           </div>
-          <p className="mt-3 text-sm text-muted">Not analyzed yet</p>
         </Card>
       </Link>
     )
@@ -56,27 +63,25 @@ function CategoryEngineTile({
       href={href}
       className="block rounded-lg motion-safe:transition-transform motion-safe:duration-150 motion-safe:ease-out motion-safe:hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
     >
-      <Card padding="sm" className="h-full transition-colors duration-150 ease-out hover:border-border-strong">
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex min-w-0 items-center gap-2">
-            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-brand-subtle text-brand">
-              <Icon className="h-3.5 w-3.5" aria-hidden="true" />
+      <Card padding="none" className="h-full overflow-hidden transition-colors duration-150 ease-out hover:border-border-strong">
+        <div className="h-1 w-full" style={{ backgroundColor: identity.accent }} aria-hidden="true" />
+        <div className="flex items-center gap-3 p-3">
+          <HealthGauge score={score} size="sm" aria-label={`${label}: ${score} out of 100`} />
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-1.5">
+              <Icon className="h-3.5 w-3.5 shrink-0" style={{ color: identity.accent }} aria-hidden="true" />
+              <span className="truncate text-sm font-semibold text-gray-900">{label}</span>
             </div>
-            <span className="truncate text-sm font-medium text-gray-900">{label}</span>
+            <p className="mt-0.5 truncate text-xs text-muted">
+              {findingsCount} finding{findingsCount === 1 ? '' : 's'}
+            </p>
+            {summary.partial && (
+              <Badge tone="neutral" className="mt-1">
+                Partial
+              </Badge>
+            )}
           </div>
-          {summary.partial && <Badge tone="neutral">Partial</Badge>}
         </div>
-
-        <div className="mt-3 flex items-baseline justify-between">
-          <span className="text-xl font-semibold tabular-nums text-gray-900">{score}</span>
-          <span className="text-xs text-muted">{healthLabel(score)}</span>
-        </div>
-
-        <ScoreMeter score={score} size="sm" className="mt-2" aria-label={`${label}: ${score} out of 100, ${healthLabel(score)}`} />
-
-        <p className="mt-2 text-xs text-muted">
-          {findingsCount} finding{findingsCount === 1 ? '' : 's'}
-        </p>
       </Card>
     </Link>
   )
@@ -103,21 +108,15 @@ export default function CategoryScoreGrid({
 }) {
   return (
     <div>
-      <h2 className="text-base font-semibold text-gray-900">The seven pillars</h2>
-      <p className="mt-0.5 text-sm text-muted">Every canonical category webioom analyzes, at a glance.</p>
-      <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-7">
-        <CategoryEngineTile href={`/dashboard/websites/${websiteId}/technical-seo`} label="Technical SEO" icon={Wrench} summary={technicalSeo} />
-        <CategoryEngineTile href={`/dashboard/websites/${websiteId}/on-page-seo`} label="On-Page SEO" icon={Search} summary={onPageSeo} />
-        <CategoryEngineTile
-          href={`/dashboard/websites/${websiteId}/site-architecture`}
-          label="Site Architecture"
-          icon={Network}
-          summary={siteArchitecture}
-        />
-        <CategoryEngineTile href={`/dashboard/websites/${websiteId}/content`} label="Content" icon={FileText} summary={content} />
-        <CategoryEngineTile href={`/dashboard/websites/${websiteId}/performance`} label="Performance" icon={Gauge} summary={performance} />
-        <CategoryEngineTile href={`/dashboard/websites/${websiteId}/accessibility`} label="Accessibility" icon={AccessibilityIcon} summary={accessibility} />
-        <CategoryEngineTile href={`/dashboard/websites/${websiteId}/security`} label="Security" icon={Shield} summary={security} />
+      <h2 className="text-base font-semibold text-gray-900">Seven pillars</h2>
+      <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-7">
+        <CategoryEngineTile pillarKey="technical-seo" href={`/dashboard/websites/${websiteId}/technical-seo`} summary={technicalSeo} />
+        <CategoryEngineTile pillarKey="on-page-seo" href={`/dashboard/websites/${websiteId}/on-page-seo`} summary={onPageSeo} />
+        <CategoryEngineTile pillarKey="site-architecture" href={`/dashboard/websites/${websiteId}/site-architecture`} summary={siteArchitecture} />
+        <CategoryEngineTile pillarKey="content" href={`/dashboard/websites/${websiteId}/content`} summary={content} />
+        <CategoryEngineTile pillarKey="performance" href={`/dashboard/websites/${websiteId}/performance`} summary={performance} />
+        <CategoryEngineTile pillarKey="accessibility" href={`/dashboard/websites/${websiteId}/accessibility`} summary={accessibility} />
+        <CategoryEngineTile pillarKey="security" href={`/dashboard/websites/${websiteId}/security`} summary={security} />
       </div>
     </div>
   )

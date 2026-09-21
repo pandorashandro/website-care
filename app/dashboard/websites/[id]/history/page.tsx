@@ -6,7 +6,7 @@ import { listScanHistoryWithHealth } from '../scan-history'
 import Container from '@/components/ui/container'
 import Card from '@/components/ui/card'
 import Badge from '@/components/ui/badge'
-import ScoreMeter from '@/components/ui/score-meter'
+import HealthGauge from '@/components/ui/health-gauge'
 import EmptyState from '@/components/ui/empty-state'
 import WebsiteSubNav from '@/components/website/website-sub-nav'
 import { formatDate } from '@/components/report/report-helpers'
@@ -105,20 +105,11 @@ export default async function WebsiteHistoryPage(props: PageProps<'/dashboard/we
                     )}
                   </td>
                   <td className="px-4 py-3.5">
-                    {scan.overallHealthScore === null ? (
-                      <span className="text-muted">—</span>
-                    ) : (
-                      <div className="flex items-center gap-2.5">
-                        <span className="w-20">
-                          <ScoreMeter
-                            score={scan.overallHealthScore}
-                            size="sm"
-                            aria-label={`Overall Website Health: ${scan.overallHealthScore} out of 100`}
-                          />
-                        </span>
-                        <Badge tone={healthTone(scan.overallHealthScore)}>{scan.overallHealthScore}</Badge>
-                      </div>
-                    )}
+                    <HealthGauge
+                      score={scan.overallHealthScore}
+                      size="sm"
+                      aria-label={scan.overallHealthScore === null ? 'Overall Website Health: not yet available' : `Overall Website Health: ${scan.overallHealthScore} out of 100`}
+                    />
                   </td>
                   {CANONICAL_PILLARS.map((pillar) => {
                     const score = scan.pillarScores[pillar]

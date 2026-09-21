@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { Wrench, Sparkles, Compass, Code2, Eye } from 'lucide-react'
 import Card from '@/components/ui/card'
 import Badge from '@/components/ui/badge'
+import { cn } from '@/lib/ui/cn'
 import type { TopProblem } from '@/app/dashboard/websites/[id]/fix-these-first'
 
 const SEVERITY_TONE: Record<TopProblem['severity'], 'danger' | 'warning' | 'neutral'> = {
@@ -16,6 +17,14 @@ const SEVERITY_LABEL: Record<TopProblem['severity'], string> = {
   high: 'High priority',
   medium: 'Medium priority',
   low: 'Low priority',
+}
+
+/** The left-edge accent color per severity — this is what lets a customer scan the whole list by color before reading a single word, rather than only learning priority from a badge at the far right of each row. */
+const SEVERITY_EDGE: Record<TopProblem['severity'], string> = {
+  critical: 'var(--color-danger)',
+  high: 'var(--color-danger)',
+  medium: 'var(--color-warning)',
+  low: 'var(--color-border-strong)',
 }
 
 /**
@@ -52,36 +61,34 @@ export default function FixTheseFirst({ problems }: { problems: TopProblem[] }) 
   if (problems.length === 0) return null
 
   return (
-    <Card padding="md">
-      <h2 className="text-sm font-semibold uppercase tracking-wide text-subtle">Fix these first</h2>
-      <p className="mt-1 text-sm text-muted">
-        The highest-priority problems webioom found across your whole website, in order.
-      </p>
+    <Card padding="none" className="overflow-hidden">
+      <h2 className="px-5 pt-5 text-base font-semibold text-gray-900">Fix these first</h2>
 
-      <ol className="mt-4 space-y-2">
+      <ol className="mt-3 divide-y divide-border">
         {problems.map((problem, index) => {
           const action = ACTION_COPY[problem.actionability]
           const ActionIcon = action.icon
+          const isTopPriority = index === 0
 
           return (
-            <li key={`${problem.categoryKey}-${index}`}>
+            <li key={`${problem.categoryKey}-${index}`} className="relative">
+              <span className="absolute inset-y-0 left-0 w-1" style={{ backgroundColor: SEVERITY_EDGE[problem.severity] }} aria-hidden="true" />
               <Link
                 href={problem.href}
-                className="group flex items-center gap-3 rounded-lg border border-border p-3 transition-colors duration-150 ease-out hover:border-border-strong hover:bg-surface-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
+                className="group flex items-center gap-4 py-3.5 pl-5 pr-4 transition-colors duration-150 ease-out hover:bg-surface-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand"
               >
-                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-surface-muted text-xs font-semibold tabular-nums text-muted group-hover:bg-surface">
-                  {index + 1}
-                </span>
-
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium text-gray-900">{problem.title}</p>
+                  <div className="flex items-center gap-2">
+                    {isTopPriority && <Badge tone="brand">Top priority</Badge>}
+                    <p className={cn('truncate text-gray-900', isTopPriority ? 'text-base font-semibold' : 'text-sm font-medium')}>{problem.title}</p>
+                  </div>
                   <p className="mt-0.5 text-xs text-muted">
                     {problem.categoryLabel} · {problem.affectedPageCount} page{problem.affectedPageCount === 1 ? '' : 's'} affected
                   </p>
                 </div>
 
-                <span className="hidden shrink-0 items-center gap-1.5 text-xs font-medium text-muted sm:flex">
-                  <ActionIcon className="h-3.5 w-3.5" aria-hidden="true" />
+                <span className="hidden shrink-0 items-center gap-1.5 rounded-full bg-surface-muted px-2.5 py-1 text-xs font-medium text-gray-700 sm:flex">
+                  <ActionIcon className="h-3.5 w-3.5 text-brand" aria-hidden="true" />
                   {action.label}
                 </span>
 
