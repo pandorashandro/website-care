@@ -30,7 +30,7 @@ function CategoryEngineTile({
 }) {
   if (summary.status === 'not_analyzed') {
     return (
-      <Link href={href}>
+      <Link href={href} className="block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2">
         <Card padding="sm" className="h-full border-dashed hover:border-border-strong">
           <div className="flex items-center gap-2">
             <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-surface-muted text-muted">
@@ -52,7 +52,10 @@ function CategoryEngineTile({
   const findingsCount = summary.findingsCount as number
 
   return (
-    <Link href={href} className="block motion-safe:transition-transform motion-safe:duration-150 motion-safe:ease-out motion-safe:hover:-translate-y-0.5">
+    <Link
+      href={href}
+      className="block rounded-lg motion-safe:transition-transform motion-safe:duration-150 motion-safe:ease-out motion-safe:hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
+    >
       <Card padding="sm" className="h-full transition-colors duration-150 ease-out hover:border-border-strong">
         <div className="flex items-center justify-between gap-2">
           <div className="flex min-w-0 items-center gap-2">

@@ -88,7 +88,7 @@ export default function WebsiteSubNav({ websiteId, active }: { websiteId: string
           href={item.href}
           aria-current={item.isActive ? 'page' : undefined}
           className={cn(
-            'shrink-0 whitespace-nowrap border-b-2 px-3.5 py-2 text-sm font-medium transition-colors duration-150 ease-out',
+            'shrink-0 whitespace-nowrap rounded-t-sm border-b-2 px-3.5 py-2 text-sm font-medium transition-colors duration-150 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2',
             item.isActive ? 'border-brand text-brand' : 'border-transparent text-muted hover:text-gray-900'
           )}
         >

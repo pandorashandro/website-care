@@ -16,7 +16,8 @@ import {
   Puzzle,
   ShieldAlert,
 } from 'lucide-react'
-import Container from '@/components/ui/container'
+import Section from '@/components/ui/section'
+import ScrollReveal from '@/components/ui/scroll-reveal'
 import Card from '@/components/ui/card'
 import Badge from '@/components/ui/badge'
 import SectionHeading from '@/components/ui/section-heading'
@@ -84,52 +85,52 @@ export default function IntegrationsPage() {
   return (
     <>
       {/* 1. HERO */}
-      <div className="border-b border-border bg-surface-muted">
-        <Container size="lg" className="py-16 text-center sm:py-20">
-          <p className="text-sm font-semibold tracking-wide text-brand">Integrations</p>
-          <h1 className="mt-2 text-3xl font-semibold tracking-tight text-gray-900 sm:text-4xl">
-            Scan your website. Connect when you want help applying supported fixes.
-          </h1>
-          <p className="mx-auto mt-4 max-w-2xl text-lg text-muted">
-            webioom can scan and report on your site without a CMS integration. Connecting a supported
-            platform allows webioom to apply supported changes — only after your review and approval.
-          </p>
-          <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
-            <Link href="/signup" className={buttonStyles({ variant: 'primary', size: 'lg' })}>
-              Get Started
-            </Link>
-            <Link href="/product" className={buttonStyles({ variant: 'outline', size: 'lg' })}>
-              How webioom Works
-            </Link>
-          </div>
-        </Container>
-      </div>
+      <Section tint="muted" border="bottom" size="lg" containerClassName="text-center">
+        <p className="text-sm font-semibold tracking-wide text-brand">Integrations</p>
+        <h1 className="mx-auto mt-3 max-w-3xl text-4xl font-semibold tracking-tight text-gray-900 sm:text-5xl">
+          Scan your website. Connect when you want help applying supported fixes.
+        </h1>
+        <p className="mx-auto mt-5 max-w-2xl text-lg text-muted">
+          webioom can scan and report on your site without a CMS integration. Connecting a supported
+          platform allows webioom to apply supported changes — only after your review and approval.
+        </p>
+        <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
+          <Link href="/signup" className={buttonStyles({ variant: 'primary', size: 'lg' })}>
+            Get Started
+          </Link>
+          <Link href="/product" className={buttonStyles({ variant: 'outline', size: 'lg' })}>
+            How webioom Works
+          </Link>
+        </div>
+      </Section>
 
       {/* 2. SCAN WITHOUT CONNECTING */}
-      <Container size="lg" className="py-16 sm:py-20">
-        <SectionHeading eyebrow="Two paths" title="Scanning and connecting lead to different outcomes" />
+      <Section>
+        <ScrollReveal>
+          <SectionHeading eyebrow="Two paths" title="Scanning and connecting lead to different outcomes" />
 
-        <div className="mt-10 space-y-8">
-          <Card>
-            <Badge tone="neutral">Without integration</Badge>
-            <FlowDiagram steps={WITHOUT_INTEGRATION} className="mt-4" />
-          </Card>
+          <div className="mt-10 space-y-8">
+            <Card>
+              <Badge tone="neutral">Without integration</Badge>
+              <FlowDiagram steps={WITHOUT_INTEGRATION} className="mt-4" />
+            </Card>
 
-          <Card>
-            <Badge tone="brand">With supported integration</Badge>
-            <FlowDiagram steps={WITH_INTEGRATION} className="mt-4" />
-          </Card>
-        </div>
+            <Card>
+              <Badge tone="brand">With supported integration</Badge>
+              <FlowDiagram steps={WITH_INTEGRATION} className="mt-4" />
+            </Card>
+          </div>
 
-        <p className="mt-6 text-sm text-muted">
-          Not every finding becomes a direct fix — this shows the path a <em>supported</em> issue can take
-          once an integration is connected, not a guarantee for every report finding.
-        </p>
-      </Container>
+          <p className="mt-6 text-sm text-muted">
+            Not every finding becomes a direct fix — this shows the path a <em>supported</em> issue can take
+            once an integration is connected, not a guarantee for every report finding.
+          </p>
+        </ScrollReveal>
+      </Section>
 
       {/* 3. WORDPRESS — AVAILABLE */}
-      <div className="border-t border-border bg-surface-muted">
-        <Container size="lg" className="py-16 sm:py-20">
+      <Section tint="muted" border="top">
+        <ScrollReveal>
           <SectionHeading eyebrow="Available now" title="WordPress" />
 
           <Card className="mt-6 sm:flex sm:items-start sm:gap-6">
@@ -161,45 +162,47 @@ export default function IntegrationsPage() {
               </p>
             </div>
           </Card>
-        </Container>
-      </div>
+        </ScrollReveal>
+      </Section>
 
       {/* 3B. SHOPIFY — AVAILABLE */}
-      <Container size="lg" className="py-16 sm:py-20">
-        <SectionHeading eyebrow="Available now" title="Shopify" />
+      <Section>
+        <ScrollReveal>
+          <SectionHeading eyebrow="Available now" title="Shopify" />
 
-        <Card className="mt-6 sm:flex sm:items-start sm:gap-6">
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-md bg-brand-subtle text-brand">
-            <Store className="h-6 w-6" aria-hidden="true" />
-          </div>
-
-          <div className="mt-4 sm:mt-0">
-            <div className="flex flex-wrap items-center gap-2">
-              <h3 className="text-lg font-semibold text-gray-900">Shopify</h3>
-              <Badge tone="brand">Integration #2</Badge>
-              <Badge tone="success">Available</Badge>
+          <Card className="mt-6 sm:flex sm:items-start sm:gap-6">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-md bg-brand-subtle text-brand">
+              <Store className="h-6 w-6" aria-hidden="true" />
             </div>
-            <p className="mt-2 text-sm text-muted">
-              webioom can prepare and apply supported changes when it can safely confirm the target.
-              Support depends on the specific resource and permissions involved.
-            </p>
 
-            <ul className="mt-4 space-y-2 text-sm text-gray-700">
-              <li>Product, collection, page, and article title</li>
-              <li>Product, collection, page, and article meta description</li>
-            </ul>
+            <div className="mt-4 sm:mt-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <h3 className="text-lg font-semibold text-gray-900">Shopify</h3>
+                <Badge tone="brand">Integration #2</Badge>
+                <Badge tone="success">Available</Badge>
+              </div>
+              <p className="mt-2 text-sm text-muted">
+                webioom can prepare and apply supported changes when it can safely confirm the target.
+                Support depends on the specific resource and permissions involved.
+              </p>
 
-            <p className="mt-4 text-sm text-muted">
-              Every other report finding still gets a clear recommendation, whether or not Shopify is
-              connected.
-            </p>
-          </div>
-        </Card>
-      </Container>
+              <ul className="mt-4 space-y-2 text-sm text-gray-700">
+                <li>Product, collection, page, and article title</li>
+                <li>Product, collection, page, and article meta description</li>
+              </ul>
+
+              <p className="mt-4 text-sm text-muted">
+                Every other report finding still gets a clear recommendation, whether or not Shopify is
+                connected.
+              </p>
+            </div>
+          </Card>
+        </ScrollReveal>
+      </Section>
 
       {/* 3C. WIX — AVAILABLE */}
-      <div className="border-t border-border bg-surface-muted">
-        <Container size="lg" className="py-16 sm:py-20">
+      <Section tint="muted" border="top">
+        <ScrollReveal>
           <SectionHeading eyebrow="Available now" title="Wix" />
 
           <Card className="mt-6 sm:flex sm:items-start sm:gap-6">
@@ -229,37 +232,39 @@ export default function IntegrationsPage() {
               </p>
             </div>
           </Card>
-        </Container>
-      </div>
+        </ScrollReveal>
+      </Section>
 
       {/* 4. WHAT CONNECTING DOES / DOESN'T DO */}
-      <Container size="lg" className="py-16 sm:py-20">
-        <SectionHeading eyebrow="Set the record straight" title="What connecting does — and doesn't do" />
+      <Section>
+        <ScrollReveal>
+          <SectionHeading eyebrow="Set the record straight" title="What connecting does — and doesn't do" />
 
-        <div className="mt-10 grid grid-cols-1 gap-5 lg:grid-cols-2">
-          <Card>
-            <h3 className="text-base font-semibold text-gray-900">Connecting does</h3>
-            <ul className="mt-4 space-y-2.5 text-sm text-gray-700">
-              {CONNECTING_DOES.map((item) => (
-                <li key={item}>{item}</li>
-              ))}
-            </ul>
-          </Card>
+          <div className="mt-10 grid grid-cols-1 gap-5 lg:grid-cols-2">
+            <Card>
+              <h3 className="text-base font-semibold text-gray-900">Connecting does</h3>
+              <ul className="mt-4 space-y-2.5 text-sm text-gray-700">
+                {CONNECTING_DOES.map((item) => (
+                  <li key={item}>{item}</li>
+                ))}
+              </ul>
+            </Card>
 
-          <Card>
-            <h3 className="text-base font-semibold text-gray-900">Connecting does not</h3>
-            <ul className="mt-4 space-y-2.5 text-sm text-gray-700">
-              {CONNECTING_DOES_NOT.map((item) => (
-                <li key={item}>{item}</li>
-              ))}
-            </ul>
-          </Card>
-        </div>
-      </Container>
+            <Card>
+              <h3 className="text-base font-semibold text-gray-900">Connecting does not</h3>
+              <ul className="mt-4 space-y-2.5 text-sm text-gray-700">
+                {CONNECTING_DOES_NOT.map((item) => (
+                  <li key={item}>{item}</li>
+                ))}
+              </ul>
+            </Card>
+          </div>
+        </ScrollReveal>
+      </Section>
 
       {/* 5. WORDPRESS FIX WORKFLOW */}
-      <div className="border-t border-border bg-surface-muted">
-        <Container size="lg" className="py-16 sm:py-20">
+      <Section tint="muted" border="top">
+        <ScrollReveal>
           <SectionHeading eyebrow="How a supported fix happens" title="The controlled workflow" />
 
           <Card className="mt-8">
@@ -279,36 +284,38 @@ export default function IntegrationsPage() {
               </Card>
             ))}
           </div>
-        </Container>
-      </div>
+        </ScrollReveal>
+      </Section>
 
       {/* 6. WHEN WEBSITE CARE STOPS */}
-      <Container size="lg" className="py-16 sm:py-20">
-        <SectionHeading eyebrow="Conservative by design" title="If webioom can't safely confirm the change, it doesn't guess" />
+      <Section>
+        <ScrollReveal>
+          <SectionHeading eyebrow="Conservative by design" title="If webioom can't safely confirm the change, it doesn't guess" />
 
-        <div className="mt-8 grid grid-cols-1 items-start gap-8 lg:grid-cols-2">
-          <div className="flex items-start gap-3">
-            <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0 text-brand" aria-hidden="true" />
-            <p className="text-sm leading-relaxed text-gray-700">
-              webioom may decline to make a direct change rather than risk an incorrect one. This is a
-              deliberate safeguard, not something to hide.
-            </p>
+          <div className="mt-8 grid grid-cols-1 items-start gap-8 lg:grid-cols-2">
+            <div className="flex items-start gap-3">
+              <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0 text-brand" aria-hidden="true" />
+              <p className="text-sm leading-relaxed text-gray-700">
+                webioom may decline to make a direct change rather than risk an incorrect one. This is a
+                deliberate safeguard, not something to hide.
+              </p>
+            </div>
+
+            <Card padding="sm">
+              <p className="text-xs font-medium tracking-wide text-subtle">webioom may refuse a direct change when:</p>
+              <ul className="mt-3 space-y-2 text-sm text-gray-700">
+                {STOP_REASONS.map((reason) => (
+                  <li key={reason}>{reason}</li>
+                ))}
+              </ul>
+            </Card>
           </div>
-
-          <Card padding="sm">
-            <p className="text-xs font-medium tracking-wide text-subtle">webioom may refuse a direct change when:</p>
-            <ul className="mt-3 space-y-2 text-sm text-gray-700">
-              {STOP_REASONS.map((reason) => (
-                <li key={reason}>{reason}</li>
-              ))}
-            </ul>
-          </Card>
-        </div>
-      </Container>
+        </ScrollReveal>
+      </Section>
 
       {/* 7. FUTURE INTEGRATIONS */}
-      <div className="border-t border-border bg-surface-muted">
-        <Container size="md" className="py-16 sm:py-20">
+      <Section tint="muted" border="top" size="md">
+        <ScrollReveal>
           <Card className="flex items-start gap-4">
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-surface-muted text-muted">
               <Puzzle className="h-5 w-5" aria-hidden="true" />
@@ -329,8 +336,8 @@ export default function IntegrationsPage() {
             </Link>
             .
           </p>
-        </Container>
-      </div>
+        </ScrollReveal>
+      </Section>
     </>
   )
 }

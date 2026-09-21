@@ -54,13 +54,17 @@ export default async function DashboardLayout(props: LayoutProps<'/dashboard'>) 
   return (
     <div className="flex min-h-screen w-full flex-col lg:flex-row">
       <aside className="flex flex-col border-b border-border-dark bg-brand-dark lg:w-64 lg:shrink-0 lg:border-b-0 lg:border-r">
-        <div className="px-6 py-6">
-          <Link href="/dashboard" aria-label="webioom dashboard">
-            <Logo variant="dark" className="h-9" />
+        <div className="border-b border-border-dark px-6 py-6">
+          <Link
+            href="/dashboard"
+            aria-label="webioom dashboard"
+            className="inline-block rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-vivid focus-visible:ring-offset-2 focus-visible:ring-offset-brand-dark"
+          >
+            <Logo variant="dark" className="h-10" />
           </Link>
         </div>
 
-        <div className="mb-4">
+        <div className="border-b border-border-dark py-4">
           <WebsiteSwitcher websites={websites ?? []} />
         </div>
 

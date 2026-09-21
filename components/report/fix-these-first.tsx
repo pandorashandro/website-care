@@ -67,7 +67,7 @@ export default function FixTheseFirst({ problems }: { problems: TopProblem[] }) 
             <li key={`${problem.categoryKey}-${index}`}>
               <Link
                 href={problem.href}
-                className="group flex items-center gap-3 rounded-lg border border-border p-3 transition-colors duration-150 ease-out hover:border-border-strong hover:bg-surface-muted"
+                className="group flex items-center gap-3 rounded-lg border border-border p-3 transition-colors duration-150 ease-out hover:border-border-strong hover:bg-surface-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
               >
                 <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-surface-muted text-xs font-semibold tabular-nums text-muted group-hover:bg-surface">
                   {index + 1}

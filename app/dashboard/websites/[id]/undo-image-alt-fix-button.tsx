@@ -1,6 +1,7 @@
 'use client'
 
 import { useActionState, useState } from 'react'
+import { buttonStyles } from '@/components/ui/button'
 import { rollbackImageAltFix, type RollbackImageAltFixState } from './wordpress-image-alt-rollback-actions'
 
 const initialState: RollbackImageAltFixState = null
@@ -28,13 +29,13 @@ export default function UndoImageAltFixButton({
 
   if (state && state.rollbackWriteStatus === 'success') {
     return (
-      <div className="mt-2 border-t border-gray-200 pt-2">
-        <p className="text-xs font-medium text-green-700">Rollback applied ✓</p>
-        <p className="mt-1 text-xs text-gray-600">
+      <div className="mt-2 border-t border-border pt-2">
+        <p className="text-xs font-medium text-success">Rollback applied ✓</p>
+        <p className="mt-1 text-xs text-muted">
           Verification: {VERIFICATION_LABELS[state.verification.status] ?? 'Unknown'}
         </p>
         {state.historyStatus === 'failed' && (
-          <p className="mt-1 text-xs text-amber-700">
+          <p className="mt-1 text-xs text-warning">
             Rollback applied, but webioom could not save the audit record.
           </p>
         )}
@@ -44,8 +45,8 @@ export default function UndoImageAltFixButton({
 
   if (state && state.rollbackWriteStatus === 'failed') {
     return (
-      <div className="mt-2 border-t border-gray-200 pt-2">
-        <p className="text-xs text-red-600">{state.reason}</p>
+      <div className="mt-2 border-t border-border pt-2">
+        <p className="text-xs text-danger">{state.reason}</p>
       </div>
     )
   }
@@ -55,7 +56,7 @@ export default function UndoImageAltFixButton({
       <button
         type="button"
         onClick={() => setConfirming(true)}
-        className="mt-2 text-xs font-medium text-gray-500 underline hover:text-gray-700"
+        className="mt-2 text-xs font-medium text-muted underline hover:text-muted"
       >
         Undo
       </button>
@@ -66,15 +67,15 @@ export default function UndoImageAltFixButton({
     <div className="mt-2 max-w-sm rounded-md border border-gray-200 bg-white p-3">
       <p className="text-xs font-semibold text-gray-900">Undo this change?</p>
 
-      <p className="mt-2 text-xs font-medium uppercase tracking-wide text-gray-400">
+      <p className="mt-2 text-xs font-medium uppercase tracking-wide text-subtle">
         Current webioom change
       </p>
-      <p className="mt-1 text-xs font-medium text-gray-500">Before</p>
+      <p className="mt-1 text-xs font-medium text-muted">Before</p>
       <p className="text-sm text-gray-900">{previousValue ? `"${previousValue}"` : '(missing alt text)'}</p>
-      <p className="mt-1 text-xs font-medium text-gray-500">After</p>
+      <p className="mt-1 text-xs font-medium text-muted">After</p>
       <p className="text-sm text-gray-900">{`"${appliedValue}"`}</p>
 
-      <p className="mt-3 text-xs font-medium text-gray-500">Rollback would restore</p>
+      <p className="mt-3 text-xs font-medium text-muted">Rollback would restore</p>
       <p className="text-sm text-gray-900">{previousValue ? `"${previousValue}"` : '(missing alt text)'}</p>
 
       <form action={formAction} className="mt-3 flex gap-2">
@@ -84,7 +85,7 @@ export default function UndoImageAltFixButton({
           type="button"
           onClick={() => setConfirming(false)}
           disabled={pending}
-          className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+          className={buttonStyles({ variant: 'outline', size: 'sm' })}
         >
           Cancel
         </button>

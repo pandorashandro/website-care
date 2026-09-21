@@ -40,7 +40,7 @@ export default function PublicFooter() {
       <div className="mx-auto max-w-7xl px-4 py-16 sm:px-6">
         <div className="grid grid-cols-1 gap-10 sm:grid-cols-5">
           <div className="sm:col-span-1">
-            <Logo variant="dark" className="h-11" />
+            <Logo variant="dark" className="h-12" />
             <p className="mt-4 text-sm text-text-on-dark-muted">Where Websites Bloom.</p>
           </div>
 

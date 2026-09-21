@@ -3,6 +3,8 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { getCurrentUserEntitlements } from '@/lib/entitlements'
 import Container from '@/components/ui/container'
+import Section from '@/components/ui/section'
+import ScrollReveal from '@/components/ui/scroll-reveal'
 import SectionHeading from '@/components/ui/section-heading'
 import FaqAccordion, { type FaqItem } from '@/components/ui/faq-accordion'
 import { buttonStyles } from '@/components/ui/button'
@@ -74,18 +76,18 @@ export default async function PricingPage() {
 
   return (
     <>
-      <Container size="lg" className="py-16 text-center sm:py-20">
+      <Container size="lg" className="pb-4 pt-20 text-center sm:pt-24">
         <p className="text-sm font-semibold tracking-wide text-brand">Pricing</p>
-        <h1 className="mx-auto mt-2 max-w-2xl text-3xl font-semibold tracking-tight text-gray-900 sm:text-4xl">
+        <h1 className="mx-auto mt-3 max-w-2xl text-4xl font-semibold tracking-tight text-gray-900 sm:text-5xl">
           Choose the plan that fits your goals
         </h1>
-        <p className="mx-auto mt-4 max-w-2xl text-lg text-muted">
+        <p className="mx-auto mt-5 max-w-2xl text-lg text-muted">
           Scan your website for free and upgrade when you&apos;re ready to fix issues, improve performance, and keep your
           site healthy over time.
         </p>
       </Container>
 
-      <Container size="xl" className="pb-16 sm:pb-20">
+      <Container size="xl" className="pb-20 pt-8 sm:pb-24">
         <PricingCards isLoggedIn={isLoggedIn} currentPlan={currentPlan} />
 
         <p className="mt-10 text-center text-sm text-subtle">
@@ -95,28 +97,30 @@ export default async function PricingPage() {
         </p>
       </Container>
 
-      <div className="border-t border-border bg-surface-muted">
-        <Container size="md" className="py-16 sm:py-20">
+      <Section tint="muted" border="top">
+        <ScrollReveal>
           <SectionHeading eyebrow="Pricing FAQ" title="Frequently asked questions" align="center" />
-          <div className="mt-8">
-            <FaqAccordion items={FAQ_ITEMS} />
-          </div>
-        </Container>
-      </div>
+        </ScrollReveal>
+        <ScrollReveal delayMs={80} className="mt-8">
+          <FaqAccordion items={FAQ_ITEMS} />
+        </ScrollReveal>
+      </Section>
 
-      <Container size="md" className="py-16 text-center sm:py-20">
-        <p className="text-sm font-semibold tracking-wide text-brand">Ready to get started?</p>
-        <h2 className="mx-auto mt-2 max-w-xl text-2xl font-semibold tracking-tight text-gray-900 sm:text-3xl">
-          Scan your website and see the difference
-        </h2>
-        <p className="mx-auto mt-3 max-w-xl text-base text-muted">
-          Discover what&apos;s holding your website back and get a clear plan to improve it.
-        </p>
-        <div className="mt-6">
-          <Link href="/signup" className={buttonStyles({ size: 'lg' })}>
-            Scan your website for free
-          </Link>
-        </div>
+      <Container size="md" className="py-16 text-center sm:py-24">
+        <ScrollReveal>
+          <p className="text-sm font-semibold tracking-wide text-brand">Ready to get started?</p>
+          <h2 className="mx-auto mt-2 max-w-xl text-2xl font-semibold tracking-tight text-gray-900 sm:text-3xl">
+            Scan your website and see the difference
+          </h2>
+          <p className="mx-auto mt-3 max-w-xl text-base text-muted">
+            Discover what&apos;s holding your website back and get a clear plan to improve it.
+          </p>
+          <div className="mt-6">
+            <Link href="/signup" className={buttonStyles({ size: 'lg' })}>
+              Scan your website for free
+            </Link>
+          </div>
+        </ScrollReveal>
       </Container>
     </>
   )

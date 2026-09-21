@@ -111,6 +111,11 @@
   --duration-fast: 120ms;
   --duration-base: 200ms;
   --duration-reveal: 420ms;
+  /* Sprint 3, Prompt 2B (final pass) — the timing hierarchy's slowest tier,
+     reserved for public/marketing entrance and scroll-reveal moments only
+     (see .scroll-reveal below). Product/workspace surfaces never use this —
+     they stop at --duration-reveal so the app keeps feeling fast. */
+  --duration-slow: 640ms;
 }
 
 @theme inline {
@@ -154,6 +159,7 @@
   --duration-fast: var(--duration-fast);
   --duration-base: var(--duration-base);
   --duration-reveal: var(--duration-reveal);
+  --duration-slow: var(--duration-slow);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
@@ -209,6 +215,26 @@ body {
   .motion-hover-lift:hover {
     transform: translateY(-1px);
   }
+
+  /*
+   * Sprint 3, Prompt 2B (final pass) — public/marketing scroll reveal.
+   * Toggled by components/ui/scroll-reveal.tsx's own IntersectionObserver
+   * (plain browser API, no animation library). Public surfaces only — see
+   * that component's own doc comment for why product/workspace pages never
+   * use this. The element starts genuinely invisible only once JS has run
+   * and attached the observer (scroll-reveal.tsx adds `.scroll-reveal` at
+   * mount, not in server-rendered markup), so content is never hidden from
+   * a visitor whose JS fails to load.
+   */
+  .scroll-reveal {
+    opacity: 0;
+    transform: translateY(20px);
+    transition: opacity var(--duration-slow) var(--ease-out), transform var(--duration-slow) var(--ease-out);
+  }
+  .scroll-reveal.is-visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 @keyframes webioom-fade-in {
@@ -219,4 +245,18 @@ body {
 @keyframes webioom-rise-in {
   from { opacity: 0; transform: translateY(6px); }
   to { opacity: 1; transform: translateY(0); }
+}
+
+/*
+ * Sprint 3, Prompt 2B (final pass) — one shared, restrained elevation scale
+ * so "sophisticated shadows" means the same four values everywhere, never a
+ * per-component guess. Deliberately soft/diffuse (large blur, low opacity)
+ * rather than Tailwind's default sharper shadows, which is what makes a
+ * surface read as "lifted" rather than merely "outlined."
+ */
+:root {
+  --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.04), 0 1px 1px rgba(15, 23, 42, 0.03);
+  --shadow-md: 0 4px 16px rgba(15, 23, 42, 0.06), 0 1px 2px rgba(15, 23, 42, 0.04);
+  --shadow-lg: 0 12px 32px rgba(15, 23, 42, 0.08), 0 2px 6px rgba(15, 23, 42, 0.04);
+  --shadow-glow-brand: 0 8px 32px rgba(109, 63, 249, 0.14);
 }

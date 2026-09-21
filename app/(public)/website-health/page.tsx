@@ -2,6 +2,8 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { Search, Server, Accessibility, Gauge, FileText, Image as ImageIcon } from 'lucide-react'
 import Container from '@/components/ui/container'
+import Section from '@/components/ui/section'
+import ScrollReveal from '@/components/ui/scroll-reveal'
 import Card from '@/components/ui/card'
 import Badge, { type BadgeTone } from '@/components/ui/badge'
 import SectionHeading from '@/components/ui/section-heading'
@@ -73,28 +75,27 @@ export default function WebsiteHealthPage() {
   return (
     <>
       {/* 7. HERO */}
-      <div className="border-b border-border bg-surface-muted">
-        <Container size="lg" className="py-16 text-center sm:py-20">
-          <p className="text-sm font-semibold tracking-wide text-brand">Website Health</p>
-          <h1 className="mt-2 text-3xl font-semibold tracking-tight text-gray-900 sm:text-4xl">
-            Website health is more than SEO.
-          </h1>
-          <p className="mx-auto mt-4 max-w-2xl text-lg text-muted">
-            webioom evaluates your site across five real dimensions and organizes the results into one
-            clearer view — not just how you rank in search.
-          </p>
-          <div className="mt-6 flex flex-wrap items-center justify-center gap-2">
-            {CATEGORIES.map((category) => (
-              <Badge key={category.name} tone="brand">
-                {category.name}
-              </Badge>
-            ))}
-          </div>
-        </Container>
-      </div>
+      <Section tint="muted" border="bottom" size="lg" containerClassName="text-center">
+        <p className="text-sm font-semibold tracking-wide text-brand">Website Health</p>
+        <h1 className="mx-auto mt-3 max-w-3xl text-4xl font-semibold tracking-tight text-gray-900 sm:text-5xl">
+          Website health is more than SEO.
+        </h1>
+        <p className="mx-auto mt-5 max-w-2xl text-lg text-muted">
+          webioom evaluates your site across five real dimensions and organizes the results into one
+          clearer view — not just how you rank in search.
+        </p>
+        <div className="mt-6 flex flex-wrap items-center justify-center gap-2">
+          {CATEGORIES.map((category) => (
+            <Badge key={category.name} tone="brand">
+              {category.name}
+            </Badge>
+          ))}
+        </div>
+      </Section>
 
       {/* 8. HEALTH SCORE */}
-      <Container size="lg" className="py-16 sm:py-20">
+      <Section>
+        <ScrollReveal>
         <SectionHeading eyebrow="The health score" title="What the number actually represents" />
 
         <div className="mt-8 grid grid-cols-1 gap-8 lg:grid-cols-2 lg:items-start">
@@ -153,11 +154,12 @@ export default function WebsiteHealthPage() {
             </Card>
           </div>
         </div>
-      </Container>
+        </ScrollReveal>
+      </Section>
 
       {/* 9. FIVE CATEGORIES */}
-      <div className="border-t border-border bg-surface-muted">
-        <Container size="lg" className="py-16 sm:py-20">
+      <Section tint="muted" border="top">
+        <ScrollReveal>
           <SectionHeading
             eyebrow="Report categories"
             title="Five categories, each with real checks"
@@ -190,45 +192,47 @@ export default function WebsiteHealthPage() {
               )
             })}
           </div>
-        </Container>
-      </div>
+        </ScrollReveal>
+      </Section>
 
       {/* 10. SEVERITY VS PRIORITY */}
-      <Container size="lg" className="py-16 sm:py-20">
-        <SectionHeading eyebrow="Reading a report" title="Severity vs. priority" />
+      <Section>
+        <ScrollReveal>
+          <SectionHeading eyebrow="Reading a report" title="Severity vs. priority" />
 
-        <div className="mt-8 grid grid-cols-1 gap-5 lg:grid-cols-2">
-          <Card>
-            <h3 className="text-base font-semibold text-gray-900">Severity</h3>
-            <p className="mt-2 text-sm text-muted">How serious that kind of issue generally is — a fixed property of the issue type itself:</p>
-            <ul className="mt-3 space-y-2">
-              {SEVERITY_ROWS.map((row) => (
-                <li key={row.label} className="flex items-center gap-2">
-                  <Badge tone={row.tone}>{row.label}</Badge>
-                  <span className="text-sm text-muted">{row.description}</span>
-                </li>
-              ))}
-            </ul>
-          </Card>
+          <div className="mt-8 grid grid-cols-1 gap-5 lg:grid-cols-2">
+            <Card>
+              <h3 className="text-base font-semibold text-gray-900">Severity</h3>
+              <p className="mt-2 text-sm text-muted">How serious that kind of issue generally is — a fixed property of the issue type itself:</p>
+              <ul className="mt-3 space-y-2">
+                {SEVERITY_ROWS.map((row) => (
+                  <li key={row.label} className="flex items-center gap-2">
+                    <Badge tone={row.tone}>{row.label}</Badge>
+                    <span className="text-sm text-muted">{row.description}</span>
+                  </li>
+                ))}
+              </ul>
+            </Card>
 
-          <Card>
-            <h3 className="text-base font-semibold text-gray-900">Priority</h3>
-            <p className="mt-2 text-sm text-muted">
-              How strongly webioom recommends acting on this specific finding right now, relative to
-              everything else in the report.
-            </p>
-            <p className="mt-3 text-sm text-gray-700">
-              Two findings can share the same severity but a different priority. A medium-severity issue
-              affecting one rarely-visited page ranks lower than the same kind of issue affecting your
-              homepage and a dozen other pages — priority accounts for reach, severity alone doesn&apos;t.
-            </p>
-          </Card>
-        </div>
-      </Container>
+            <Card>
+              <h3 className="text-base font-semibold text-gray-900">Priority</h3>
+              <p className="mt-2 text-sm text-muted">
+                How strongly webioom recommends acting on this specific finding right now, relative to
+                everything else in the report.
+              </p>
+              <p className="mt-3 text-sm text-gray-700">
+                Two findings can share the same severity but a different priority. A medium-severity issue
+                affecting one rarely-visited page ranks lower than the same kind of issue affecting your
+                homepage and a dozen other pages — priority accounts for reach, severity alone doesn&apos;t.
+              </p>
+            </Card>
+          </div>
+        </ScrollReveal>
+      </Section>
 
       {/* 11. AFFECTED PAGES */}
-      <div className="border-t border-border bg-surface-muted">
-        <Container size="lg" className="py-16 sm:py-20">
+      <Section tint="muted" border="top">
+        <ScrollReveal>
           <SectionHeading eyebrow="Reading a report" title="Affected pages" />
 
           <div className="mt-8 grid grid-cols-1 items-center gap-8 lg:grid-cols-2">
@@ -248,48 +252,52 @@ export default function WebsiteHealthPage() {
               <p className="mt-1 text-sm text-muted">4 pages affected</p>
             </Card>
           </div>
-        </Container>
-      </div>
+        </ScrollReveal>
+      </Section>
 
       {/* 12. RECOMMENDATIONS */}
-      <Container size="lg" className="py-16 sm:py-20">
-        <SectionHeading
-          eyebrow="Reading a report"
-          title="webioom doesn't stop at naming a problem"
-          description="Every finding in a report includes:"
-        />
+      <Section>
+        <ScrollReveal>
+          <SectionHeading
+            eyebrow="Reading a report"
+            title="webioom doesn't stop at naming a problem"
+            description="Every finding in a report includes:"
+          />
 
-        <div className="mt-8 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
-          {[
-            { title: 'Description', description: 'Plain-language context for what was found and why it was flagged.' },
-            { title: 'Recommendation', description: 'A specific, actionable suggestion for what to do about it.' },
-            { title: 'Affected pages', description: 'Exactly which pages the issue was found on.' },
-            { title: 'Action state', description: 'Where supported, whether it’s a Safe, AI-Assisted, or Guided fix.' },
-          ].map((item) => (
-            <Card key={item.title}>
-              <h3 className="text-sm font-semibold text-gray-900">{item.title}</h3>
-              <p className="mt-2 text-sm text-muted">{item.description}</p>
-            </Card>
-          ))}
-        </div>
-      </Container>
+          <div className="mt-8 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
+            {[
+              { title: 'Description', description: 'Plain-language context for what was found and why it was flagged.' },
+              { title: 'Recommendation', description: 'A specific, actionable suggestion for what to do about it.' },
+              { title: 'Affected pages', description: 'Exactly which pages the issue was found on.' },
+              { title: 'Action state', description: 'Where supported, whether it’s a Safe, AI-Assisted, or Guided fix.' },
+            ].map((item) => (
+              <Card key={item.title}>
+                <h3 className="text-sm font-semibold text-gray-900">{item.title}</h3>
+                <p className="mt-2 text-sm text-muted">{item.description}</p>
+              </Card>
+            ))}
+          </div>
+        </ScrollReveal>
+      </Section>
 
       {/* 13. REPORT → ACTION CONNECTION */}
       <div className="border-t border-border bg-surface-muted">
-        <Container size="md" className="py-16 text-center sm:py-20">
-          <h2 className="text-2xl font-semibold tracking-tight text-gray-900 sm:text-3xl">
-            From a report entry to a resolved issue
-          </h2>
-          <p className="mx-auto mt-3 max-w-xl text-muted">
-            A report identifies the problem. webioom determines what kind of action is appropriate.
-            Supported fixes move through Prepare, Review, Apply, and Verify — everything else stays a clear,
-            guided recommendation you can act on yourself.
-          </p>
-          <div className="mt-6">
-            <Link href="/product" className={buttonStyles({ variant: 'outline', size: 'lg' })}>
-              See How It Works
-            </Link>
-          </div>
+        <Container size="md" className="py-16 text-center sm:py-24">
+          <ScrollReveal>
+            <h2 className="text-2xl font-semibold tracking-tight text-gray-900 sm:text-3xl">
+              From a report entry to a resolved issue
+            </h2>
+            <p className="mx-auto mt-3 max-w-xl text-muted">
+              A report identifies the problem. webioom determines what kind of action is appropriate.
+              Supported fixes move through Prepare, Review, Apply, and Verify — everything else stays a clear,
+              guided recommendation you can act on yourself.
+            </p>
+            <div className="mt-6">
+              <Link href="/product" className={buttonStyles({ variant: 'outline', size: 'lg' })}>
+                See How It Works
+              </Link>
+            </div>
+          </ScrollReveal>
         </Container>
       </div>
     </>

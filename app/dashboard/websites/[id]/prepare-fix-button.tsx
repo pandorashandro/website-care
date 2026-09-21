@@ -2,6 +2,7 @@
 
 import { useActionState, useState } from 'react'
 import UpgradePrompt from '@/components/billing/upgrade-prompt'
+import { buttonStyles } from '@/components/ui/button'
 import { prepareFix, applyFix, type PrepareFixState, type ApplyFixState } from './wordpress-fix-actions'
 import { applyMetaDescriptionFix, type ApplyMetaDescriptionFixState } from './wordpress-meta-fix-actions'
 import { applyH1Fix, type ApplyH1FixState } from './wordpress-h1-fix-actions'
@@ -28,11 +29,11 @@ const SEO_PROVIDER_LABELS: Record<string, string> = {
 function SeoProviderDiagnostic({ provider }: { provider: SeoMetadataProviderResult }) {
   if (provider.status === 'detected') {
     return (
-      <div className="mt-2 max-w-sm rounded-md border border-gray-200 bg-gray-50 p-3">
-        <p className="text-xs font-medium text-gray-500">SEO provider</p>
+      <div className="mt-2 max-w-sm rounded-md border border-border bg-surface-muted p-3">
+        <p className="text-xs font-medium text-muted">SEO provider</p>
         <p className="text-sm text-gray-900">{SEO_PROVIDER_LABELS[provider.provider] ?? provider.provider}</p>
 
-        <p className="mt-2 text-xs font-medium text-gray-500">
+        <p className="mt-2 text-xs font-medium text-muted">
           {provider.writable ? 'Meta description' : 'Editable metadata'}
         </p>
         <p className="text-sm text-gray-900">
@@ -43,10 +44,10 @@ function SeoProviderDiagnostic({ provider }: { provider: SeoMetadataProviderResu
   }
 
   return (
-    <div className="mt-2 max-w-sm rounded-md border border-gray-200 bg-gray-50 p-3">
-      <p className="text-xs font-medium text-gray-500">SEO provider</p>
+    <div className="mt-2 max-w-sm rounded-md border border-border bg-surface-muted p-3">
+      <p className="text-xs font-medium text-muted">SEO provider</p>
       <p className="text-sm text-gray-900">Not confirmed</p>
-      <p className="mt-2 text-xs text-gray-500">{provider.reason}</p>
+      <p className="mt-2 text-xs text-muted">{provider.reason}</p>
     </div>
   )
 }
@@ -67,15 +68,15 @@ function H1SourceDiagnostic({ result }: { result: H1SourceDetectionResult }) {
   // supported missing_h1 result is routed to the AI 'ready' preview instead.
   if (result.status === 'supported') {
     return (
-      <div className="mt-2 max-w-sm rounded-md border border-gray-200 bg-gray-50 p-3">
-        <p className="text-xs font-medium text-gray-500">H1 source</p>
+      <div className="mt-2 max-w-sm rounded-md border border-border bg-surface-muted p-3">
+        <p className="text-xs font-medium text-muted">H1 source</p>
         <p className="text-sm text-gray-900">WordPress page content</p>
 
-        <p className="mt-2 text-xs text-gray-500">
+        <p className="mt-2 text-xs text-muted">
           webioom identified multiple H1 headings in editable content.
         </p>
 
-        <p className="mt-2 text-xs font-medium text-gray-500">Detected</p>
+        <p className="mt-2 text-xs font-medium text-muted">Detected</p>
         <ul className="mt-1 space-y-0.5">
           {result.publicH1s.map((heading, index) => (
             <li key={index} className="text-sm text-gray-900">
@@ -84,8 +85,8 @@ function H1SourceDiagnostic({ result }: { result: H1SourceDetectionResult }) {
           ))}
         </ul>
 
-        <p className="mt-3 text-xs font-medium text-amber-700">Guided fix</p>
-        <p className="mt-1 text-xs text-gray-500">
+        <p className="mt-3 text-xs font-medium text-warning">Guided fix</p>
+        <p className="mt-1 text-xs text-muted">
           webioom will not automatically choose which heading to remove yet.
         </p>
       </div>
@@ -93,10 +94,10 @@ function H1SourceDiagnostic({ result }: { result: H1SourceDetectionResult }) {
   }
 
   return (
-    <div className="mt-2 max-w-sm rounded-md border border-gray-200 bg-gray-50 p-3">
-      <p className="text-xs font-medium text-gray-500">H1 source</p>
+    <div className="mt-2 max-w-sm rounded-md border border-border bg-surface-muted p-3">
+      <p className="text-xs font-medium text-muted">H1 source</p>
       <p className="text-sm text-gray-900">Not safely identified</p>
-      <p className="mt-2 text-xs text-gray-500">{result.reason}</p>
+      <p className="mt-2 text-xs text-muted">{result.reason}</p>
     </div>
   )
 }
@@ -116,19 +117,19 @@ const IMAGE_ALT_SOURCE_LABELS: Record<string, string> = {
 function ImageAltSourceDiagnostic({ result }: { result: ImageAltSourceDetectionResult }) {
   if (result.status === 'supported') {
     return (
-      <div className="mt-2 max-w-sm rounded-md border border-gray-200 bg-gray-50 p-3">
-        <p className="text-xs font-medium text-gray-500">Image</p>
+      <div className="mt-2 max-w-sm rounded-md border border-border bg-surface-muted p-3">
+        <p className="text-xs font-medium text-muted">Image</p>
         <p className="truncate font-mono text-xs text-gray-900">{result.imageUrl}</p>
 
-        <p className="mt-2 text-xs font-medium text-gray-500">Alt source</p>
+        <p className="mt-2 text-xs font-medium text-muted">Alt source</p>
         <p className="text-sm text-gray-900">{IMAGE_ALT_SOURCE_LABELS[result.source] ?? result.source}</p>
 
-        <p className="mt-2 text-xs font-medium text-gray-500">Current alt</p>
+        <p className="mt-2 text-xs font-medium text-muted">Current alt</p>
         <p className="text-sm text-gray-900">
-          {result.currentAlt ? `“${result.currentAlt}”` : <span className="text-gray-400">Missing</span>}
+          {result.currentAlt ? `“${result.currentAlt}”` : <span className="text-subtle">Missing</span>}
         </p>
 
-        <p className="mt-2 text-xs font-medium text-gray-500">Status</p>
+        <p className="mt-2 text-xs font-medium text-muted">Status</p>
         <p className="text-sm text-gray-900">Editable source identified</p>
       </div>
     )
@@ -137,16 +138,16 @@ function ImageAltSourceDiagnostic({ result }: { result: ImageAltSourceDetectionR
   const imageUrl = result.status !== 'connection_error' ? result.imageUrl : null
 
   return (
-    <div className="mt-2 max-w-sm rounded-md border border-gray-200 bg-gray-50 p-3">
+    <div className="mt-2 max-w-sm rounded-md border border-border bg-surface-muted p-3">
       {imageUrl && (
         <>
-          <p className="text-xs font-medium text-gray-500">Image</p>
+          <p className="text-xs font-medium text-muted">Image</p>
           <p className="truncate font-mono text-xs text-gray-900">{imageUrl}</p>
         </>
       )}
-      <p className="mt-2 text-xs font-medium text-gray-500">Status</p>
+      <p className="mt-2 text-xs font-medium text-muted">Status</p>
       <p className="text-sm text-gray-900">Not safely editable</p>
-      <p className="mt-2 text-xs text-gray-500">{result.reason}</p>
+      <p className="mt-2 text-xs text-muted">{result.reason}</p>
     </div>
   )
 }
@@ -163,8 +164,8 @@ function VerificationResult({ verification }: { verification: TitleFixVerificati
   if (verification.status === 'verified') {
     return (
       <div className="mt-1">
-        <p className="text-xs font-medium text-green-700">Verified ✓</p>
-        <p className="mt-1 text-xs text-gray-600">The public page now reflects the fix.</p>
+        <p className="text-xs font-medium text-success">Verified ✓</p>
+        <p className="mt-1 text-xs text-muted">The public page now reflects the fix.</p>
       </div>
     )
   }
@@ -172,8 +173,8 @@ function VerificationResult({ verification }: { verification: TitleFixVerificati
   if (verification.status === 'pending') {
     return (
       <div className="mt-1">
-        <p className="text-xs font-medium text-amber-700">Pending</p>
-        <p className="mt-1 text-xs text-gray-600">
+        <p className="text-xs font-medium text-warning">Pending</p>
+        <p className="mt-1 text-xs text-muted">
           The public page is still serving the previous title. This may be caused by caching.
         </p>
       </div>
@@ -183,8 +184,8 @@ function VerificationResult({ verification }: { verification: TitleFixVerificati
   if (verification.status === 'mismatch') {
     return (
       <div className="mt-1">
-        <p className="text-xs font-medium text-amber-700">Needs attention</p>
-        <p className="mt-1 text-xs text-gray-600">
+        <p className="text-xs font-medium text-warning">Needs attention</p>
+        <p className="mt-1 text-xs text-muted">
           WordPress accepted the title update, but the public page is displaying a different title.
         </p>
       </div>
@@ -194,8 +195,8 @@ function VerificationResult({ verification }: { verification: TitleFixVerificati
   if (verification.status === 'still_detected') {
     return (
       <div className="mt-1">
-        <p className="text-xs font-medium text-amber-700">Needs attention</p>
-        <p className="mt-1 text-xs text-gray-600">
+        <p className="text-xs font-medium text-warning">Needs attention</p>
+        <p className="mt-1 text-xs text-muted">
           The public page does not yet reflect a title that resolves the original issue.
         </p>
       </div>
@@ -204,8 +205,8 @@ function VerificationResult({ verification }: { verification: TitleFixVerificati
 
   return (
     <div className="mt-1">
-      <p className="text-xs font-medium text-gray-500">Could not verify</p>
-      <p className="mt-1 text-xs text-gray-600">webioom could not safely check the public page right now.</p>
+      <p className="text-xs font-medium text-muted">Could not verify</p>
+      <p className="mt-1 text-xs text-muted">webioom could not safely check the public page right now.</p>
     </div>
   )
 }
@@ -215,8 +216,8 @@ function MetaDescriptionVerificationResult({ verification }: { verification: Met
   if (verification.status === 'verified') {
     return (
       <div className="mt-1">
-        <p className="text-xs font-medium text-green-700">Verified ✓</p>
-        <p className="mt-1 text-xs text-gray-600">The public page now reflects the fix.</p>
+        <p className="text-xs font-medium text-success">Verified ✓</p>
+        <p className="mt-1 text-xs text-muted">The public page now reflects the fix.</p>
       </div>
     )
   }
@@ -224,8 +225,8 @@ function MetaDescriptionVerificationResult({ verification }: { verification: Met
   if (verification.status === 'pending') {
     return (
       <div className="mt-1">
-        <p className="text-xs font-medium text-amber-700">Pending</p>
-        <p className="mt-1 text-xs text-gray-600">
+        <p className="text-xs font-medium text-warning">Pending</p>
+        <p className="mt-1 text-xs text-muted">
           The public page is still serving the previous meta description. This may be caused by caching.
         </p>
       </div>
@@ -235,8 +236,8 @@ function MetaDescriptionVerificationResult({ verification }: { verification: Met
   if (verification.status === 'mismatch') {
     return (
       <div className="mt-1">
-        <p className="text-xs font-medium text-amber-700">Needs attention</p>
-        <p className="mt-1 text-xs text-gray-600">
+        <p className="text-xs font-medium text-warning">Needs attention</p>
+        <p className="mt-1 text-xs text-muted">
           WordPress accepted the update, but the public page is displaying a different meta description.
         </p>
       </div>
@@ -246,8 +247,8 @@ function MetaDescriptionVerificationResult({ verification }: { verification: Met
   if (verification.status === 'still_detected') {
     return (
       <div className="mt-1">
-        <p className="text-xs font-medium text-amber-700">Needs attention</p>
-        <p className="mt-1 text-xs text-gray-600">
+        <p className="text-xs font-medium text-warning">Needs attention</p>
+        <p className="mt-1 text-xs text-muted">
           The public page does not yet reflect a meta description that resolves the original issue.
         </p>
       </div>
@@ -256,8 +257,8 @@ function MetaDescriptionVerificationResult({ verification }: { verification: Met
 
   return (
     <div className="mt-1">
-      <p className="text-xs font-medium text-gray-500">Could not verify</p>
-      <p className="mt-1 text-xs text-gray-600">webioom could not safely check the public page right now.</p>
+      <p className="text-xs font-medium text-muted">Could not verify</p>
+      <p className="mt-1 text-xs text-muted">webioom could not safely check the public page right now.</p>
     </div>
   )
 }
@@ -267,8 +268,8 @@ function H1VerificationResult({ verification }: { verification: H1FixVerificatio
   if (verification.status === 'verified') {
     return (
       <div className="mt-1">
-        <p className="text-xs font-medium text-green-700">Verified ✓</p>
-        <p className="mt-1 text-xs text-gray-600">The public page now shows the added heading.</p>
+        <p className="text-xs font-medium text-success">Verified ✓</p>
+        <p className="mt-1 text-xs text-muted">The public page now shows the added heading.</p>
       </div>
     )
   }
@@ -276,8 +277,8 @@ function H1VerificationResult({ verification }: { verification: H1FixVerificatio
   if (verification.status === 'pending') {
     return (
       <div className="mt-1">
-        <p className="text-xs font-medium text-amber-700">Pending</p>
-        <p className="mt-1 text-xs text-gray-600">
+        <p className="text-xs font-medium text-warning">Pending</p>
+        <p className="mt-1 text-xs text-muted">
           The public page does not show the heading yet. This may be caused by caching.
         </p>
       </div>
@@ -287,8 +288,8 @@ function H1VerificationResult({ verification }: { verification: H1FixVerificatio
   if (verification.status === 'mismatch') {
     return (
       <div className="mt-1">
-        <p className="text-xs font-medium text-amber-700">Needs attention</p>
-        <p className="mt-1 text-xs text-gray-600">
+        <p className="text-xs font-medium text-warning">Needs attention</p>
+        <p className="mt-1 text-xs text-muted">
           WordPress accepted the update, but the public page is not showing the expected heading.
         </p>
       </div>
@@ -297,8 +298,8 @@ function H1VerificationResult({ verification }: { verification: H1FixVerificatio
 
   return (
     <div className="mt-1">
-      <p className="text-xs font-medium text-gray-500">Could not verify</p>
-      <p className="mt-1 text-xs text-gray-600">webioom could not safely check the public page right now.</p>
+      <p className="text-xs font-medium text-muted">Could not verify</p>
+      <p className="mt-1 text-xs text-muted">webioom could not safely check the public page right now.</p>
     </div>
   )
 }
@@ -312,8 +313,8 @@ function ImageAltVerificationResult({ verification }: { verification: ImageAltFi
   if (verification.status === 'verified') {
     return (
       <div className="mt-1">
-        <p className="text-xs font-medium text-green-700">Verified ✓</p>
-        <p className="mt-1 text-xs text-gray-600">The public page now reflects the fix.</p>
+        <p className="text-xs font-medium text-success">Verified ✓</p>
+        <p className="mt-1 text-xs text-muted">The public page now reflects the fix.</p>
       </div>
     )
   }
@@ -321,8 +322,8 @@ function ImageAltVerificationResult({ verification }: { verification: ImageAltFi
   if (verification.status === 'mismatch') {
     return (
       <div className="mt-1">
-        <p className="text-xs font-medium text-amber-700">Needs attention</p>
-        <p className="mt-1 text-xs text-gray-600">
+        <p className="text-xs font-medium text-warning">Needs attention</p>
+        <p className="mt-1 text-xs text-muted">
           WordPress accepted the update, but the public page is displaying different alt text for this image.
         </p>
       </div>
@@ -331,8 +332,8 @@ function ImageAltVerificationResult({ verification }: { verification: ImageAltFi
 
   return (
     <div className="mt-1">
-      <p className="text-xs font-medium text-gray-500">Could not verify</p>
-      <p className="mt-1 text-xs text-gray-600">
+      <p className="text-xs font-medium text-muted">Could not verify</p>
+      <p className="mt-1 text-xs text-muted">
         Update applied. Public verification is currently unavailable for this image.
       </p>
     </div>
@@ -429,70 +430,70 @@ export default function PrepareFixButton({
         <button
           type="submit"
           disabled={pending}
-          className="rounded-md border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+          className={buttonStyles({ variant: 'outline', size: 'sm' })}
         >
           {pending ? 'Preparing fix…' : 'Prepare Fix'}
         </button>
-        <span className="text-xs text-gray-400">for {pageLabel}</span>
+        <span className="text-xs text-subtle">for {pageLabel}</span>
       </form>
 
       {visibleState &&
         (visibleState.status === 'ready' ? (
-          <div className="mt-2 max-w-sm rounded-md border border-gray-200 bg-gray-50 p-3">
-            <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">Fix Preview</p>
+          <div className="mt-2 max-w-sm rounded-md border border-border bg-surface-muted p-3">
+            <p className="text-xs font-semibold uppercase tracking-wide text-subtle">Fix Preview</p>
 
             {visibleState.field === 'meta_description' && (
               <>
-                <p className="mt-2 text-xs font-medium text-gray-500">SEO provider</p>
+                <p className="mt-2 text-xs font-medium text-muted">SEO provider</p>
                 <p className="text-sm text-gray-900">{SEO_PROVIDER_LABELS[visibleState.provider] ?? visibleState.provider}</p>
               </>
             )}
 
             {visibleState.field === 'h1' && (
               <>
-                <p className="mt-2 text-xs font-medium text-gray-500">H1 source</p>
+                <p className="mt-2 text-xs font-medium text-muted">H1 source</p>
                 <p className="text-sm text-gray-900">WordPress page content</p>
-                <p className="mt-2 text-xs font-medium text-gray-500">Editor</p>
+                <p className="mt-2 text-xs font-medium text-muted">Editor</p>
                 <p className="text-sm text-gray-900">{H1_SOURCE_LABELS[visibleState.editorSource] ?? visibleState.editorSource}</p>
               </>
             )}
 
             {visibleState.field === 'image_alt' && (
               <>
-                <p className="mt-2 text-xs font-medium text-gray-500">Image</p>
+                <p className="mt-2 text-xs font-medium text-muted">Image</p>
                 <p className="truncate font-mono text-xs text-gray-900">{visibleState.imageUrl}</p>
-                <p className="mt-2 text-xs font-medium text-gray-500">Alt source</p>
+                <p className="mt-2 text-xs font-medium text-muted">Alt source</p>
                 <p className="text-sm text-gray-900">
                   {IMAGE_ALT_SOURCE_LABELS[visibleState.altSource] ?? visibleState.altSource}
                 </p>
               </>
             )}
 
-            <p className="mt-2 text-xs font-medium text-gray-500">Current</p>
+            <p className="mt-2 text-xs font-medium text-muted">Current</p>
             {/* Plain JSX text interpolation only — React escapes this by
                 default. WordPress content is never rendered via
                 dangerouslySetInnerHTML anywhere in this feature. */}
             <p className="text-sm text-gray-900">
               {visibleState.field === 'h1' ? (
-                <span className="text-gray-400">No H1 found</span>
+                <span className="text-subtle">No H1 found</span>
               ) : visibleState.field === 'image_alt' && !visibleState.currentValue ? (
-                <span className="text-gray-400">Missing</span>
+                <span className="text-subtle">Missing</span>
               ) : visibleState.currentValue ? (
                 `“${visibleState.currentValue}”`
               ) : (
-                <span className="text-gray-400">(none)</span>
+                <span className="text-subtle">(none)</span>
               )}
             </p>
 
             <div className="mt-2 flex flex-wrap items-center gap-2">
-              <p className="text-xs font-medium text-gray-500">Suggested</p>
-              <span className="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-medium text-gray-500">
+              <p className="text-xs font-medium text-muted">Suggested</p>
+              <span className="inline-flex items-center rounded-full bg-surface-muted px-2 py-0.5 text-[10px] font-medium text-muted">
                 {visibleState.source === 'ai' ? 'AI-assisted suggestion' : 'Standard suggestion'}
               </span>
             </div>
             <p className="text-sm text-gray-900">{`“${visibleState.proposedValue}”`}</p>
 
-            <p className="mt-2 text-xs text-gray-500">{visibleState.explanation}</p>
+            <p className="mt-2 text-xs text-muted">{visibleState.explanation}</p>
 
             {visibleState.field === 'title' ? (
               <>
@@ -500,7 +501,7 @@ export default function PrepareFixButton({
                   <button
                     type="button"
                     onClick={() => setDismissed(true)}
-                    className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50"
+                    className={buttonStyles({ variant: 'outline', size: 'sm' })}
                   >
                     Cancel
                   </button>
@@ -509,7 +510,7 @@ export default function PrepareFixButton({
                     <button
                       type="submit"
                       disabled={applyPending}
-                      className="rounded-md border border-brand/40 bg-brand-subtle px-3 py-1.5 text-xs font-medium text-brand hover:brightness-95 disabled:opacity-50"
+                      className={buttonStyles({ variant: 'primary', size: 'sm' })}
                     >
                       {applyPending ? 'Applying…' : 'Apply Fix'}
                     </button>
@@ -518,25 +519,25 @@ export default function PrepareFixButton({
 
                 {visibleApplyState &&
                   (visibleApplyState.writeStatus === 'success' ? (
-                    <div className="mt-3 border-t border-gray-200 pt-3">
-                      <p className="text-xs font-medium text-green-700">Fix applied successfully ✓</p>
-                      <p className="mt-1 text-xs text-gray-600">
+                    <div className="mt-3 border-t border-border pt-3">
+                      <p className="text-xs font-medium text-success">Fix applied successfully ✓</p>
+                      <p className="mt-1 text-xs text-muted">
                         {`WordPress title updated to: “${visibleApplyState.appliedTitle}”`}
                       </p>
 
-                      <p className="mt-3 text-xs font-semibold uppercase tracking-wide text-gray-400">
+                      <p className="mt-3 text-xs font-semibold uppercase tracking-wide text-subtle">
                         Verification
                       </p>
                       <VerificationResult verification={visibleApplyState.verification} />
 
                       {visibleApplyState.historyStatus === 'failed' && (
-                        <p className="mt-3 text-xs text-amber-700">
+                        <p className="mt-3 text-xs text-warning">
                           Fix applied, but webioom could not save the audit record.
                         </p>
                       )}
                     </div>
                   ) : (
-                    <p className="mt-3 text-xs text-red-600">{visibleApplyState.reason}</p>
+                    <p className="mt-3 text-xs text-danger">{visibleApplyState.reason}</p>
                   ))}
               </>
             ) : visibleState.field === 'meta_description' ? (
@@ -545,7 +546,7 @@ export default function PrepareFixButton({
                   <button
                     type="button"
                     onClick={() => setDismissed(true)}
-                    className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50"
+                    className={buttonStyles({ variant: 'outline', size: 'sm' })}
                   >
                     Cancel
                   </button>
@@ -554,7 +555,7 @@ export default function PrepareFixButton({
                     <button
                       type="submit"
                       disabled={applyMetaPending}
-                      className="rounded-md border border-brand/40 bg-brand-subtle px-3 py-1.5 text-xs font-medium text-brand hover:brightness-95 disabled:opacity-50"
+                      className={buttonStyles({ variant: 'primary', size: 'sm' })}
                     >
                       {applyMetaPending ? 'Applying…' : 'Apply Fix'}
                     </button>
@@ -563,25 +564,25 @@ export default function PrepareFixButton({
 
                 {visibleApplyMetaState &&
                   (visibleApplyMetaState.writeStatus === 'success' ? (
-                    <div className="mt-3 border-t border-gray-200 pt-3">
-                      <p className="text-xs font-medium text-green-700">Fix applied successfully ✓</p>
-                      <p className="mt-1 text-xs text-gray-600">
+                    <div className="mt-3 border-t border-border pt-3">
+                      <p className="text-xs font-medium text-success">Fix applied successfully ✓</p>
+                      <p className="mt-1 text-xs text-muted">
                         {`Meta description updated to: “${visibleApplyMetaState.appliedMetaDescription}”`}
                       </p>
 
-                      <p className="mt-3 text-xs font-semibold uppercase tracking-wide text-gray-400">
+                      <p className="mt-3 text-xs font-semibold uppercase tracking-wide text-subtle">
                         Verification
                       </p>
                       <MetaDescriptionVerificationResult verification={visibleApplyMetaState.verification} />
 
                       {visibleApplyMetaState.historyStatus === 'failed' && (
-                        <p className="mt-3 text-xs text-amber-700">
+                        <p className="mt-3 text-xs text-warning">
                           Fix applied, but webioom could not save the audit record.
                         </p>
                       )}
                     </div>
                   ) : (
-                    <p className="mt-3 text-xs text-red-600">{visibleApplyMetaState.reason}</p>
+                    <p className="mt-3 text-xs text-danger">{visibleApplyMetaState.reason}</p>
                   ))}
               </>
             ) : visibleState.field === 'h1' ? (
@@ -590,7 +591,7 @@ export default function PrepareFixButton({
                   <button
                     type="button"
                     onClick={() => setDismissed(true)}
-                    className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50"
+                    className={buttonStyles({ variant: 'outline', size: 'sm' })}
                   >
                     Cancel
                   </button>
@@ -599,7 +600,7 @@ export default function PrepareFixButton({
                     <button
                       type="submit"
                       disabled={applyH1Pending}
-                      className="rounded-md border border-brand/40 bg-brand-subtle px-3 py-1.5 text-xs font-medium text-brand hover:brightness-95 disabled:opacity-50"
+                      className={buttonStyles({ variant: 'primary', size: 'sm' })}
                     >
                       {applyH1Pending ? 'Applying…' : 'Apply Fix'}
                     </button>
@@ -608,25 +609,25 @@ export default function PrepareFixButton({
 
                 {visibleApplyH1State &&
                   (visibleApplyH1State.writeStatus === 'success' ? (
-                    <div className="mt-3 border-t border-gray-200 pt-3">
-                      <p className="text-xs font-medium text-green-700">Fix applied successfully ✓</p>
-                      <p className="mt-1 text-xs text-gray-600">
+                    <div className="mt-3 border-t border-border pt-3">
+                      <p className="text-xs font-medium text-success">Fix applied successfully ✓</p>
+                      <p className="mt-1 text-xs text-muted">
                         {`Heading added: “${visibleApplyH1State.appliedH1}”`}
                       </p>
 
-                      <p className="mt-3 text-xs font-semibold uppercase tracking-wide text-gray-400">
+                      <p className="mt-3 text-xs font-semibold uppercase tracking-wide text-subtle">
                         Verification
                       </p>
                       <H1VerificationResult verification={visibleApplyH1State.verification} />
 
                       {visibleApplyH1State.historyStatus === 'failed' && (
-                        <p className="mt-3 text-xs text-amber-700">
+                        <p className="mt-3 text-xs text-warning">
                           Fix applied, but webioom could not save the audit record.
                         </p>
                       )}
                     </div>
                   ) : (
-                    <p className="mt-3 text-xs text-red-600">{visibleApplyH1State.reason}</p>
+                    <p className="mt-3 text-xs text-danger">{visibleApplyH1State.reason}</p>
                   ))}
               </>
             ) : (
@@ -635,7 +636,7 @@ export default function PrepareFixButton({
                   <button
                     type="button"
                     onClick={() => setDismissed(true)}
-                    className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50"
+                    className={buttonStyles({ variant: 'outline', size: 'sm' })}
                   >
                     Cancel
                   </button>
@@ -644,7 +645,7 @@ export default function PrepareFixButton({
                     <button
                       type="submit"
                       disabled={applyImageAltPending}
-                      className="rounded-md border border-brand/40 bg-brand-subtle px-3 py-1.5 text-xs font-medium text-brand hover:brightness-95 disabled:opacity-50"
+                      className={buttonStyles({ variant: 'primary', size: 'sm' })}
                     >
                       {applyImageAltPending ? 'Applying…' : 'Apply Fix'}
                     </button>
@@ -653,24 +654,24 @@ export default function PrepareFixButton({
 
                 {visibleApplyImageAltState &&
                   (visibleApplyImageAltState.writeStatus === 'success' ? (
-                    <div className="mt-3 border-t border-gray-200 pt-3">
-                      <p className="text-xs font-medium text-green-700">Alt text updated successfully.</p>
-                      <p className="mt-2 text-xs font-medium text-gray-500">Current</p>
+                    <div className="mt-3 border-t border-border pt-3">
+                      <p className="text-xs font-medium text-success">Alt text updated successfully.</p>
+                      <p className="mt-2 text-xs font-medium text-muted">Current</p>
                       <p className="text-sm text-gray-900">{`“${visibleApplyImageAltState.appliedValue}”`}</p>
 
-                      <p className="mt-3 text-xs font-semibold uppercase tracking-wide text-gray-400">
+                      <p className="mt-3 text-xs font-semibold uppercase tracking-wide text-subtle">
                         Verification
                       </p>
                       <ImageAltVerificationResult verification={visibleApplyImageAltState.verification} />
 
                       {visibleApplyImageAltState.historyStatus === 'failed' && (
-                        <p className="mt-3 text-xs text-amber-700">
+                        <p className="mt-3 text-xs text-warning">
                           Fix applied, but webioom could not save the audit record.
                         </p>
                       )}
                     </div>
                   ) : (
-                    <p className="mt-3 text-xs text-red-600">{visibleApplyImageAltState.reason}</p>
+                    <p className="mt-3 text-xs text-danger">{visibleApplyImageAltState.reason}</p>
                   ))}
               </>
             )}
@@ -691,7 +692,7 @@ export default function PrepareFixButton({
             benefit="Upgrade to unlock guided fixes, AI-assisted improvements, Safe Fix where supported, verification and ongoing website improvement."
           />
         ) : (
-          <p className="mt-2 text-xs text-gray-600">{visibleState.reason}</p>
+          <p className="mt-2 text-xs text-muted">{visibleState.reason}</p>
         ))}
     </div>
   )

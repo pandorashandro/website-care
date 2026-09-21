@@ -18,6 +18,8 @@ import {
   Sparkles,
 } from 'lucide-react'
 import Container from '@/components/ui/container'
+import Section from '@/components/ui/section'
+import ScrollReveal from '@/components/ui/scroll-reveal'
 import Card from '@/components/ui/card'
 import Alert from '@/components/ui/alert'
 import { buttonStyles } from '@/components/ui/button'
@@ -112,27 +114,25 @@ export default function SecurityPage() {
   return (
     <>
       {/* 8. HERO */}
-      <div className="border-b border-border bg-surface-muted">
-        <Container size="lg" className="py-16 text-center sm:py-20">
-          <p className="text-sm font-semibold tracking-wide text-brand">Security &amp; Trust</p>
-          <h1 className="mt-2 text-3xl font-semibold tracking-tight text-gray-900 sm:text-4xl">
-            You&apos;re always in control of changes to your website.
-          </h1>
-          <p className="mx-auto mt-4 max-w-2xl text-lg text-muted">
-            webioom separates finding problems from changing your site. Supported changes follow a
-            controlled workflow designed to confirm the target, require your approval, and give you
-            visibility into what happened.
-          </p>
-        </Container>
-      </div>
+      <Section tint="muted" border="bottom" size="lg" containerClassName="text-center">
+        <p className="text-sm font-semibold tracking-wide text-brand">Security &amp; Trust</p>
+        <h1 className="mx-auto mt-3 max-w-3xl text-4xl font-semibold tracking-tight text-gray-900 sm:text-5xl">
+          You&apos;re always in control of changes to your website.
+        </h1>
+        <p className="mx-auto mt-5 max-w-2xl text-lg text-muted">
+          webioom separates finding problems from changing your site. Supported changes follow a
+          controlled workflow designed to confirm the target, require your approval, and give you
+          visibility into what happened.
+        </p>
+      </Section>
 
       {/* 9. CORE TRUST PRINCIPLES */}
-      <Container size="lg" className="py-16 sm:py-20">
-        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+      <Section>
+        <ScrollReveal className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
           {PRINCIPLES.map((principle) => {
             const Icon = principle.icon
             return (
-              <Card key={principle.title}>
+              <Card key={principle.title} className="motion-hover-lift">
                 <div className="flex h-10 w-10 items-center justify-center rounded-md bg-brand-subtle text-brand">
                   <Icon className="h-5 w-5" aria-hidden="true" />
                 </div>
@@ -141,12 +141,12 @@ export default function SecurityPage() {
               </Card>
             )
           })}
-        </div>
-      </Container>
+        </ScrollReveal>
+      </Section>
 
       {/* 10. TRUST WORKFLOW VISUAL */}
-      <div className="border-t border-border bg-surface-muted">
-        <Container size="lg" className="py-16 sm:py-20">
+      <Section tint="muted" border="top">
+        <ScrollReveal>
           <Card>
             <FlowDiagram steps={TRUST_WORKFLOW} />
             <p className="mt-6 text-sm text-gray-700">
@@ -154,12 +154,12 @@ export default function SecurityPage() {
               until you approve it.
             </p>
           </Card>
-        </Container>
-      </div>
+        </ScrollReveal>
+      </Section>
 
       {/* 11. CREDENTIAL HANDLING */}
-      <Container size="lg" className="py-16 sm:py-20">
-        <div className="grid grid-cols-1 gap-8 lg:grid-cols-2 lg:items-start">
+      <Section>
+        <ScrollReveal className="grid grid-cols-1 gap-8 lg:grid-cols-2 lg:items-start">
           <div>
             <h2 className="text-2xl font-semibold tracking-tight text-gray-900">How connected credentials are handled</h2>
             <p className="mt-3 text-sm text-muted">
@@ -177,69 +177,71 @@ export default function SecurityPage() {
               ))}
             </ul>
           </Card>
-        </div>
-      </Container>
+        </ScrollReveal>
+      </Section>
 
       {/* 12. CHANGE SAFETY — AI BOUNDARY */}
-      <div className="border-t border-border bg-surface-muted">
-        <Container size="lg" className="py-16 sm:py-20">
-          <div className="grid grid-cols-1 gap-8 lg:grid-cols-2 lg:items-start">
-            <div>
-              <h2 className="text-2xl font-semibold tracking-tight text-gray-900">Why webioom doesn&apos;t just &ldquo;let AI edit the site&rdquo;</h2>
-              <p className="mt-3 text-sm text-muted">
-                For AI-assisted fixes, AI helps prepare the replacement text — like a title or a description
-                — for you to review. That&apos;s the extent of its role. AI does not:
-              </p>
-            </div>
-
-            <Card>
-              <ul className="space-y-3">
-                {AI_BOUNDARY_POINTS.map((point) => (
-                  <li key={point} className="flex items-start gap-2.5 text-sm text-gray-700">
-                    <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-brand" aria-hidden="true" />
-                    {point}
-                  </li>
-                ))}
-              </ul>
-            </Card>
+      <Section tint="muted" border="top">
+        <ScrollReveal className="grid grid-cols-1 gap-8 lg:grid-cols-2 lg:items-start">
+          <div>
+            <h2 className="text-2xl font-semibold tracking-tight text-gray-900">Why webioom doesn&apos;t just &ldquo;let AI edit the site&rdquo;</h2>
+            <p className="mt-3 text-sm text-muted">
+              For AI-assisted fixes, AI helps prepare the replacement text — like a title or a description
+              — for you to review. That&apos;s the extent of its role. AI does not:
+            </p>
           </div>
-        </Container>
-      </div>
+
+          <Card>
+            <ul className="space-y-3">
+              {AI_BOUNDARY_POINTS.map((point) => (
+                <li key={point} className="flex items-start gap-2.5 text-sm text-gray-700">
+                  <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-brand" aria-hidden="true" />
+                  {point}
+                </li>
+              ))}
+            </ul>
+          </Card>
+        </ScrollReveal>
+      </Section>
 
       {/* 13. VERIFICATION + HISTORY + UNDO LIFECYCLE */}
-      <Container size="lg" className="py-16 sm:py-20">
-        <h2 className="text-2xl font-semibold tracking-tight text-gray-900">After a supported change is applied</h2>
+      <Section>
+        <ScrollReveal>
+          <h2 className="text-2xl font-semibold tracking-tight text-gray-900">After a supported change is applied</h2>
 
-        <div className="mt-8 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
-          {LIFECYCLE_STEPS.map((step) => (
-            <Card key={step.title} padding="sm">
-              <h3 className="text-sm font-semibold text-gray-900">{step.title}</h3>
-              <p className="mt-1.5 text-sm text-muted">{step.description}</p>
-            </Card>
-          ))}
-        </div>
-      </Container>
+          <div className="mt-8 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
+            {LIFECYCLE_STEPS.map((step) => (
+              <Card key={step.title} padding="sm">
+                <h3 className="text-sm font-semibold text-gray-900">{step.title}</h3>
+                <p className="mt-1.5 text-sm text-muted">{step.description}</p>
+              </Card>
+            ))}
+          </div>
+        </ScrollReveal>
+      </Section>
 
       {/* 14. WHAT WE DO NOT CLAIM + CTAs */}
       <div className="border-t border-border bg-surface-muted">
-        <Container size="lg" className="py-16 sm:py-20">
-          <Alert tone="info">
-            webioom does not currently hold formal certifications such as SOC 2, ISO 27001, or similar,
-            and has not undergone third-party security audits or penetration testing. This page describes
-            the product&apos;s design principles, not a compliance or certification claim.
-          </Alert>
+        <Container size="lg" className="py-16 sm:py-24">
+          <ScrollReveal>
+            <Alert tone="info">
+              webioom does not currently hold formal certifications such as SOC 2, ISO 27001, or similar,
+              and has not undergone third-party security audits or penetration testing. This page describes
+              the product&apos;s design principles, not a compliance or certification claim.
+            </Alert>
 
-          <div className="mt-10 flex flex-wrap items-center justify-center gap-3">
-            <Link href="/integrations" className={buttonStyles({ variant: 'outline', size: 'lg' })}>
-              See Integrations
-            </Link>
-            <Link href="/product" className={buttonStyles({ variant: 'outline', size: 'lg' })}>
-              How webioom Works
-            </Link>
-            <Link href="/signup" className={buttonStyles({ variant: 'primary', size: 'lg' })}>
-              Get Started
-            </Link>
-          </div>
+            <div className="mt-10 flex flex-wrap items-center justify-center gap-3">
+              <Link href="/integrations" className={buttonStyles({ variant: 'outline', size: 'lg' })}>
+                See Integrations
+              </Link>
+              <Link href="/product" className={buttonStyles({ variant: 'outline', size: 'lg' })}>
+                How webioom Works
+              </Link>
+              <Link href="/signup" className={buttonStyles({ variant: 'primary', size: 'lg' })}>
+                Get Started
+              </Link>
+            </div>
+          </ScrollReveal>
         </Container>
       </div>
     </>

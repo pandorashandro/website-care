@@ -2,6 +2,7 @@
 
 import { useActionState, useState } from 'react'
 import UpgradePrompt from '@/components/billing/upgrade-prompt'
+import { buttonStyles } from '@/components/ui/button'
 import {
   prepareShopifyTitleFix,
   applyShopifyTitleFix,
@@ -35,8 +36,8 @@ function ShopifyVerificationResult({ verification }: { verification: ShopifyPubl
   if (verification.status === 'verified') {
     return (
       <div className="mt-1">
-        <p className="text-xs font-medium text-green-700">Verified ✓</p>
-        <p className="mt-1 text-xs text-gray-600">The public storefront now reflects the fix.</p>
+        <p className="text-xs font-medium text-success">Verified ✓</p>
+        <p className="mt-1 text-xs text-muted">The public storefront now reflects the fix.</p>
       </div>
     )
   }
@@ -44,8 +45,8 @@ function ShopifyVerificationResult({ verification }: { verification: ShopifyPubl
   if (verification.status === 'pending') {
     return (
       <div className="mt-1">
-        <p className="text-xs font-medium text-amber-700">Pending</p>
-        <p className="mt-1 text-xs text-gray-600">
+        <p className="text-xs font-medium text-warning">Pending</p>
+        <p className="mt-1 text-xs text-muted">
           The public storefront is still showing the previous value. This may be caused by caching.
         </p>
       </div>
@@ -55,8 +56,8 @@ function ShopifyVerificationResult({ verification }: { verification: ShopifyPubl
   if (verification.status === 'mismatch') {
     return (
       <div className="mt-1">
-        <p className="text-xs font-medium text-amber-700">Needs attention</p>
-        <p className="mt-1 text-xs text-gray-600">
+        <p className="text-xs font-medium text-warning">Needs attention</p>
+        <p className="mt-1 text-xs text-muted">
           Shopify accepted the update, but the public storefront is showing something different than
           expected.
         </p>
@@ -66,8 +67,8 @@ function ShopifyVerificationResult({ verification }: { verification: ShopifyPubl
 
   return (
     <div className="mt-1">
-      <p className="text-xs font-medium text-gray-500">Could not verify</p>
-      <p className="mt-1 text-xs text-gray-600">webioom could not safely check the public storefront right now.</p>
+      <p className="text-xs font-medium text-muted">Could not verify</p>
+      <p className="mt-1 text-xs text-muted">webioom could not safely check the public storefront right now.</p>
     </div>
   )
 }
@@ -173,48 +174,48 @@ export default function ShopifyPrepareFixButton({
         <button
           type="submit"
           disabled={preparePending}
-          className="rounded-md border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+          className={buttonStyles({ variant: 'outline', size: 'sm' })}
         >
           {preparePending ? 'Preparing fix…' : 'Prepare Fix'}
         </button>
-        <span className="text-xs text-gray-400">for {pageLabel}</span>
+        <span className="text-xs text-subtle">for {pageLabel}</span>
       </form>
 
       {visiblePrepareState &&
         (visiblePrepareState.status === 'ready' ? (
-          <div className="mt-2 max-w-sm rounded-md border border-gray-200 bg-gray-50 p-3">
-            <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">Fix Preview</p>
+          <div className="mt-2 max-w-sm rounded-md border border-border bg-surface-muted p-3">
+            <p className="text-xs font-semibold uppercase tracking-wide text-subtle">Fix Preview</p>
 
-            <p className="mt-2 text-xs font-medium text-gray-500">Shopify resource</p>
+            <p className="mt-2 text-xs font-medium text-muted">Shopify resource</p>
             <p className="text-sm text-gray-900">
               {RESOURCE_TYPE_LABELS[visiblePrepareState.resourceType] ?? visiblePrepareState.resourceType}
             </p>
 
-            <p className="mt-2 text-xs font-medium text-gray-500">Current</p>
+            <p className="mt-2 text-xs font-medium text-muted">Current</p>
             <p className="text-sm text-gray-900">
               {isTitleReady(visiblePrepareState) ? (
                 visiblePrepareState.currentTitle ? (
                   `“${visiblePrepareState.currentTitle}”`
                 ) : (
-                  <span className="text-gray-400">(none)</span>
+                  <span className="text-subtle">(none)</span>
                 )
               ) : visiblePrepareState.currentValue ? (
                 `“${visiblePrepareState.currentValue}”`
               ) : (
-                <span className="text-gray-400">(none)</span>
+                <span className="text-subtle">(none)</span>
               )}
             </p>
 
-            <p className="mt-2 text-xs font-medium text-gray-500">Suggested</p>
+            <p className="mt-2 text-xs font-medium text-muted">Suggested</p>
             <p className="text-sm text-gray-900">{`“${visiblePrepareState.proposedValue}”`}</p>
 
-            <p className="mt-2 text-xs text-gray-500">{visiblePrepareState.explanation}</p>
+            <p className="mt-2 text-xs text-muted">{visiblePrepareState.explanation}</p>
 
             <div className="mt-3 flex gap-2">
               <button
                 type="button"
                 onClick={() => setDismissed(true)}
-                className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50"
+                className={buttonStyles({ variant: 'outline', size: 'sm' })}
               >
                 Cancel
               </button>
@@ -223,7 +224,7 @@ export default function ShopifyPrepareFixButton({
                 <button
                   type="submit"
                   disabled={applyPending}
-                  className="rounded-md border border-brand/40 bg-brand-subtle px-3 py-1.5 text-xs font-medium text-brand hover:brightness-95 disabled:opacity-50"
+                  className={buttonStyles({ variant: 'primary', size: 'sm' })}
                 >
                   {applyPending ? 'Applying…' : 'Apply Fix'}
                 </button>
@@ -232,37 +233,37 @@ export default function ShopifyPrepareFixButton({
 
             {visibleApplyState &&
               (visibleApplyState.writeStatus === 'admin_write_succeeded' ? (
-                <div className="mt-3 border-t border-gray-200 pt-3">
-                  <p className="text-xs font-medium text-green-700">Fix applied successfully ✓</p>
-                  <p className="mt-1 text-xs text-gray-600">
+                <div className="mt-3 border-t border-border pt-3">
+                  <p className="text-xs font-medium text-success">Fix applied successfully ✓</p>
+                  <p className="mt-1 text-xs text-muted">
                     {'newTitle' in visibleApplyState
                       ? `Shopify title updated to: "${visibleApplyState.newTitle}"`
                       : `Shopify meta description updated to: "${visibleApplyState.newValue}"`}
                   </p>
 
-                  <p className="mt-3 text-xs font-semibold uppercase tracking-wide text-gray-400">
+                  <p className="mt-3 text-xs font-semibold uppercase tracking-wide text-subtle">
                     Public verification
                   </p>
                   <ShopifyVerificationResult verification={visibleApplyState.verification} />
 
                   {visibleApplyState.historyStatus === 'failed' && (
-                    <p className="mt-3 text-xs text-amber-700">
+                    <p className="mt-3 text-xs text-warning">
                       Fix applied, but webioom could not save the audit record. Undo will not be available
                       for this change.
                     </p>
                   )}
                 </div>
               ) : visibleApplyState.writeStatus === 'already_applied' ? (
-                <div className="mt-3 border-t border-gray-200 pt-3">
-                  <p className="text-xs font-medium text-gray-700">Already up to date</p>
-                  <p className="mt-1 text-xs text-gray-600">
+                <div className="mt-3 border-t border-border pt-3">
+                  <p className="text-xs font-medium text-muted">Already up to date</p>
+                  <p className="mt-1 text-xs text-muted">
                     {'currentTitle' in visibleApplyState
                       ? `The current value in Shopify already matches: "${visibleApplyState.currentTitle}"`
                       : `The current value in Shopify already matches: "${visibleApplyState.currentValue}"`}
                   </p>
                 </div>
               ) : (
-                <p className="mt-3 text-xs text-red-600">{visibleApplyState.reason}</p>
+                <p className="mt-3 text-xs text-danger">{visibleApplyState.reason}</p>
               ))}
           </div>
         ) : visiblePrepareState.status === 'requires_upgrade' ? (
@@ -273,7 +274,7 @@ export default function ShopifyPrepareFixButton({
             benefit="Upgrade to unlock guided fixes, AI-assisted improvements, Safe Fix where supported, verification and ongoing website improvement."
           />
         ) : (
-          <p className="mt-2 text-xs text-gray-600">{visiblePrepareState.reason}</p>
+          <p className="mt-2 text-xs text-muted">{visiblePrepareState.reason}</p>
         ))}
     </div>
   )

@@ -62,7 +62,7 @@ export default function ConnectWordPressButton({ websiteId }: { websiteId: strin
           </div>
 
           <details className="rounded-md border border-border bg-surface-muted p-3">
-            <summary className="cursor-pointer text-xs font-medium text-gray-700 marker:content-none">
+            <summary className="cursor-pointer text-xs font-medium text-muted marker:content-none">
               <span className="inline-flex items-center gap-1">
                 <span aria-hidden="true">›</span>
                 What&apos;s an Application Password?
@@ -71,7 +71,7 @@ export default function ConnectWordPressButton({ websiteId }: { websiteId: strin
             <p className="mt-2 text-xs leading-relaxed text-muted">
               It&apos;s a password WordPress generates specifically for tools like webioom, separate
               from your login password and easy to revoke on its own. In your WordPress admin, go to{' '}
-              <span className="font-medium text-gray-700">Users → Profile → Application Passwords</span> to
+              <span className="font-medium text-muted">Users → Profile → Application Passwords</span> to
               create one.{' '}
               <a
                 href="https://wordpress.org/documentation/article/application-passwords/"

@@ -20,7 +20,7 @@ export default function PillarSubNav({ websiteId, active }: { websiteId: string;
           href={`/dashboard/websites/${websiteId}/${item.slug}`}
           aria-current={item.key === active ? 'page' : undefined}
           className={cn(
-            'shrink-0 whitespace-nowrap rounded-full px-3 py-1.5 text-sm font-medium transition-colors duration-150 ease-out',
+            'shrink-0 whitespace-nowrap rounded-full px-3 py-1.5 text-sm font-medium transition-colors duration-150 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2',
             item.key === active ? 'bg-brand-subtle text-brand' : 'text-muted hover:bg-surface-muted hover:text-gray-900'
           )}
         >

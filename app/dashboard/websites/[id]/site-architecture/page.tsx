@@ -264,7 +264,10 @@ export default async function SiteArchitecturePage(props: PageProps<'/dashboard/
 
       <Card padding="md" className="mt-4 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
-          <p className="text-xs font-semibold uppercase tracking-wide text-subtle">Site Architecture</p>
+          <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-subtle">
+            <Network className="h-3.5 w-3.5" aria-hidden="true" />
+            Site Architecture
+          </p>
           <h1 className="mt-1 text-2xl font-semibold text-gray-900">Site Architecture &amp; Internal Linking</h1>
           <p className="mt-1 text-sm text-muted">How easily pages on your website can be discovered and reached through your internal links.</p>
 

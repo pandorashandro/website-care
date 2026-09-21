@@ -339,7 +339,10 @@ export default async function OnPageSeoPage(props: PageProps<'/dashboard/website
 
       <Card padding="md" className="mt-4 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
-          <p className="text-xs font-semibold uppercase tracking-wide text-subtle">On-Page SEO</p>
+          <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-subtle">
+            <Search className="h-3.5 w-3.5" aria-hidden="true" />
+            On-Page SEO
+          </p>
           <h1 className="mt-1 text-2xl font-semibold text-gray-900">On-Page SEO</h1>
           <p className="mt-1 text-sm text-muted">How well each page&apos;s title, meta description, and headings are optimized for search.</p>
 

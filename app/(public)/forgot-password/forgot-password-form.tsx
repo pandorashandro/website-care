@@ -59,11 +59,11 @@ export default function ForgotPasswordForm() {
       />
 
       <Container size="sm" className="relative flex flex-col items-center motion-safe:animate-[webioom-rise-in_var(--duration-reveal)_var(--ease-out)_both]">
-        <Link href="/" className="mb-10" aria-label="webioom home">
-          <Logo className="h-11" />
+        <Link href="/" className="mb-10 rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2" aria-label="webioom home">
+          <Logo className="h-12 sm:h-14" />
         </Link>
 
-        <Card padding="md" className="w-full max-w-sm shadow-md">
+        <Card padding="md" className="w-full max-w-sm sm:p-8" style={{ boxShadow: 'var(--shadow-lg)' }}>
           <h1 className="text-2xl font-semibold text-gray-900">Reset your password</h1>
         <p className="mt-1 text-sm text-muted">
           Enter your email and we&apos;ll send you a link to reset your password.

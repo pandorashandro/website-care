@@ -25,33 +25,36 @@ import type { OverallWebsiteHealth } from '@/lib/category-engine/overall-health'
  */
 export default function OverallWebsiteHealthCard({ health }: { health: OverallWebsiteHealth }) {
   return (
-    <Card padding="md">
-      <p className="text-xs font-semibold uppercase tracking-wide text-subtle">Overall Website Health</p>
+    <Card padding="none" className="overflow-hidden" style={{ boxShadow: 'var(--shadow-md)' }}>
+      <div className="h-1.5 w-full" style={{ background: 'var(--brand-gradient)' }} aria-hidden="true" />
+      <div className="p-6">
+        <p className="text-xs font-semibold uppercase tracking-wide text-subtle">Overall Website Health</p>
 
-      {health.score === null ? (
-        <>
-          <p className="mt-2 text-2xl font-semibold text-gray-900">Not yet available</p>
-          <p className="mt-2 text-sm text-muted">Run a scan to see your overall website health.</p>
-        </>
-      ) : (
-        <>
-          <div className="mt-2 flex flex-wrap items-end gap-3">
-            <span className="text-5xl font-semibold tracking-tight tabular-nums text-gray-900 motion-safe:animate-[webioom-rise-in_var(--duration-reveal)_var(--ease-out)_both]">
-              {health.score}
-            </span>
-            <span className="pb-1 text-base text-muted">/ 100</span>
-            <Badge tone={healthTone(health.score)} className="mb-1 text-sm">
-              {healthLabel(health.score)}
-            </Badge>
-          </div>
+        {health.score === null ? (
+          <>
+            <p className="mt-2 text-2xl font-semibold text-gray-900">Not yet available</p>
+            <p className="mt-2 text-sm text-muted">Run a scan to see your overall website health.</p>
+          </>
+        ) : (
+          <>
+            <div className="mt-2 flex flex-wrap items-end gap-3">
+              <span className="text-5xl font-semibold tracking-tight tabular-nums text-gray-900 motion-safe:animate-[webioom-rise-in_var(--duration-reveal)_var(--ease-out)_both]">
+                {health.score}
+              </span>
+              <span className="pb-1 text-base text-muted">/ 100</span>
+              <Badge tone={healthTone(health.score)} className="mb-1 text-sm">
+                {healthLabel(health.score)}
+              </Badge>
+            </div>
 
-          <ScoreMeter score={health.score} size="lg" className="mt-4 max-w-md" aria-label={`Overall Website Health: ${health.score} out of 100, ${healthLabel(health.score)}`} />
+            <ScoreMeter score={health.score} size="lg" className="mt-4 max-w-md" aria-label={`Overall Website Health: ${health.score} out of 100, ${healthLabel(health.score)}`} />
 
-          <p className="mt-3 text-sm font-medium text-gray-700">
-            Based on {health.contributingCategoryCount} of {health.totalCanonicalCategories} canonical categories analyzed so far.
-          </p>
-        </>
-      )}
+            <p className="mt-3 text-sm font-medium text-gray-700">
+              Based on {health.contributingCategoryCount} of {health.totalCanonicalCategories} canonical categories analyzed so far.
+            </p>
+          </>
+        )}
+      </div>
     </Card>
   )
 }

@@ -42,8 +42,8 @@ export default function PublicHeader() {
   return (
     <header className="border-b border-border bg-surface">
       <div className="mx-auto flex h-20 max-w-7xl items-center justify-between px-4 sm:px-6">
-        <Link href="/" className="shrink-0" aria-label="webioom home">
-          <Logo className="h-11 sm:h-12" />
+        <Link href="/" className="shrink-0 rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2" aria-label="webioom home">
+          <Logo className="h-12 sm:h-14" />
         </Link>
 
         <nav className="hidden items-center gap-6 lg:flex" aria-label="Primary">
@@ -54,7 +54,7 @@ export default function PublicHeader() {
                 href={item.href}
                 aria-current={pathname === item.href ? 'page' : undefined}
                 className={cn(
-                  'border-b-2 pb-0.5 text-sm font-medium transition-colors duration-150 ease-out',
+                  'rounded-sm border-b-2 pb-0.5 text-sm font-medium transition-colors duration-150 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2',
                   pathname === item.href ? 'border-brand text-brand' : 'border-transparent text-gray-600 hover:text-gray-900'
                 )}
               >

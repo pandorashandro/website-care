@@ -64,9 +64,9 @@ export default async function ResourceArticlePage(props: PageProps<'/resources/[
   const related = getRelatedResources(slug)
 
   return (
-    <Container size="sm" className="py-16 sm:py-20">
+    <Container size="sm" className="py-16 sm:py-24">
       <nav aria-label="Breadcrumb" className="flex items-center gap-1.5 text-sm text-muted">
-        <Link href="/resources" className="hover:text-gray-900">
+        <Link href="/resources" className="rounded-sm hover:text-gray-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2">
           Resources
         </Link>
         <ChevronRight className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
@@ -110,8 +110,12 @@ export default async function ResourceArticlePage(props: PageProps<'/resources/[
           <h2 className="text-sm font-semibold uppercase tracking-wide text-subtle">Continue learning</h2>
           <div className="mt-5 grid grid-cols-1 gap-5 sm:grid-cols-3">
             {related.map((item) => (
-              <Link key={item.slug} href={`/resources/${item.slug}`} className="group block">
-                <Card className="h-full transition-shadow group-hover:shadow-md" padding="sm">
+              <Link
+                key={item.slug}
+                href={`/resources/${item.slug}`}
+                className="group block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
+              >
+                <Card className="h-full motion-hover-lift transition-shadow group-hover:shadow-md" padding="sm">
                   <Badge tone="neutral">{item.category}</Badge>
                   <p className="mt-2 text-sm font-medium text-gray-900">{item.title}</p>
                 </Card>

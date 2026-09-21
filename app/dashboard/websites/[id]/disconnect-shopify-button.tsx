@@ -22,7 +22,7 @@ export default function DisconnectShopifyButton({ websiteId }: { websiteId: stri
 
   return (
     <Card padding="sm" className="space-y-3 bg-surface-muted">
-      <p className="text-xs text-gray-700">
+      <p className="text-xs text-muted">
         Scanning and reports will continue to work. Supported direct fixes will be unavailable until
         Shopify is connected again.
       </p>
