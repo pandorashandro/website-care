@@ -20,10 +20,15 @@ export type AuthShellProps = {
  * the home link — so it collapses cleanly on mobile (`hidden lg:flex`)
  * without leaving any functionality behind; the form itself, and its own
  * (smaller, on-light) logo, is what mobile visitors see first.
+ *
+ * Sprint 3, Prompt 2B (targeted correction) — now renders under
+ * app/(auth)/layout.tsx's own bare layout (no PublicHeader/PublicFooter),
+ * so this component provides its own `min-h-screen` instead of relying on
+ * a parent flex column to stretch it to full height.
  */
 export default function AuthShell({ children, brandHeadline, brandDescription }: AuthShellProps) {
   return (
-    <div className="flex flex-1">
+    <div className="flex min-h-screen">
       <div className="relative hidden w-1/2 flex-col justify-between overflow-hidden bg-brand-dark p-10 lg:flex xl:p-14">
         <div
           className="pointer-events-none absolute -left-24 -top-24 h-[420px] w-[420px] rounded-full opacity-25 blur-3xl"

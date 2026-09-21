@@ -1,7 +1,6 @@
 import Link from 'next/link'
 import Logo from '@/components/brand/logo'
 import { buttonStyles } from '@/components/ui/button'
-import DarkAtmosphere from '@/components/ui/dark-atmosphere'
 import { RESOURCES } from '@/lib/content/resources'
 
 type FooterLink = { label: string; href?: string }
@@ -37,31 +36,52 @@ const FOOTER_COLUMNS: { heading: string; items: FooterLink[] }[] = [
 ]
 
 /**
+ * Sprint 3, Prompt 2B (targeted correction) — the CTA used to live INSIDE
+ * the dark `<footer>`, immediately followed by the rest of the dark
+ * footer content — two dark blocks back to back visually merged into one
+ * oversized dark rectangle, destroying the light/dark rhythm this pass is
+ * built around. It's now a light, brand-tinted card sitting on the
+ * ordinary page background, rendered as its own section BEFORE the
+ * `<footer>` element starts — so the transition reads as
+ * "content → premium light CTA → dark footer," three visually distinct
+ * moments instead of two dark ones fused together.
+ */
+function PreFooterCta() {
+  return (
+    <div className="bg-background px-4 py-16 sm:px-6 sm:py-20">
+      <div className="relative mx-auto max-w-3xl overflow-hidden rounded-2xl border border-border bg-surface p-10 text-center sm:p-14" style={{ boxShadow: 'var(--shadow-lg)' }}>
+        <div className="pointer-events-none absolute inset-0 opacity-[0.08]" style={{ background: 'var(--brand-gradient)' }} aria-hidden="true" />
+        <div className="relative">
+          <h2 className="text-2xl font-semibold tracking-tight text-gray-900 sm:text-3xl">Ready to see your website&rsquo;s health?</h2>
+          <div className="mt-7">
+            <Link href="/signup" className={buttonStyles({ variant: 'primary', size: 'lg' })}>
+              Scan your website for free
+            </Link>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/**
  * Sprint 3, Prompt 2B (public-site rebuild) — was "a generic footer" per
- * the founder's own review. Now opens with a genuine closing CTA moment
- * (a real composition decision, not a color swap) before the link
- * columns, and carries a single thin brand-gradient hairline at the very
- * top — the same restrained "colored edge" convention used throughout the
- * app (pricing cards, pillar headers, Fix These First) — so the site and
- * the product read as the same visual system. No new pages are invented:
- * Company/Legal stay honest non-clickable placeholders exactly as before.
+ * the founder's own review; now carries a single thin brand-gradient
+ * hairline at the very top — the same restrained "colored edge" convention
+ * used throughout the app (pricing cards, pillar headers, Fix These
+ * First) — so the site and the product read as the same visual system. No
+ * new pages are invented: Company/Legal stay honest non-clickable
+ * placeholders exactly as before.
  */
 export default function PublicFooter() {
   return (
-    <footer className="border-t border-border-dark bg-brand-dark">
-      <div className="h-[2px] w-full" style={{ background: 'var(--brand-gradient)' }} aria-hidden="true" />
+    <>
+      <PreFooterCta />
 
-      <div className="relative overflow-hidden border-b border-border-dark">
-        <DarkAtmosphere />
-        <div className="relative mx-auto flex max-w-7xl flex-col items-center gap-5 px-4 py-14 text-center sm:px-6">
-          <h2 className="text-2xl font-semibold tracking-tight text-text-on-dark sm:text-3xl">Ready to see your website&rsquo;s health?</h2>
-          <Link href="/signup" className={buttonStyles({ variant: 'primary', size: 'lg' })}>
-            Scan your website for free
-          </Link>
-        </div>
-      </div>
+      <footer className="border-t border-border-dark bg-brand-dark">
+        <div className="h-[2px] w-full" style={{ background: 'var(--brand-gradient)' }} aria-hidden="true" />
 
-      <div className="mx-auto max-w-7xl px-4 py-14 sm:px-6">
+        <div className="mx-auto max-w-7xl px-4 py-14 sm:px-6">
         <div className="grid grid-cols-1 gap-10 sm:grid-cols-5">
           <div className="sm:col-span-1">
             <Logo variant="dark" className="h-12" />
@@ -90,10 +110,11 @@ export default function PublicFooter() {
           </div>
         </div>
 
-        <div className="mt-12 flex flex-col items-center justify-between gap-4 border-t border-border-dark pt-6 sm:flex-row">
-          <p className="text-sm text-text-on-dark-muted">© {new Date().getFullYear()} webioom. All rights reserved.</p>
+          <div className="mt-12 flex flex-col items-center justify-between gap-4 border-t border-border-dark pt-6 sm:flex-row">
+            <p className="text-sm text-text-on-dark-muted">© {new Date().getFullYear()} webioom. All rights reserved.</p>
+          </div>
         </div>
-      </div>
-    </footer>
+      </footer>
+    </>
   )
 }

@@ -1,15 +1,22 @@
+'use client'
+
+import { useEffect, useRef, useState } from 'react'
 import { cn } from '@/lib/ui/cn'
 
 export type HealthGaugeSize = 'sm' | 'md' | 'lg'
+export type HealthGaugeTheme = 'light' | 'dark'
 
 const SIZE_PX: Record<HealthGaugeSize, number> = { sm: 56, md: 88, lg: 168 }
 const STROKE_RATIO = 0.11
 const SCORE_TEXT: Record<HealthGaugeSize, string> = { sm: 'text-sm', md: 'text-xl', lg: 'text-5xl' }
+const ANIMATION_DURATION_MS = 1100
 
 export type HealthGaugeProps = {
   /** Null renders an honest empty ring — never a fabricated 0. */
   score: number | null
   size?: HealthGaugeSize
+  /** `dark` is for placing the gauge directly on a dark/gradient section (e.g. Website Health's flagship moment) — flips the score number and empty-track color so they stay visible against a dark background instead of inheriting near-black text. */
+  theme?: HealthGaugeTheme
   className?: string
   'aria-label': string
 }
@@ -33,32 +40,91 @@ export type HealthGaugeProps = {
  *
  * The gradient sweep uses the exact same `--brand-gradient` stops
  * (violet → azure → teal → green) as every other health surface in the
- * product (ScoreMeter, score meters, active-scan progress) — one visual
- * vocabulary for "this is webioom's own health scale," not a per-component
- * invention. Reused at three sizes: `lg` for the Website Overview flagship
- * metric, `md` for Dashboard portfolio cards, `sm` for the seven-pillar
- * grid tiles — so the exact same shape now appears at every level of the
- * product, which is what makes it a recognizable system rather than a
- * one-off widget.
+ * product. Reused at three sizes: `lg` for the flagship metric, `md` for
+ * Dashboard portfolio cards, `sm` for the seven-pillar grid tiles — one
+ * recognizable shape at every level of the product.
+ *
+ * Sprint 3, Prompt 2B (targeted correction) — two fixes:
+ * 1. The score number was hardcoded to a dark, light-surface-only color,
+ *    making it unreadable wherever this gauge sits on a dark section
+ *    (Website Health's flagship moment). The new `theme` prop makes the
+ *    number/empty-track color an explicit choice instead of an assumption.
+ * 2. Added a presentational entrance animation: the ring sweeps and the
+ *    number counts up together, once, the first time the gauge scrolls
+ *    into view — implemented with a plain IntersectionObserver + rAF loop
+ *    (no animation library), and skipped entirely under
+ *    `prefers-reduced-motion: reduce`, where the final score renders
+ *    immediately. This is purely a `displayScore` state variable driving
+ *    what's drawn — the real `score` prop (the canonical, server-computed
+ *    value) is never recalculated or altered, only its reveal is animated.
  */
-export default function HealthGauge({ score, size = 'md', className, ...props }: HealthGaugeProps) {
+export default function HealthGauge({ score, size = 'md', theme = 'light', className, ...props }: HealthGaugeProps) {
   const px = SIZE_PX[size]
   const strokeWidth = Math.max(4, px * STROKE_RATIO)
   const radius = (px - strokeWidth) / 2
   const circumference = 2 * Math.PI * radius
-  const pct = score === null ? 0 : Math.max(0, Math.min(100, score)) / 100
-  const dash = circumference * pct
   const gradientId = `health-gauge-gradient-${size}`
+
+  const rootRef = useRef<HTMLDivElement>(null)
+  const [displayScore, setDisplayScore] = useState(0)
+
+  useEffect(() => {
+    if (score === null) return
+    const node = rootRef.current
+    if (!node) return
+
+    const reduceMotion = typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    if (reduceMotion) {
+      // A deliberate one-time sync to an external signal (the OS-level
+      // reduced-motion preference), read once on mount — not a value this
+      // component could compute during render, and there is no animation
+      // frame loop to defer it into for this branch specifically.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setDisplayScore(score)
+      return
+    }
+
+    let animationFrame: number | null = null
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (!entry.isIntersecting) return
+        observer.disconnect()
+
+        const start = performance.now()
+        const tick = (now: number) => {
+          const t = Math.min(1, (now - start) / ANIMATION_DURATION_MS)
+          const eased = 1 - Math.pow(1 - t, 3)
+          setDisplayScore(Math.round(eased * score))
+          if (t < 1) animationFrame = requestAnimationFrame(tick)
+        }
+        animationFrame = requestAnimationFrame(tick)
+      },
+      { threshold: 0.4 }
+    )
+    observer.observe(node)
+
+    return () => {
+      observer.disconnect()
+      if (animationFrame !== null) cancelAnimationFrame(animationFrame)
+    }
+  }, [score])
+
+  const pct = score === null ? 0 : Math.max(0, Math.min(100, displayScore)) / 100
+  const dash = circumference * pct
+  const trackColor = theme === 'dark' ? 'rgba(255,255,255,0.14)' : 'var(--color-border)'
+  const scoreColor = theme === 'dark' ? 'text-text-on-dark' : 'text-gray-900'
+  const emptyColor = theme === 'dark' ? 'text-text-on-dark-muted' : 'text-subtle'
 
   return (
     <div
+      ref={rootRef}
       className={cn('relative inline-flex shrink-0 items-center justify-center', className)}
       style={{ width: px, height: px }}
       role="img"
       aria-label={props['aria-label']}
     >
       <svg width={px} height={px} className="-rotate-90" aria-hidden="true">
-        <circle cx={px / 2} cy={px / 2} r={radius} fill="none" stroke="var(--color-border)" strokeWidth={strokeWidth} />
+        <circle cx={px / 2} cy={px / 2} r={radius} fill="none" stroke={trackColor} strokeWidth={strokeWidth} />
         {score !== null && (
           <circle
             cx={px / 2}
@@ -69,7 +135,6 @@ export default function HealthGauge({ score, size = 'md', className, ...props }:
             strokeWidth={strokeWidth}
             strokeLinecap="round"
             strokeDasharray={`${dash} ${circumference}`}
-            className="motion-safe:transition-[stroke-dasharray] motion-safe:duration-700 motion-safe:ease-out"
           />
         )}
         <defs>
@@ -81,11 +146,11 @@ export default function HealthGauge({ score, size = 'md', className, ...props }:
           </linearGradient>
         </defs>
       </svg>
-      <div className="absolute inset-0 flex items-center justify-center">
+      <div className="absolute inset-0 flex items-center justify-center" aria-hidden="true">
         {score === null ? (
-          <span className={cn('font-semibold text-subtle', SCORE_TEXT[size])}>—</span>
+          <span className={cn('font-semibold', emptyColor, SCORE_TEXT[size])}>—</span>
         ) : (
-          <span className={cn('font-bold tabular-nums text-gray-900', SCORE_TEXT[size])}>{score}</span>
+          <span className={cn('font-bold tabular-nums', scoreColor, SCORE_TEXT[size])}>{displayScore}</span>
         )}
       </div>
     </div>

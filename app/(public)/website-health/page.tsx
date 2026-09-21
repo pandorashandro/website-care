@@ -56,7 +56,7 @@ export default function WebsiteHealthPage() {
       <Section tint="dark">
         <ScrollReveal className="grid grid-cols-1 items-center gap-10 lg:grid-cols-2 lg:gap-16">
           <div className="flex justify-center lg:justify-start">
-            <HealthGauge score={87} size="lg" aria-label="Example Overall Website Health: 87 out of 100" />
+            <HealthGauge score={87} size="lg" theme="dark" aria-label="Example Overall Website Health: 87 out of 100" />
           </div>
           <div>
             <p className="text-sm font-semibold uppercase tracking-wide text-brand-vivid">Overall Website Health</p>
