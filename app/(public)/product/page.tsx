@@ -24,6 +24,7 @@ import ScrollReveal from '@/components/ui/scroll-reveal'
 import Card from '@/components/ui/card'
 import Badge from '@/components/ui/badge'
 import SectionHeading from '@/components/ui/section-heading'
+import ProductPreview from '@/components/marketing/product-preview'
 import { buttonStyles } from '@/components/ui/button'
 
 export const metadata: Metadata = {
@@ -33,44 +34,13 @@ export const metadata: Metadata = {
 }
 
 const LOOP_STEPS = [
-  {
-    icon: ScanSearch,
-    title: 'Scan',
-    description: 'webioom crawls important pages across your site and checks them for supported website-health issues.',
-  },
-  {
-    icon: BarChart3,
-    title: 'Understand',
-    description:
-      'Results are organized using a health score, category, severity, priority, affected pages, and a plain-language recommendation for each finding.',
-  },
-  {
-    icon: Wrench,
-    title: 'Act',
-    description:
-      'Depending on what webioom can safely support, an issue becomes a Safe Fix, an AI-Assisted Fix, or a Guided Fix you carry out yourself.',
-  },
-  {
-    icon: Eye,
-    title: 'Review',
-    description: 'For supported direct changes, webioom prepares a preview — showing exactly what would change — before anything is written.',
-  },
-  {
-    icon: CheckCircle2,
-    title: 'Apply',
-    description: 'Nothing is written to your site until you explicitly approve the supported change.',
-  },
-  {
-    icon: ShieldCheck,
-    title: 'Verify',
-    description: 'After a supported change is applied, webioom checks that it actually appears correctly — not just that the request succeeded.',
-  },
-  {
-    icon: History,
-    title: 'History / Undo',
-    description:
-      'Supported writes are recorded so you can see exactly what changed, and can be undone when webioom can safely confirm the target is unchanged.',
-  },
+  { icon: ScanSearch, title: 'Scan', description: 'Crawls your site for supported health issues.' },
+  { icon: BarChart3, title: 'Understand', description: 'Health score, severity, priority, and a plain-language reason for each finding.' },
+  { icon: Wrench, title: 'Act', description: 'Each issue becomes a Safe Fix, an AI-Assisted Fix, or clear guidance.' },
+  { icon: Eye, title: 'Review', description: 'Supported changes get a preview before anything is written.' },
+  { icon: CheckCircle2, title: 'Apply', description: 'Nothing changes until you approve it.' },
+  { icon: ShieldCheck, title: 'Verify', description: 'webioom confirms the change actually appears correctly.' },
+  { icon: History, title: 'History / Undo', description: 'Every change is recorded, and reversible where it can be confirmed safe.' },
 ]
 
 const FIX_TYPES = [
@@ -109,34 +79,35 @@ const SAFETY_POINTS = [
 export default function ProductPage() {
   return (
     <>
-      {/* 1. HERO */}
-      <Section tint="muted" border="bottom" size="lg" containerClassName="text-center">
-        <p className="text-sm font-semibold tracking-wide text-brand">How it works</p>
-        <h1 className="mx-auto mt-3 max-w-3xl text-4xl font-semibold tracking-tight text-gray-900 sm:text-5xl">
-          From website problems to clear next steps.
-        </h1>
-        <p className="mx-auto mt-5 max-w-2xl text-lg text-muted">
-          webioom scans important pages, organizes what it finds, shows what matters most, and helps
-          resolve supported issues through a controlled, reviewable workflow.
-        </p>
-        <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
-          <Link href="/signup" className={buttonStyles({ variant: 'primary', size: 'lg' })}>
-            Get Started
-          </Link>
-          <Link href="/website-health" className={buttonStyles({ variant: 'outline', size: 'lg' })}>
-            Explore Website Health
-          </Link>
+      {/* 1. HERO — asymmetric split: message left, real product visual right */}
+      <Section tint="muted" border="bottom" size="xl">
+        <div className="grid grid-cols-1 items-center gap-10 lg:grid-cols-2 lg:gap-16">
+          <div>
+            <p className="text-sm font-semibold tracking-wide text-brand">How it works</p>
+            <h1 className="mt-3 text-4xl font-semibold tracking-tight text-gray-900 sm:text-5xl">
+              From website problems to clear next steps.
+            </h1>
+            <p className="mt-5 max-w-lg text-lg text-muted">
+              webioom scans your site, prioritizes what matters, and helps you resolve it through a
+              controlled, reviewable workflow.
+            </p>
+            <div className="mt-8 flex flex-wrap items-center gap-3">
+              <Link href="/signup" className={buttonStyles({ variant: 'primary', size: 'lg' })}>
+                Get Started
+              </Link>
+              <Link href="/website-health" className={buttonStyles({ variant: 'outline', size: 'lg' })}>
+                Explore Website Health
+              </Link>
+            </div>
+          </div>
+          <ProductPreview className="mx-auto w-full max-w-md motion-safe:animate-[webioom-rise-in_var(--duration-slow)_var(--ease-out)_both]" />
         </div>
       </Section>
 
       {/* 2. CORE PRODUCT LOOP */}
       <Section size="md">
         <ScrollReveal>
-          <SectionHeading
-            eyebrow="The core loop"
-            title="Seven stages, from first scan to a verified, recorded change"
-            description="This is the actual workflow every supported fix goes through today — not a simplified summary."
-          />
+          <SectionHeading eyebrow="The core loop" title="Seven stages, from first scan to a verified, recorded change" />
         </ScrollReveal>
 
         <ScrollReveal delayMs={80}>
@@ -237,9 +208,7 @@ export default function ProductPage() {
               <h3 className="text-base font-semibold text-gray-900">Current supported fix examples</h3>
             </div>
             <p className="mt-2 max-w-2xl text-sm text-muted">
-              These four are today&apos;s concrete examples of the fix engine, not the whole picture — the
-              report detects considerably more issues than webioom can currently apply directly. As
-              support grows, more issue types will move from Guided into Safe or AI-Assisted.
+              More issue types move from Guided into Safe or AI-Assisted as support grows.
             </p>
             <div className="mt-4 flex flex-wrap gap-2">
               {SUPPORTED_FIX_EXAMPLES.map((example) => (

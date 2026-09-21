@@ -24,8 +24,19 @@ const NAV_ITEMS: { label: string; href?: string }[] = [
   { label: 'Resources', href: '/resources' },
 ]
 
+/**
+ * Sprint 3, Prompt 2B (public-site rebuild) — the founder's own visual
+ * inspection called this "a generic white navbar with text links." It is
+ * now sticky with a scroll-aware frosted surface (a restrained, real
+ * interaction moment rather than a static bar), pill-style active/hover
+ * states instead of a plain underline, and a subtle brand-gradient glow
+ * behind the primary CTA — enough presence to read as "the entrance to a
+ * premium product" without becoming a mega-nav the current five-item,
+ * flat-route structure doesn't actually need.
+ */
 export default function PublicHeader() {
   const [mobileOpen, setMobileOpen] = useState(false)
+  const [scrolled, setScrolled] = useState(false)
   const pathname = usePathname()
 
   useEffect(() => {
@@ -39,14 +50,28 @@ export default function PublicHeader() {
     return () => document.removeEventListener('keydown', handleKeyDown)
   }, [mobileOpen])
 
+  useEffect(() => {
+    function handleScroll() {
+      setScrolled(window.scrollY > 8)
+    }
+    handleScroll()
+    window.addEventListener('scroll', handleScroll, { passive: true })
+    return () => window.removeEventListener('scroll', handleScroll)
+  }, [])
+
   return (
-    <header className="border-b border-border bg-surface">
+    <header
+      className={cn(
+        'sticky top-0 z-40 border-b transition-[background-color,border-color,box-shadow] duration-200 ease-out',
+        scrolled ? 'border-border bg-surface/85 shadow-sm backdrop-blur-md' : 'border-transparent bg-surface/60 backdrop-blur-sm'
+      )}
+    >
       <div className="mx-auto flex h-20 max-w-7xl items-center justify-between px-4 sm:px-6">
         <Link href="/" className="shrink-0 rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2" aria-label="webioom home">
           <Logo className="h-12 sm:h-14" />
         </Link>
 
-        <nav className="hidden items-center gap-6 lg:flex" aria-label="Primary">
+        <nav className="hidden items-center gap-1 lg:flex" aria-label="Primary">
           {NAV_ITEMS.map((item) =>
             item.href ? (
               <Link
@@ -54,18 +79,14 @@ export default function PublicHeader() {
                 href={item.href}
                 aria-current={pathname === item.href ? 'page' : undefined}
                 className={cn(
-                  'rounded-sm border-b-2 pb-0.5 text-sm font-medium transition-colors duration-150 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2',
-                  pathname === item.href ? 'border-brand text-brand' : 'border-transparent text-gray-600 hover:text-gray-900'
+                  'rounded-full px-3.5 py-2 text-sm font-medium transition-colors duration-150 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2',
+                  pathname === item.href ? 'bg-brand-subtle text-brand' : 'text-gray-600 hover:bg-surface-muted hover:text-gray-900'
                 )}
               >
                 {item.label}
               </Link>
             ) : (
-              <span
-                key={item.label}
-                className="flex items-center gap-1.5 text-sm font-medium text-subtle"
-                aria-disabled="true"
-              >
+              <span key={item.label} className="flex items-center gap-1.5 rounded-full px-3.5 py-2 text-sm font-medium text-subtle" aria-disabled="true">
                 {item.label}
                 <Badge tone="neutral" className="text-[10px]">
                   Soon
@@ -79,8 +100,13 @@ export default function PublicHeader() {
           <Link href="/login" className={buttonStyles({ variant: 'ghost', size: 'sm' })}>
             Log in
           </Link>
-          <Link href="/signup" className={buttonStyles({ variant: 'primary', size: 'sm' })}>
-            Get Started
+          <Link href="/signup" className="group relative">
+            <span
+              className="absolute -inset-1 rounded-lg opacity-0 blur-md transition-opacity duration-200 ease-out group-hover:opacity-40 motion-reduce:hidden"
+              style={{ background: 'var(--brand-gradient)' }}
+              aria-hidden="true"
+            />
+            <span className={buttonStyles({ variant: 'primary', size: 'sm', className: 'relative' })}>Get Started</span>
           </Link>
         </div>
 
@@ -104,14 +130,17 @@ export default function PublicHeader() {
                   key={item.label}
                   href={item.href}
                   onClick={() => setMobileOpen(false)}
-                  className="rounded-md px-2 py-2 text-sm font-medium text-gray-700 hover:bg-surface-muted"
+                  className={cn(
+                    'rounded-md px-3 py-2.5 text-sm font-medium',
+                    pathname === item.href ? 'bg-brand-subtle text-brand' : 'text-gray-700 hover:bg-surface-muted'
+                  )}
                 >
                   {item.label}
                 </Link>
               ) : (
                 <span
                   key={item.label}
-                  className="flex items-center gap-1.5 rounded-md px-2 py-2 text-sm font-medium text-subtle"
+                  className="flex items-center gap-1.5 rounded-md px-3 py-2.5 text-sm font-medium text-subtle"
                   aria-disabled="true"
                 >
                   {item.label}

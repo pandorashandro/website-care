@@ -1,5 +1,4 @@
 import type { Metadata } from 'next'
-import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { getCurrentUserEntitlements } from '@/lib/entitlements'
 import Container from '@/components/ui/container'
@@ -7,7 +6,6 @@ import Section from '@/components/ui/section'
 import ScrollReveal from '@/components/ui/scroll-reveal'
 import SectionHeading from '@/components/ui/section-heading'
 import FaqAccordion, { type FaqItem } from '@/components/ui/faq-accordion'
-import { buttonStyles } from '@/components/ui/button'
 import PricingCards from './pricing-cards'
 
 export const metadata: Metadata = {
@@ -105,23 +103,6 @@ export default async function PricingPage() {
           <FaqAccordion items={FAQ_ITEMS} />
         </ScrollReveal>
       </Section>
-
-      <Container size="md" className="py-16 text-center sm:py-24">
-        <ScrollReveal>
-          <p className="text-sm font-semibold tracking-wide text-brand">Ready to get started?</p>
-          <h2 className="mx-auto mt-2 max-w-xl text-2xl font-semibold tracking-tight text-gray-900 sm:text-3xl">
-            Scan your website and see the difference
-          </h2>
-          <p className="mx-auto mt-3 max-w-xl text-base text-muted">
-            Discover what&apos;s holding your website back and get a clear plan to improve it.
-          </p>
-          <div className="mt-6">
-            <Link href="/signup" className={buttonStyles({ size: 'lg' })}>
-              Scan your website for free
-            </Link>
-          </div>
-        </ScrollReveal>
-      </Container>
     </>
   )
 }

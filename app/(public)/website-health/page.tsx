@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { Search, Server, Accessibility, Gauge, FileText, Image as ImageIcon } from 'lucide-react'
+import { Image as ImageIcon, ListOrdered, Users } from 'lucide-react'
 import Container from '@/components/ui/container'
 import Section from '@/components/ui/section'
 import ScrollReveal from '@/components/ui/scroll-reveal'
@@ -8,59 +8,65 @@ import Card from '@/components/ui/card'
 import Badge, { type BadgeTone } from '@/components/ui/badge'
 import SectionHeading from '@/components/ui/section-heading'
 import { buttonStyles } from '@/components/ui/button'
+import { PILLAR_IDENTITY, type PillarKey } from '@/components/website/pillar-identity'
 
 export const metadata: Metadata = {
   title: 'Website Health',
-  description:
-    'What "website health" means in webioom: the five real report categories, how the health score works, severity vs. priority, affected pages, and recommendations.',
+  description: 'What "website health" means in webioom: the seven canonical pillars, how the health score works, severity vs. priority, and recommendations.',
 }
 
-const CATEGORIES = [
+const CATEGORIES: { key: PillarKey; name: string; why: string; examples: string[] }[] = [
   {
-    icon: Search,
-    name: 'SEO',
+    key: 'technical-seo',
+    name: 'Technical SEO',
+    why: 'None of the rest matters if a page isn’t reliably reachable — technical problems can quietly cost you visitors and search visibility without any visual sign on the page itself.',
+    examples: [
+      'Pages that are unreachable, return a server error, or a 404',
+      'Missing HTTPS, or HTTPS that redirects back to an insecure HTTP URL',
+      'Redirect chains and redirect loops',
+      'robots.txt or your sitemap being unreachable',
+    ],
+  },
+  {
+    key: 'on-page-seo',
+    name: 'On-Page SEO',
     why: 'Search engines and social platforms rely on specific signals to represent your pages correctly — when those signals are missing or wrong, your pages are harder to find and less compelling to click.',
     examples: [
       'Page titles and meta descriptions that are missing or an ineffective length',
       'Missing or duplicated heading structure (e.g. more than one H1)',
       'Canonical tags that are missing, invalid, or point somewhere unexpected',
       'Missing Open Graph tags, which affects how links look when shared',
-      'Pages accidentally excluded from search results, and an unreachable or invalid sitemap',
     ],
   },
   {
-    icon: Server,
-    name: 'Technical',
-    why: 'None of the rest matters if a page isn’t reliably reachable — technical problems can quietly cost you visitors and search visibility without any visual sign on the page itself.',
-    examples: [
-      'Pages that are unreachable, return a server error, or a 404',
-      'Missing HTTPS, or HTTPS that redirects back to an insecure HTTP URL',
-      'Redirect chains and redirect loops',
-      'Internal links that point to broken, missing, or redirecting pages',
-      'robots.txt or your sitemap being unreachable',
-    ],
+    key: 'content',
+    name: 'Content',
+    why: 'A page with almost nothing on it gives visitors and search engines little reason to trust or rank it.',
+    examples: ['Pages with very little visible text content'],
   },
   {
-    icon: Accessibility,
-    name: 'Accessibility',
-    why: 'A meaningful share of visitors use assistive technology like screen readers — accessibility issues can make parts of your site effectively invisible to them.',
-    examples: [
-      'Images missing descriptive alt text',
-      'A missing page language attribute',
-      'Links or buttons with no readable text for screen readers',
-    ],
+    key: 'site-architecture',
+    name: 'Site Architecture',
+    why: 'How easily pages on your website can be discovered and reached through your internal links.',
+    examples: ['Orphan pages with no internal links pointing to them', 'Broken or redirecting internal links', 'Pages buried too many clicks from the homepage'],
   },
   {
-    icon: Gauge,
+    key: 'performance',
     name: 'Performance',
     why: 'Slow or bloated pages lose visitors before they see anything — response speed and page weight directly shape first impressions.',
     examples: ['Slow initial page response', 'Unusually large HTML documents'],
   },
   {
-    icon: FileText,
-    name: 'Content',
-    why: 'A page with almost nothing on it gives visitors and search engines little reason to trust or rank it.',
-    examples: ['Pages with very little visible text content'],
+    key: 'accessibility',
+    name: 'Accessibility',
+    why: 'A meaningful share of visitors use assistive technology like screen readers — accessibility issues can make parts of your site effectively invisible to them.',
+    examples: ['Images missing descriptive alt text', 'A missing page language attribute', 'Links or buttons with no readable text for screen readers'],
+  },
+  {
+    key: 'security',
+    name: 'Security',
+    why: 'Baseline security hygiene protects your visitors and their data, and its absence is a signal search engines and browsers themselves act on.',
+    examples: [],
   },
 ]
 
@@ -81,12 +87,12 @@ export default function WebsiteHealthPage() {
           Website health is more than SEO.
         </h1>
         <p className="mx-auto mt-5 max-w-2xl text-lg text-muted">
-          webioom evaluates your site across five real dimensions and organizes the results into one
+          webioom evaluates your site across seven real dimensions and organizes the results into one
           clearer view — not just how you rank in search.
         </p>
         <div className="mt-6 flex flex-wrap items-center justify-center gap-2">
           {CATEGORIES.map((category) => (
-            <Badge key={category.name} tone="brand">
+            <Badge key={category.key} tone="brand">
               {category.name}
             </Badge>
           ))}
@@ -101,19 +107,13 @@ export default function WebsiteHealthPage() {
         <div className="mt-8 grid grid-cols-1 gap-8 lg:grid-cols-2 lg:items-start">
           <div className="space-y-4 text-sm leading-relaxed text-gray-700">
             <p>
-              Every completed scan produces an overall health score, plus a score for each of the five
-              categories above. Each category starts from a clean baseline and is reduced by the issues
-              found in it — more serious issues reduce it more than minor ones.
-            </p>
-            <p>
-              Reach matters too: the same kind of issue affecting many pages — especially your homepage —
-              counts for more than an isolated instance on one rarely-visited page. The five category scores
-              don&apos;t contribute equally to the overall number either; some categories tend to affect a
-              site as a whole more than others.
+              Every completed scan produces an overall health score, plus a score for each of the seven
+              pillars above — each reduced from a clean baseline by the issues found in it, and by how many
+              pages (especially your homepage) each issue affects.
             </p>
             <p>
               The score is a snapshot of your most recent scan, not a permanent grade — rescanning after
-              changes produces a fresh result. It&apos;s meant to be read alongside issue priority and
+              changes produces a fresh result, and it&apos;s meant to be read alongside issue priority and
               severity, not used as the only signal on its own.
             </p>
           </div>
@@ -157,37 +157,43 @@ export default function WebsiteHealthPage() {
         </ScrollReveal>
       </Section>
 
-      {/* 9. FIVE CATEGORIES */}
+      {/* 9. SEVEN PILLARS */}
       <Section tint="muted" border="top">
         <ScrollReveal>
-          <SectionHeading
-            eyebrow="Report categories"
-            title="Five categories, each with real checks"
-            description="These are the categories every webioom report is organized into. The examples below are checks webioom actually performs today."
-          />
+          <SectionHeading eyebrow="Report pillars" title="Seven pillars, each with real checks" />
 
           <div className="mt-10 space-y-5">
             {CATEGORIES.map((category) => {
-              const Icon = category.icon
+              const identity = PILLAR_IDENTITY[category.key]
+              const Icon = identity.icon
               return (
-                <Card key={category.name} className="lg:flex lg:gap-8">
-                  <div className="lg:w-64 lg:shrink-0">
-                    <div className="flex items-center gap-3">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-md bg-brand-subtle text-brand">
-                        <Icon className="h-5 w-5" aria-hidden="true" />
+                <Card
+                  key={category.key}
+                  className="overflow-hidden border-l-4 lg:flex lg:gap-8"
+                  padding="none"
+                  style={{ borderLeftColor: identity.accent }}
+                >
+                  <div className="p-6 lg:flex lg:w-full lg:gap-8">
+                    <div className="lg:w-64 lg:shrink-0">
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-md" style={{ backgroundColor: identity.accentSubtleBg, color: identity.accent }}>
+                          <Icon className="h-5 w-5" aria-hidden="true" />
+                        </div>
+                        <h3 className="text-base font-semibold text-gray-900">{category.name}</h3>
                       </div>
-                      <h3 className="text-base font-semibold text-gray-900">{category.name}</h3>
+                      <p className="mt-3 text-sm text-muted">{category.why}</p>
                     </div>
-                    <p className="mt-3 text-sm text-muted">{category.why}</p>
-                  </div>
 
-                  <ul className="mt-4 space-y-1.5 border-t border-border pt-4 lg:mt-0 lg:flex-1 lg:border-l lg:border-t-0 lg:pl-8 lg:pt-0">
-                    {category.examples.map((example) => (
-                      <li key={example} className="text-sm text-gray-700">
-                        {example}
-                      </li>
-                    ))}
-                  </ul>
+                    {category.examples.length > 0 && (
+                      <ul className="mt-4 space-y-1.5 border-t border-border pt-4 lg:mt-0 lg:flex-1 lg:border-l lg:border-t-0 lg:pl-8 lg:pt-0">
+                        {category.examples.map((example) => (
+                          <li key={example} className="text-sm text-gray-700">
+                            {example}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
                 </Card>
               )
             })}
@@ -195,8 +201,39 @@ export default function WebsiteHealthPage() {
         </ScrollReveal>
       </Section>
 
-      {/* 10. SEVERITY VS PRIORITY */}
+      {/* 9B. FIX THESE FIRST + SIMPLE/EXPERT */}
       <Section>
+        <ScrollReveal>
+          <SectionHeading eyebrow="From report to action" title="Fix These First, and two ways to read it" />
+
+          <div className="mt-8 grid grid-cols-1 gap-5 lg:grid-cols-2">
+            <Card>
+              <div className="flex h-10 w-10 items-center justify-center rounded-md bg-brand-subtle text-brand">
+                <ListOrdered className="h-5 w-5" aria-hidden="true" />
+              </div>
+              <h3 className="mt-4 text-base font-semibold text-gray-900">Fix These First</h3>
+              <p className="mt-2 text-sm text-muted">
+                webioom&apos;s own priority feed — the highest-impact problems across your whole site, ranked in
+                the order worth acting on, with whether webioom can help you fix each one.
+              </p>
+            </Card>
+
+            <Card>
+              <div className="flex h-10 w-10 items-center justify-center rounded-md bg-brand-subtle text-brand">
+                <Users className="h-5 w-5" aria-hidden="true" />
+              </div>
+              <h3 className="mt-4 text-base font-semibold text-gray-900">Simple / Expert</h3>
+              <p className="mt-2 text-sm text-muted">
+                Every finding has two views: Simple shows what&apos;s wrong, why it matters, and what to do.
+                Expert adds the technical evidence behind it — same data, different depth.
+              </p>
+            </Card>
+          </div>
+        </ScrollReveal>
+      </Section>
+
+      {/* 10. SEVERITY VS PRIORITY */}
+      <Section tint="muted" border="top">
         <ScrollReveal>
           <SectionHeading eyebrow="Reading a report" title="Severity vs. priority" />
 
@@ -231,16 +268,14 @@ export default function WebsiteHealthPage() {
       </Section>
 
       {/* 11. AFFECTED PAGES */}
-      <Section tint="muted" border="top">
+      <Section>
         <ScrollReveal>
           <SectionHeading eyebrow="Reading a report" title="Affected pages" />
 
           <div className="mt-8 grid grid-cols-1 items-center gap-8 lg:grid-cols-2">
             <p className="text-sm leading-relaxed text-gray-700">
-              webioom groups repeated findings so you see one entry per issue, not one row per page.
-              Each entry shows exactly how many — and which — pages it affects, so you can immediately tell
-              whether something is an isolated slip or a pattern worth fixing at the template or theme
-              level, instead of page by page.
+              webioom groups repeated findings into one entry per issue, showing exactly how many — and
+              which — pages it affects, so you can tell an isolated slip from a template-wide pattern.
             </p>
 
             <Card padding="md" className="max-w-sm">
@@ -256,7 +291,7 @@ export default function WebsiteHealthPage() {
       </Section>
 
       {/* 12. RECOMMENDATIONS */}
-      <Section>
+      <Section tint="muted" border="top">
         <ScrollReveal>
           <SectionHeading
             eyebrow="Reading a report"
@@ -281,7 +316,7 @@ export default function WebsiteHealthPage() {
       </Section>
 
       {/* 13. REPORT → ACTION CONNECTION */}
-      <div className="border-t border-border bg-surface-muted">
+      <div className="border-t border-border">
         <Container size="md" className="py-16 text-center sm:py-24">
           <ScrollReveal>
             <h2 className="text-2xl font-semibold tracking-tight text-gray-900 sm:text-3xl">

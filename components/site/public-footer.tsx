@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import Logo from '@/components/brand/logo'
+import { buttonStyles } from '@/components/ui/button'
 import { RESOURCES } from '@/lib/content/resources'
 
 type FooterLink = { label: string; href?: string }
@@ -34,10 +35,31 @@ const FOOTER_COLUMNS: { heading: string; items: FooterLink[] }[] = [
   { heading: 'Legal', items: [{ label: 'Privacy Policy' }, { label: 'Terms of Service' }] },
 ]
 
+/**
+ * Sprint 3, Prompt 2B (public-site rebuild) — was "a generic footer" per
+ * the founder's own review. Now opens with a genuine closing CTA moment
+ * (a real composition decision, not a color swap) before the link
+ * columns, and carries a single thin brand-gradient hairline at the very
+ * top — the same restrained "colored edge" convention used throughout the
+ * app (pricing cards, pillar headers, Fix These First) — so the site and
+ * the product read as the same visual system. No new pages are invented:
+ * Company/Legal stay honest non-clickable placeholders exactly as before.
+ */
 export default function PublicFooter() {
   return (
     <footer className="border-t border-border-dark bg-brand-dark">
-      <div className="mx-auto max-w-7xl px-4 py-16 sm:px-6">
+      <div className="h-[2px] w-full" style={{ background: 'var(--brand-gradient)' }} aria-hidden="true" />
+
+      <div className="border-b border-border-dark">
+        <div className="mx-auto flex max-w-7xl flex-col items-center gap-5 px-4 py-14 text-center sm:px-6">
+          <h2 className="text-2xl font-semibold tracking-tight text-text-on-dark sm:text-3xl">Ready to see your website&rsquo;s health?</h2>
+          <Link href="/signup" className={buttonStyles({ variant: 'primary', size: 'lg' })}>
+            Scan your website for free
+          </Link>
+        </div>
+      </div>
+
+      <div className="mx-auto max-w-7xl px-4 py-14 sm:px-6">
         <div className="grid grid-cols-1 gap-10 sm:grid-cols-5">
           <div className="sm:col-span-1">
             <Logo variant="dark" className="h-12" />

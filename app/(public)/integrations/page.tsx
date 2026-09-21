@@ -134,20 +134,16 @@ export default function IntegrationsPage() {
           <SectionHeading eyebrow="Available now" title="WordPress" />
 
           <Card className="mt-6 sm:flex sm:items-start sm:gap-6">
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-md bg-brand-subtle text-brand">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-brand-subtle text-brand">
               <Plug className="h-6 w-6" aria-hidden="true" />
             </div>
 
             <div className="mt-4 sm:mt-0">
               <div className="flex flex-wrap items-center gap-2">
                 <h3 className="text-lg font-semibold text-gray-900">WordPress</h3>
-                <Badge tone="brand">Integration #1</Badge>
                 <Badge tone="success">Available</Badge>
               </div>
-              <p className="mt-2 text-sm text-muted">
-                webioom can prepare and apply supported changes when it can safely confirm the target.
-                Support depends on the specific page, resource, and configuration involved.
-              </p>
+              <p className="mt-2 text-sm text-muted">webioom can prepare and apply supported changes when it can safely confirm the target.</p>
 
               <ul className="mt-4 space-y-2 text-sm text-gray-700">
                 <li>Page title</li>
@@ -155,11 +151,6 @@ export default function IntegrationsPage() {
                 <li>Missing H1, where webioom can safely confirm the editable source</li>
                 <li>Missing image alt text, where webioom can safely confirm the image and its source</li>
               </ul>
-
-              <p className="mt-4 text-sm text-muted">
-                Every other report finding still gets a clear recommendation, whether or not WordPress is
-                connected.
-              </p>
             </div>
           </Card>
         </ScrollReveal>
@@ -171,30 +162,21 @@ export default function IntegrationsPage() {
           <SectionHeading eyebrow="Available now" title="Shopify" />
 
           <Card className="mt-6 sm:flex sm:items-start sm:gap-6">
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-md bg-brand-subtle text-brand">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-brand-subtle text-brand">
               <Store className="h-6 w-6" aria-hidden="true" />
             </div>
 
             <div className="mt-4 sm:mt-0">
               <div className="flex flex-wrap items-center gap-2">
                 <h3 className="text-lg font-semibold text-gray-900">Shopify</h3>
-                <Badge tone="brand">Integration #2</Badge>
                 <Badge tone="success">Available</Badge>
               </div>
-              <p className="mt-2 text-sm text-muted">
-                webioom can prepare and apply supported changes when it can safely confirm the target.
-                Support depends on the specific resource and permissions involved.
-              </p>
+              <p className="mt-2 text-sm text-muted">webioom can prepare and apply supported changes when it can safely confirm the target.</p>
 
               <ul className="mt-4 space-y-2 text-sm text-gray-700">
                 <li>Product, collection, page, and article title</li>
                 <li>Product, collection, page, and article meta description</li>
               </ul>
-
-              <p className="mt-4 text-sm text-muted">
-                Every other report finding still gets a clear recommendation, whether or not Shopify is
-                connected.
-              </p>
             </div>
           </Card>
         </ScrollReveal>
@@ -206,37 +188,49 @@ export default function IntegrationsPage() {
           <SectionHeading eyebrow="Available now" title="Wix" />
 
           <Card className="mt-6 sm:flex sm:items-start sm:gap-6">
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-md bg-brand-subtle text-brand">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-brand-subtle text-brand">
               <Globe className="h-6 w-6" aria-hidden="true" />
             </div>
 
             <div className="mt-4 sm:mt-0">
               <div className="flex flex-wrap items-center gap-2">
                 <h3 className="text-lg font-semibold text-gray-900">Wix</h3>
-                <Badge tone="brand">Integration #3</Badge>
                 <Badge tone="success">Available</Badge>
               </div>
-              <p className="mt-2 text-sm text-muted">
-                webioom can prepare and apply supported changes when it can safely confirm the target.
-                Support depends on the specific resource and permissions involved.
-              </p>
+              <p className="mt-2 text-sm text-muted">webioom can prepare and apply supported changes when it can safely confirm the target.</p>
 
               <ul className="mt-4 space-y-2 text-sm text-gray-700">
                 <li>Blog post title and meta description</li>
                 <li>Store product title and meta description</li>
               </ul>
-
-              <p className="mt-4 text-sm text-muted">
-                Every other report finding still gets a clear recommendation, whether or not Wix is
-                connected.
-              </p>
             </div>
+          </Card>
+
+          <p className="mt-6 text-sm text-muted">
+            Every other report finding still gets a clear recommendation, whether or not a supported platform is connected.
+          </p>
+        </ScrollReveal>
+      </Section>
+
+      {/* 3D. CUSTOM / OTHER */}
+      <Section>
+        <ScrollReveal>
+          <SectionHeading eyebrow="Any website" title="Custom or other platform" />
+          <Card className="mt-6 sm:flex sm:items-start sm:gap-6">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-surface-muted text-muted">
+              <Puzzle className="h-6 w-6" aria-hidden="true" />
+            </div>
+            <p className="mt-4 text-sm text-muted sm:mt-0">
+              Any website can be scanned and reported on, on any platform, with no integration at all. Direct fixes are only
+              available for WordPress, Shopify, and Wix today — every other platform still gets the full health report and
+              plain-language recommendations for every finding.
+            </p>
           </Card>
         </ScrollReveal>
       </Section>
 
       {/* 4. WHAT CONNECTING DOES / DOESN'T DO */}
-      <Section>
+      <Section tint="muted" border="top">
         <ScrollReveal>
           <SectionHeading eyebrow="Set the record straight" title="What connecting does — and doesn't do" />
 
@@ -263,7 +257,7 @@ export default function IntegrationsPage() {
       </Section>
 
       {/* 5. WORDPRESS FIX WORKFLOW */}
-      <Section tint="muted" border="top">
+      <Section>
         <ScrollReveal>
           <SectionHeading eyebrow="How a supported fix happens" title="The controlled workflow" />
 
@@ -288,7 +282,7 @@ export default function IntegrationsPage() {
       </Section>
 
       {/* 6. WHEN WEBSITE CARE STOPS */}
-      <Section>
+      <Section tint="muted" border="top">
         <ScrollReveal>
           <SectionHeading eyebrow="Conservative by design" title="If webioom can't safely confirm the change, it doesn't guess" />
 
@@ -314,7 +308,7 @@ export default function IntegrationsPage() {
       </Section>
 
       {/* 7. FUTURE INTEGRATIONS */}
-      <Section tint="muted" border="top" size="md">
+      <Section border="top" size="md">
         <ScrollReveal>
           <Card className="flex items-start gap-4">
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-surface-muted text-muted">
