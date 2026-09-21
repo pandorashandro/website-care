@@ -8,9 +8,8 @@ export type LogoProps = {
    * feedback was that the wordmark read as a tiny utility icon throughout
    * the product; every call site now passes a deliberately larger,
    * context-appropriate size (see components/site/public-header.tsx,
-   * app/dashboard/layout.tsx, the auth forms, and app/(landing)/page.tsx
-   * for the actual values chosen per context) rather than relying on this
-   * default.
+   * components/site/public-footer.tsx, and app/dashboard/layout.tsx for the
+   * actual values chosen per context) rather than relying on this default.
    */
   className?: string
   /** 'light' (default) renders the on-light wordmark (dark glyph), for white/light surfaces. 'dark' renders the on-dark wordmark (white glyph), for the webioom navy (sidebar, dark footer/hero, pre-launch splash). */

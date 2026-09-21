@@ -1,8 +1,7 @@
 import type { ReactNode } from 'react'
 
 /**
- * Sprint 3, Prompt 2B (targeted correction) — deliberately bare, mirroring
- * app/(landing)/layout.tsx's own precedent for the same reason: login,
+ * Sprint 3, Prompt 2B (targeted correction) — deliberately bare: login,
  * signup, forgot-password, and reset-password are focused application-
  * entry experiences, not marketing pages, and must not automatically
  * inherit PublicHeader/PublicFooter (nav links, and especially the
