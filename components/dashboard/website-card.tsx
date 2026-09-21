@@ -1,33 +1,24 @@
 import Link from 'next/link'
-import Badge, { type BadgeTone } from '@/components/ui/badge'
+import Badge from '@/components/ui/badge'
 import Card from '@/components/ui/card'
+import ScoreMeter from '@/components/ui/score-meter'
 import { buttonStyles } from '@/components/ui/button'
-import ScanWebsiteButton from '@/app/dashboard/scan-website-button'
+import ScanWebsiteControls from '@/app/dashboard/websites/[id]/scan-website-controls'
 import { healthLabel, healthTone } from '@/lib/scanner/health-label'
+import type { OverallWebsiteHealth } from '@/lib/category-engine/overall-health'
+
+export type DashboardWebsiteStatus = 'analyzed' | 'scanning' | 'failed' | 'not_scanned'
 
 export type DashboardWebsite = {
   id: string
   name: string
   url: string
-  created_at: string
-}
-
-export type DashboardLatestScan = {
-  status: 'running' | 'completed' | 'failed'
-  score: number | null
-  created_at: string
-}
-
-/** Sprint 3, Prompt 2 — token-based, replacing hardcoded Tailwind gray-scale colors (border-green-500 etc.) that could drift from the semantic palette in globals.css. */
-const RING_COLOR_CLASS: Record<BadgeTone, string> = {
-  success: 'border-success',
-  warning: 'border-warning',
-  danger: 'border-danger',
-  info: 'border-info',
-  neutral: 'border-border-strong',
-  brand: 'border-brand',
-  violet: 'border-violet',
-  sky: 'border-sky',
+  createdAt: string
+  overallHealth: OverallWebsiteHealth
+  crawlRun: { id: string; status: string } | null
+  allCategoriesAnalyzed: boolean
+  lastAnalyzedAt: string | null
+  status: DashboardWebsiteStatus
 }
 
 function hostnameOf(url: string): string {
@@ -39,102 +30,85 @@ function hostnameOf(url: string): string {
 }
 
 function formatDate(value: string): string {
-  return new Date(value).toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-  })
+  return new Date(value).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
 }
 
 /**
- * Every real state the dashboard can currently observe for a website:
- * never scanned (no scan row at all), a completed scan with a score, a scan
- * still running, a failed scan, and a defensive fallback for anything else
- * (e.g. a completed scan somehow missing its score) — handled safely rather
- * than assumed to be a normal completed report.
+ * Sprint 3, Prompt 2B — reads the SAME canonical Overall Website Health
+ * Website Overview itself shows (see app/dashboard/page.tsx's own doc
+ * comment) and triggers the SAME canonical scan pipeline via
+ * ScanWebsiteControls — no second scoring computation, no second scan
+ * entry point. Visually redesigned: the health meter now uses the shared
+ * ScoreMeter (the same signature visualization as Overview/pillars), and
+ * every real state (analyzed, scanning, failed, never scanned) gets its
+ * own honest presentation rather than a single "score or nothing" branch.
  */
-export default function WebsiteCard({
-  website,
-  latestScan,
-}: {
-  website: DashboardWebsite
-  latestScan?: DashboardLatestScan
-}) {
-  const isCompleteWithScore = latestScan?.status === 'completed' && latestScan.score !== null
+export default function WebsiteCard({ website }: { website: DashboardWebsite }) {
+  const { overallHealth } = website
 
   return (
-    <Card padding="md" className="transition-shadow duration-150 ease-out hover:shadow-md">
+    <Card padding="md" className="flex flex-col transition-shadow duration-150 ease-out hover:shadow-md">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <h3 className="truncate font-medium text-gray-900">{website.name}</h3>
+          <h3 className="truncate text-base font-semibold text-gray-900">{website.name}</h3>
           <a
             href={website.url}
             target="_blank"
             rel="noreferrer"
-            className="mt-0.5 block truncate text-sm text-muted hover:text-gray-700"
+            className="mt-0.5 block truncate text-sm text-muted transition-colors duration-150 ease-out hover:text-gray-700"
           >
             {hostnameOf(website.url)}
           </a>
         </div>
 
-        {isCompleteWithScore && (
-          <div
-            className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-full border-4 bg-surface ${RING_COLOR_CLASS[healthTone(latestScan!.score as number)]}`}
-            aria-hidden="true"
-          >
-            <span className="text-base font-semibold text-gray-900">{latestScan!.score}</span>
-          </div>
+        {website.status === 'analyzed' && overallHealth.score !== null && (
+          <span className="shrink-0 text-2xl font-semibold tabular-nums text-gray-900">{overallHealth.score}</span>
         )}
       </div>
 
-      {isCompleteWithScore ? (
+      {website.status === 'analyzed' && overallHealth.score !== null ? (
         <>
-          <div className="mt-4 flex items-center justify-between">
-            <Badge tone={healthTone(latestScan!.score as number)}>{healthLabel(latestScan!.score as number)}</Badge>
-            <span className="text-xs text-subtle">Last scanned {formatDate(latestScan!.created_at)}</span>
+          <ScoreMeter
+            score={overallHealth.score}
+            size="sm"
+            className="mt-3"
+            aria-label={`Overall Website Health: ${overallHealth.score} out of 100, ${healthLabel(overallHealth.score)}`}
+          />
+          <div className="mt-3 flex items-center justify-between gap-2">
+            <Badge tone={healthTone(overallHealth.score)}>{healthLabel(overallHealth.score)}</Badge>
+            <span className="text-xs text-subtle">{website.lastAnalyzedAt ? `Analyzed ${formatDate(website.lastAnalyzedAt)}` : null}</span>
           </div>
-
-          <div className="mt-4 flex flex-wrap gap-2">
-            <Link
-              href={`/dashboard/websites/${website.id}`}
-              className={buttonStyles({ variant: 'outline', className: 'flex-1 text-center' })}
-            >
-              View Report
-            </Link>
-          </div>
-          <ScanWebsiteButton websiteId={website.id} label="Scan Again" />
+          {!website.allCategoriesAnalyzed && (
+            <p className="mt-1.5 text-xs text-subtle">
+              Based on {overallHealth.contributingCategoryCount} of {overallHealth.totalCanonicalCategories} pillars analyzed so far.
+            </p>
+          )}
         </>
-      ) : latestScan?.status === 'running' ? (
+      ) : website.status === 'scanning' ? (
         <div className="mt-4 flex items-center justify-between">
           <Badge tone="info">Scanning…</Badge>
           <span className="text-xs text-subtle">This may take a moment</span>
         </div>
-      ) : latestScan?.status === 'failed' ? (
-        <>
-          <div className="mt-4 flex items-center justify-between">
-            <Badge tone="danger">Last scan failed</Badge>
-            <span className="text-xs text-subtle">Added {formatDate(website.created_at)}</span>
-          </div>
+      ) : website.status === 'failed' ? (
+        <div className="mt-4">
+          <Badge tone="danger">Last scan failed</Badge>
           <p className="mt-2 text-sm text-muted">Something went wrong during the last scan.</p>
-          <ScanWebsiteButton websiteId={website.id} label="Retry Scan" />
-        </>
-      ) : latestScan ? (
-        <>
-          <div className="mt-4">
-            <Badge tone="neutral">Status unknown</Badge>
-          </div>
-          <ScanWebsiteButton websiteId={website.id} label="Run Scan" />
-        </>
+        </div>
       ) : (
-        <>
-          <div className="mt-4 flex items-center justify-between">
-            <Badge tone="neutral">Not scanned yet</Badge>
-            <span className="text-xs text-subtle">Added {formatDate(website.created_at)}</span>
-          </div>
-          <p className="mt-2 text-sm text-muted">Run a scan to see your website&apos;s health report.</p>
-          <ScanWebsiteButton websiteId={website.id} label="Run First Scan" />
-        </>
+        <div className="mt-4 flex items-center justify-between">
+          <Badge tone="neutral">Not scanned yet</Badge>
+          <span className="text-xs text-subtle">Added {formatDate(website.createdAt)}</span>
+        </div>
       )}
+
+      <div className="mt-4 flex flex-1 flex-col justify-end gap-2">
+        {website.status === 'analyzed' && (
+          <Link href={`/dashboard/websites/${website.id}`} className={buttonStyles({ variant: 'outline', className: 'text-center' })}>
+            View report
+          </Link>
+        )}
+        <ScanWebsiteControls websiteId={website.id} crawlRun={website.crawlRun} allCategoriesAnalyzed={website.allCategoriesAnalyzed} />
+      </div>
     </Card>
   )
 }

@@ -119,12 +119,19 @@ export default function ResetPasswordForm() {
   }
 
   return (
-    <Container size="sm" className="flex flex-1 flex-col items-center justify-center py-16">
-      <Link href="/" className="mb-8" aria-label="webioom home">
-        <Logo className="h-9" />
-      </Link>
+    <div className="relative flex flex-1 flex-col items-center justify-center overflow-hidden py-16">
+      <div
+        className="pointer-events-none absolute left-1/2 top-0 h-[420px] w-[720px] -translate-x-1/2 -translate-y-1/3 rounded-full opacity-[0.07] blur-3xl"
+        style={{ background: 'var(--brand-gradient)' }}
+        aria-hidden="true"
+      />
 
-      <Card className="w-full max-w-sm">
+      <Container size="sm" className="relative flex flex-col items-center motion-safe:animate-[webioom-rise-in_var(--duration-reveal)_var(--ease-out)_both]">
+        <Link href="/" className="mb-10" aria-label="webioom home">
+          <Logo className="h-11" />
+        </Link>
+
+        <Card padding="md" className="w-full max-w-sm shadow-md">
         {stage === 'verifying' && (
           <div className="flex flex-col items-center gap-3 py-6 text-center">
             <Spinner className="h-6 w-6 text-brand" />
@@ -134,7 +141,7 @@ export default function ResetPasswordForm() {
 
         {stage === 'invalid' && (
           <>
-            <h1 className="text-xl font-semibold text-gray-900">This link is invalid or has expired</h1>
+            <h1 className="text-2xl font-semibold text-gray-900">This link is invalid or has expired</h1>
             <p className="mt-1 text-sm text-muted">
               Password reset links can only be used once and expire after a short time.
             </p>
@@ -146,7 +153,7 @@ export default function ResetPasswordForm() {
 
         {stage === 'ready' && (
           <>
-            <h1 className="text-xl font-semibold text-gray-900">Choose a new password</h1>
+            <h1 className="text-2xl font-semibold text-gray-900">Choose a new password</h1>
             <p className="mt-1 text-sm text-muted">Enter and confirm your new password below.</p>
 
             <form onSubmit={handleSubmit} className="mt-6 space-y-4">
@@ -187,7 +194,7 @@ export default function ResetPasswordForm() {
 
         {stage === 'success' && (
           <>
-            <h1 className="text-xl font-semibold text-gray-900">Password updated</h1>
+            <h1 className="text-2xl font-semibold text-gray-900">Password updated</h1>
             <Alert tone="success" className="mt-4">
               Your password has been changed. Please log in with your new password.
             </Alert>
@@ -196,7 +203,8 @@ export default function ResetPasswordForm() {
             </Link>
           </>
         )}
-      </Card>
-    </Container>
+        </Card>
+      </Container>
+    </div>
   )
 }

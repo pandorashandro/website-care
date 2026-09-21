@@ -43,14 +43,21 @@ export default function LoginForm() {
   }
 
   return (
-    <Container size="sm" className="flex flex-1 flex-col items-center justify-center py-16">
-      <Link href="/" className="mb-8" aria-label="webioom home">
-        <Logo className="h-9" />
-      </Link>
+    <div className="relative flex flex-1 flex-col items-center justify-center overflow-hidden py-16">
+      <div
+        className="pointer-events-none absolute left-1/2 top-0 h-[420px] w-[720px] -translate-x-1/2 -translate-y-1/3 rounded-full opacity-[0.07] blur-3xl"
+        style={{ background: 'var(--brand-gradient)' }}
+        aria-hidden="true"
+      />
 
-      <Card className="w-full max-w-sm">
-        <h1 className="text-xl font-semibold text-gray-900">Log in</h1>
-        <p className="mt-1 text-sm text-muted">Welcome back — enter your details to continue.</p>
+      <Container size="sm" className="relative flex flex-col items-center motion-safe:animate-[webioom-rise-in_var(--duration-reveal)_var(--ease-out)_both]">
+        <Link href="/" className="mb-10" aria-label="webioom home">
+          <Logo className="h-11" />
+        </Link>
+
+        <Card padding="md" className="w-full max-w-sm shadow-md">
+          <h1 className="text-2xl font-semibold text-gray-900">Log in</h1>
+          <p className="mt-1 text-sm text-muted">Welcome back — enter your details to continue.</p>
 
         <form onSubmit={handleLogin} className="mt-6 space-y-4">
           <div>
@@ -96,7 +103,8 @@ export default function LoginForm() {
             Sign up
           </Link>
         </p>
-      </Card>
-    </Container>
+        </Card>
+      </Container>
+    </div>
   )
 }

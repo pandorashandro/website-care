@@ -37,36 +37,37 @@ const FOOTER_COLUMNS: { heading: string; items: FooterLink[] }[] = [
 export default function PublicFooter() {
   return (
     <footer className="border-t border-border-dark bg-brand-dark">
-      <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6">
-        <div className="grid grid-cols-2 gap-8 sm:grid-cols-4">
-          {FOOTER_COLUMNS.map((column) => (
-            <div key={column.heading}>
-              <h3 className="text-sm font-semibold text-text-on-dark">{column.heading}</h3>
-              <ul className="mt-3 space-y-2">
-                {column.items.map((item) => (
-                  <li key={item.label} className="text-sm">
-                    {item.href ? (
-                      <Link href={item.href} className="text-text-on-dark-muted hover:text-text-on-dark">
-                        {item.label}
-                      </Link>
-                    ) : (
-                      <span className="text-text-on-dark-muted/60">{item.label}</span>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ))}
+      <div className="mx-auto max-w-7xl px-4 py-16 sm:px-6">
+        <div className="grid grid-cols-1 gap-10 sm:grid-cols-5">
+          <div className="sm:col-span-1">
+            <Logo variant="dark" className="h-11" />
+            <p className="mt-4 text-sm text-text-on-dark-muted">Where Websites Bloom.</p>
+          </div>
+
+          <div className="grid grid-cols-2 gap-8 sm:col-span-4 sm:grid-cols-4">
+            {FOOTER_COLUMNS.map((column) => (
+              <div key={column.heading}>
+                <h3 className="text-xs font-semibold uppercase tracking-wide text-text-on-dark-muted">{column.heading}</h3>
+                <ul className="mt-4 space-y-2.5">
+                  {column.items.map((item) => (
+                    <li key={item.label} className="text-sm">
+                      {item.href ? (
+                        <Link href={item.href} className="text-text-on-dark-muted transition-colors duration-150 ease-out hover:text-text-on-dark">
+                          {item.label}
+                        </Link>
+                      ) : (
+                        <span className="text-text-on-dark-muted/60">{item.label}</span>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
         </div>
 
-        <div className="mt-10 flex flex-col items-center justify-between gap-4 border-t border-border-dark pt-6 sm:flex-row">
-          <div className="flex flex-col items-center gap-2 sm:items-start">
-            <Logo variant="dark" className="h-11" />
-            <p className="text-xs text-text-on-dark-muted">Where Websites Bloom.</p>
-          </div>
-          <p className="text-sm text-text-on-dark-muted">
-            © {new Date().getFullYear()} webioom. All rights reserved.
-          </p>
+        <div className="mt-12 flex flex-col items-center justify-between gap-4 border-t border-border-dark pt-6 sm:flex-row">
+          <p className="text-sm text-text-on-dark-muted">© {new Date().getFullYear()} webioom. All rights reserved.</p>
         </div>
       </div>
     </footer>

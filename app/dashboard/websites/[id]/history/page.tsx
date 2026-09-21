@@ -6,6 +6,7 @@ import { listScanHistoryWithHealth } from '../scan-history'
 import Container from '@/components/ui/container'
 import Card from '@/components/ui/card'
 import Badge from '@/components/ui/badge'
+import ScoreMeter from '@/components/ui/score-meter'
 import EmptyState from '@/components/ui/empty-state'
 import WebsiteSubNav from '@/components/website/website-sub-nav'
 import { formatDate } from '@/components/report/report-helpers'
@@ -51,7 +52,7 @@ export default async function WebsiteHistoryPage(props: PageProps<'/dashboard/we
   const scans = await listScanHistoryWithHealth(website.id, HISTORY_LIMIT)
 
   return (
-    <Container size="lg" className="py-10">
+    <Container size="xl" className="py-10">
       <Link href={`/dashboard/websites/${website.id}`} className="text-sm text-muted hover:text-gray-700">
         ← Back to {website.name}
       </Link>
@@ -80,9 +81,9 @@ export default async function WebsiteHistoryPage(props: PageProps<'/dashboard/we
         />
       ) : (
         <Card padding="none" className="mt-6 overflow-x-auto">
-          <table className="w-full min-w-[720px] text-left text-sm">
+          <table className="w-full min-w-[860px] text-left text-sm">
             <thead>
-              <tr className="border-b border-border text-xs font-semibold uppercase tracking-wide text-subtle">
+              <tr className="border-b border-border bg-surface-muted text-xs font-semibold uppercase tracking-wide text-subtle">
                 <th className="px-4 py-3">Scan</th>
                 <th className="px-4 py-3">Overall Health</th>
                 {CANONICAL_PILLARS.map((pillar) => (
@@ -94,8 +95,8 @@ export default async function WebsiteHistoryPage(props: PageProps<'/dashboard/we
             </thead>
             <tbody>
               {scans.map((scan) => (
-                <tr key={scan.crawlRunId} className="border-b border-border last:border-0">
-                  <td className="px-4 py-3 text-gray-900">
+                <tr key={scan.crawlRunId} className="border-b border-border transition-colors duration-150 ease-out last:border-0 hover:bg-surface-muted">
+                  <td className="whitespace-nowrap px-4 py-3.5 text-gray-900">
                     {scan.completedAt ? formatDate(scan.completedAt) : 'In progress'}
                     {scan.isPartial && (
                       <Badge tone="warning" className="ml-2">
@@ -103,18 +104,34 @@ export default async function WebsiteHistoryPage(props: PageProps<'/dashboard/we
                       </Badge>
                     )}
                   </td>
-                  <td className="px-4 py-3">
+                  <td className="px-4 py-3.5">
                     {scan.overallHealthScore === null ? (
                       <span className="text-muted">—</span>
                     ) : (
-                      <Badge tone={healthTone(scan.overallHealthScore)}>{scan.overallHealthScore}</Badge>
+                      <div className="flex items-center gap-2.5">
+                        <span className="w-20">
+                          <ScoreMeter
+                            score={scan.overallHealthScore}
+                            size="sm"
+                            aria-label={`Overall Website Health: ${scan.overallHealthScore} out of 100`}
+                          />
+                        </span>
+                        <Badge tone={healthTone(scan.overallHealthScore)}>{scan.overallHealthScore}</Badge>
+                      </div>
                     )}
                   </td>
-                  {CANONICAL_PILLARS.map((pillar) => (
-                    <td key={pillar} className="px-4 py-3 text-gray-700">
-                      {scan.pillarScores[pillar] ?? <span className="text-muted">—</span>}
-                    </td>
-                  ))}
+                  {CANONICAL_PILLARS.map((pillar) => {
+                    const score = scan.pillarScores[pillar]
+                    return (
+                      <td key={pillar} className="px-4 py-3.5">
+                        {score === null || score === undefined ? (
+                          <span className="text-muted">—</span>
+                        ) : (
+                          <Badge tone={healthTone(score)}>{score}</Badge>
+                        )}
+                      </td>
+                    )
+                  })}
                 </tr>
               ))}
             </tbody>

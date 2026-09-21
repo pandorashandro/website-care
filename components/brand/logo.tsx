@@ -2,7 +2,16 @@ import Image from 'next/image'
 import { cn } from '@/lib/ui/cn'
 
 export type LogoProps = {
-  /** Controls the rendered height; width follows automatically to preserve the source aspect ratio. Defaults to a compact size — pass a taller value (e.g. 'h-10') at call sites that want the logo more prominent. */
+  /**
+   * Controls the rendered height; width follows automatically to preserve
+   * the source aspect ratio. Sprint 3, Prompt 2B — the founder's explicit
+   * feedback was that the wordmark read as a tiny utility icon throughout
+   * the product; every call site now passes a deliberately larger,
+   * context-appropriate size (see components/site/public-header.tsx,
+   * app/dashboard/layout.tsx, the auth forms, and app/(landing)/page.tsx
+   * for the actual values chosen per context) rather than relying on this
+   * default.
+   */
   className?: string
   /** 'light' (default) renders the on-light wordmark (dark glyph), for white/light surfaces. 'dark' renders the on-dark wordmark (white glyph), for the webioom navy (sidebar, dark footer/hero, pre-launch splash). */
   variant?: 'light' | 'dark'
@@ -32,5 +41,5 @@ const LOGO_HEIGHT = 724
 export default function Logo({ className, variant = 'light' }: LogoProps) {
   const src = variant === 'dark' ? '/brand/webioom-logo-on-dark.png' : '/brand/webioom-logo-on-light.png'
 
-  return <Image src={src} alt="Webioom" width={LOGO_WIDTH} height={LOGO_HEIGHT} priority className={cn('h-7 w-auto', className)} />
+  return <Image src={src} alt="webioom" width={LOGO_WIDTH} height={LOGO_HEIGHT} priority className={cn('h-8 w-auto', className)} />
 }

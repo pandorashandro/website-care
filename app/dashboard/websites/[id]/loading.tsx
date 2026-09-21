@@ -3,36 +3,58 @@ import Card from '@/components/ui/card'
 import Skeleton from '@/components/ui/skeleton'
 import Spinner from '@/components/ui/spinner'
 
+/**
+ * Sprint 3, Prompt 2B — matches the real page's `Container size="2xl"`
+ * (app/dashboard/websites/[id]/page.tsx) so this skeleton no longer causes
+ * a visible width jump when the real Website Overview content arrives; the
+ * previous `size="md"` skeleton was less than half as wide as the page it
+ * preceded.
+ */
 export default function WebsiteOverviewLoading() {
   return (
-    <Container size="md" className="py-10">
+    <Container size="2xl" className="py-10">
       <div className="flex items-center gap-2 text-sm text-muted">
         <Spinner className="h-4 w-4" />
         <span>Loading website…</span>
       </div>
 
-      <Card padding="md" className="mt-4">
-        <Skeleton className="h-3 w-28" />
-        <Skeleton className="mt-2 h-6 w-1/2" />
-        <Skeleton className="mt-2 h-3 w-1/3" />
+      <Card padding="md" className="mt-4 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0 flex-1">
+          <Skeleton className="h-3 w-32" />
+          <Skeleton className="mt-2 h-6 w-1/3" />
+          <Skeleton className="mt-2 h-3 w-1/4" />
+          <Skeleton className="mt-3 h-3 w-2/5" />
+        </div>
+        <Skeleton className="h-9 w-full sm:w-48" />
       </Card>
 
-      <div className="mt-4 flex gap-4 border-b border-border">
+      <div className="mt-4 flex gap-4 border-b border-border pb-px">
         <Skeleton className="h-8 w-20" />
         <Skeleton className="h-8 w-24" />
         <Skeleton className="h-8 w-20" />
+        <Skeleton className="h-8 w-24" />
       </div>
 
       <Card padding="md" className="mt-6">
         <Skeleton className="h-3 w-40" />
         <Skeleton className="mt-3 h-10 w-24" />
+        <Skeleton className="mt-3 h-2.5 w-full rounded-full" />
       </Card>
 
-      <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {Array.from({ length: 3 }).map((_, index) => (
+      <Card padding="md" className="mt-6">
+        <Skeleton className="h-4 w-40" />
+        <div className="mt-4 space-y-3">
+          {Array.from({ length: 3 }).map((_, index) => (
+            <Skeleton key={index} className="h-12 w-full" />
+          ))}
+        </div>
+      </Card>
+
+      <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-7">
+        {Array.from({ length: 7 }).map((_, index) => (
           <Card key={index} padding="sm">
-            <Skeleton className="h-4 w-24" />
-            <Skeleton className="mt-3 h-5 w-12" />
+            <Skeleton className="h-4 w-16" />
+            <Skeleton className="mt-3 h-5 w-10" />
             <Skeleton className="mt-2 h-1.5 w-full" />
           </Card>
         ))}

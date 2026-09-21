@@ -12,6 +12,7 @@ import EmptyState from '@/components/ui/empty-state'
 import { buttonStyles } from '@/components/ui/button'
 import WebsiteSubNav from '@/components/website/website-sub-nav'
 import PillarSubNav from '@/components/website/pillar-sub-nav'
+import FindingList, { type NormalizedFinding } from '@/components/report/finding-list'
 import { formatDate, SEVERITY_DISPLAY_ORDER, SEVERITY_LABELS, severityTone } from '@/components/report/report-helpers'
 import TechnicalSeoControls from './technical-seo-controls'
 
@@ -324,60 +325,37 @@ export default async function TechnicalSeoPage(props: PageProps<'/dashboard/webs
           {findings.length === 0 ? (
             <EmptyState title="No technical SEO problems found" description="webioom didn't detect any of the technical conditions it currently checks for." />
           ) : (
-            <div className="space-y-4">
-              {sortedFindings.map((finding) => {
+            <FindingList
+              findings={sortedFindings.map((finding): NormalizedFinding => {
                 const instances = instancesByFinding.get(finding.id) ?? []
                 const shownInstances = instances.slice(0, MAX_INSTANCES_SHOWN)
                 const remainingCount = instances.length - shownInstances.length
 
-                return (
-                  <Card key={finding.id} padding="md">
-                    {/* PROBLEM */}
-                    <div className="flex flex-wrap items-start justify-between gap-3">
-                      <div>
-                        <p className="text-xs font-semibold uppercase tracking-wide text-subtle">{CATEGORY_LABELS[finding.category]}</p>
-                        <h2 className="mt-1 text-base font-semibold text-gray-900">{finding.title}</h2>
-                      </div>
-                      {/* IMPACT/PRIORITY */}
-                      <div className="flex flex-wrap items-center gap-2">
-                        <Badge tone={severityTone(finding.severity)}>{SEVERITY_LABELS[finding.severity]}</Badge>
-                        <Badge tone="neutral">{CONFIDENCE_LABELS[finding.confidence]}</Badge>
-                      </div>
-                    </div>
-
-                    {/* AFFECTED ASSETS */}
-                    <p className="mt-2 text-xs font-medium text-muted">{countsSummary(finding)}</p>
-
-                    {/* ACTIONABILITY — only ever a label, never a button unless backend truth supports it (none does yet in this phase) */}
-                    <div className="mt-2">
-                      <Badge tone={ACTIONABILITY_TONE[finding.actionability]}>{ACTIONABILITY_LABELS[finding.actionability]}</Badge>
-                    </div>
-
-                    {/* EXACT EVIDENCE */}
-                    {shownInstances.length > 0 && (
-                      <ul className="mt-3 space-y-2">
-                        {shownInstances.map((instance, index) => (
-                          <InstanceRow key={`${instance.url}-${instance.affected_resource_url ?? index}`} instance={instance} />
-                        ))}
-                      </ul>
-                    )}
-                    {remainingCount > 0 && <p className="mt-2 text-xs text-muted">+{remainingCount} more instance{remainingCount === 1 ? '' : 's'}</p>}
-
-                    {/* PROPOSED SOLUTION + educational context (secondary) */}
-                    <div className="mt-3 space-y-1.5 border-t border-border pt-3 text-sm text-gray-700">
-                      <p>
-                        <span className="font-semibold text-gray-900">Why it matters: </span>
-                        {finding.why_it_matters}
-                      </p>
-                      <p>
-                        <span className="font-semibold text-gray-900">General recommendation: </span>
-                        {finding.recommendation}
-                      </p>
-                    </div>
-                  </Card>
-                )
+                return {
+                  id: finding.id,
+                  categoryLabel: CATEGORY_LABELS[finding.category],
+                  title: finding.title,
+                  severity: finding.severity,
+                  actionabilityLabel: ACTIONABILITY_LABELS[finding.actionability],
+                  actionabilityTone: ACTIONABILITY_TONE[finding.actionability],
+                  whyItMatters: finding.why_it_matters,
+                  recommendation: finding.recommendation,
+                  confidenceLabel: CONFIDENCE_LABELS[finding.confidence],
+                  countsSummary: countsSummary(finding),
+                  evidence:
+                    shownInstances.length > 0 ? (
+                      <>
+                        <ul className="space-y-2">
+                          {shownInstances.map((instance, index) => (
+                            <InstanceRow key={`${instance.url}-${instance.affected_resource_url ?? index}`} instance={instance} />
+                          ))}
+                        </ul>
+                        {remainingCount > 0 && <p className="mt-2 text-xs text-muted">+{remainingCount} more instance{remainingCount === 1 ? '' : 's'}</p>}
+                      </>
+                    ) : undefined,
+                }
               })}
-            </div>
+            />
           )}
         </div>
       )}

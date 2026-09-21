@@ -12,6 +12,7 @@ import EmptyState from '@/components/ui/empty-state'
 import { buttonStyles } from '@/components/ui/button'
 import WebsiteSubNav from '@/components/website/website-sub-nav'
 import PillarSubNav from '@/components/website/pillar-sub-nav'
+import FindingList, { type NormalizedFinding } from '@/components/report/finding-list'
 import { formatDate, SEVERITY_DISPLAY_ORDER, SEVERITY_LABELS, severityTone } from '@/components/report/report-helpers'
 import ContentControls from './content-controls'
 import { computeDimensionStatuses, type DimensionResult, type DimensionStatus } from '@/lib/content/dimensions'
@@ -233,50 +234,34 @@ function InstanceRow({ instance }: { instance: FindingInstanceRow }) {
   )
 }
 
-function FindingCard({ finding, instances }: { finding: FindingRow; instances: FindingInstanceRow[] }) {
+/** Sprint 3, Prompt 2B — maps this page's own FindingRow/FindingInstanceRow shape into the shared FindingList's NormalizedFinding, exactly like technical-seo/page.tsx does — no change to what's queried or how it's classified. */
+function toNormalizedFinding(finding: FindingRow, instances: FindingInstanceRow[]): NormalizedFinding {
   const shownInstances = instances.slice(0, MAX_INSTANCES_SHOWN)
   const remainingCount = instances.length - shownInstances.length
 
-  return (
-    <Card padding="md">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-wide text-subtle">{CATEGORY_LABELS[finding.category]}</p>
-          <h3 className="mt-1 text-base font-semibold text-gray-900">{finding.title}</h3>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <Badge tone={severityTone(finding.severity)}>{SEVERITY_LABELS[finding.severity]}</Badge>
-          <Badge tone="neutral">{CONFIDENCE_LABELS[finding.confidence]}</Badge>
-        </div>
-      </div>
-
-      <p className="mt-2 text-xs font-medium text-muted">{countsSummary(finding)}</p>
-
-      <div className="mt-2">
-        <Badge tone={ACTIONABILITY_TONE[finding.actionability]}>{ACTIONABILITY_LABELS[finding.actionability]}</Badge>
-      </div>
-
-      {shownInstances.length > 0 && (
-        <ul className="mt-3 space-y-2">
-          {shownInstances.map((instance, index) => (
-            <InstanceRow key={`${instance.url}-${instance.affected_resource_url ?? index}`} instance={instance} />
-          ))}
-        </ul>
-      )}
-      {remainingCount > 0 && <p className="mt-2 text-xs text-muted">+{remainingCount} more page{remainingCount === 1 ? '' : 's'}</p>}
-
-      <div className="mt-3 space-y-1.5 border-t border-border pt-3 text-sm text-gray-700">
-        <p>
-          <span className="font-semibold text-gray-900">Why it matters: </span>
-          {finding.why_it_matters}
-        </p>
-        <p>
-          <span className="font-semibold text-gray-900">General recommendation: </span>
-          {finding.recommendation}
-        </p>
-      </div>
-    </Card>
-  )
+  return {
+    id: finding.id,
+    categoryLabel: CATEGORY_LABELS[finding.category],
+    title: finding.title,
+    severity: finding.severity,
+    actionabilityLabel: ACTIONABILITY_LABELS[finding.actionability],
+    actionabilityTone: ACTIONABILITY_TONE[finding.actionability],
+    whyItMatters: finding.why_it_matters,
+    recommendation: finding.recommendation,
+    confidenceLabel: CONFIDENCE_LABELS[finding.confidence],
+    countsSummary: countsSummary(finding),
+    evidence:
+      shownInstances.length > 0 ? (
+        <>
+          <ul className="space-y-2">
+            {shownInstances.map((instance, index) => (
+              <InstanceRow key={`${instance.url}-${instance.affected_resource_url ?? index}`} instance={instance} />
+            ))}
+          </ul>
+          {remainingCount > 0 && <p className="mt-2 text-xs text-muted">+{remainingCount} more page{remainingCount === 1 ? '' : 's'}</p>}
+        </>
+      ) : undefined,
+  }
 }
 
 export default async function ContentPage(props: PageProps<'/dashboard/websites/[id]/content'>) {
@@ -482,9 +467,7 @@ export default async function ContentPage(props: PageProps<'/dashboard/websites/
           ) : (
             <div className="space-y-4">
               <h2 className="text-base font-semibold text-gray-900">Biggest content problems</h2>
-              {sortedProblems.map((finding) => (
-                <FindingCard key={finding.id} finding={finding} instances={instancesByFinding.get(finding.id) ?? []} />
-              ))}
+              <FindingList findings={sortedProblems.map((finding) => toNormalizedFinding(finding, instancesByFinding.get(finding.id) ?? []))} />
             </div>
           )}
 
@@ -494,9 +477,7 @@ export default async function ContentPage(props: PageProps<'/dashboard/websites/
                 <h2 className="text-base font-semibold text-gray-900">Content opportunities</h2>
                 <p className="mt-1 text-sm text-muted">Suggestions for already-adequate content — these do not affect your Content Health score.</p>
               </div>
-              {opportunities.map((finding) => (
-                <FindingCard key={finding.id} finding={finding} instances={instancesByFinding.get(finding.id) ?? []} />
-              ))}
+              <FindingList findings={opportunities.map((finding) => toNormalizedFinding(finding, instancesByFinding.get(finding.id) ?? []))} />
             </div>
           )}
         </div>

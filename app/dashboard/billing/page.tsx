@@ -65,14 +65,16 @@ export default async function BillingPage(props: PageProps<'/dashboard/billing'>
         </div>
       )}
 
-      <Card className="mt-6">
-        <div className="flex flex-wrap items-center gap-2">
-          <h2 className="text-lg font-semibold text-gray-900">{presentation.name}</h2>
-          {entitlements.subscriptionInactive && <Badge tone="warning">Needs attention</Badge>}
-          <Badge tone={statusLabel.tone}>{statusLabel.label}</Badge>
-        </div>
+      <Card padding="none" className="mt-6 overflow-hidden">
+        <div className="h-1.5 w-full" style={{ background: 'var(--brand-gradient)' }} aria-hidden="true" />
+        <div className="p-6">
+          <div className="flex flex-wrap items-center gap-2">
+            <h2 className="text-lg font-semibold text-gray-900">{presentation.name}</h2>
+            {entitlements.subscriptionInactive && <Badge tone="warning">Needs attention</Badge>}
+            <Badge tone={statusLabel.tone}>{statusLabel.label}</Badge>
+          </div>
 
-        <dl className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <dl className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-3">
           <div>
             <dt className="text-xs font-medium uppercase tracking-wide text-subtle">Websites</dt>
             <dd className="mt-1 text-sm text-gray-900">{formatWebsiteUsage(websiteCount ?? 0, entitlements.maxWebsites)}</dd>
@@ -126,11 +128,12 @@ export default async function BillingPage(props: PageProps<'/dashboard/billing'>
           </ul>
         </div>
 
-        {showManageBilling && (
-          <div className="mt-5 border-t border-border pt-4">
-            <ManageBillingButton />
-          </div>
-        )}
+          {showManageBilling && (
+            <div className="mt-5 border-t border-border pt-4">
+              <ManageBillingButton />
+            </div>
+          )}
+        </div>
       </Card>
 
       {upgradeOptions.length > 0 && (
@@ -140,7 +143,7 @@ export default async function BillingPage(props: PageProps<'/dashboard/billing'>
             {upgradeOptions.map((plan) => {
               const optionPresentation = PLAN_PRESENTATION[plan]
               return (
-                <Card key={plan} padding="sm">
+                <Card key={plan} padding="sm" className="motion-hover-lift">
                   <div className="flex items-center justify-between gap-2">
                     <h3 className="text-sm font-semibold text-gray-900">{optionPresentation.name}</h3>
                     <span className="text-sm font-semibold text-gray-900">{optionPresentation.priceLabel}</span>

@@ -5,7 +5,7 @@ import Spinner from '@/components/ui/spinner'
 
 export default function WebsiteSiteScanLoading() {
   return (
-    <Container size="md" className="py-10">
+    <Container size="xl" className="py-10">
       <div className="flex items-center gap-2 text-sm text-muted">
         <Spinner className="h-4 w-4" />
         <span>Loading site scan…</span>

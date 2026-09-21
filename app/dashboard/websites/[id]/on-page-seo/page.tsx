@@ -12,6 +12,7 @@ import EmptyState from '@/components/ui/empty-state'
 import { buttonStyles } from '@/components/ui/button'
 import WebsiteSubNav from '@/components/website/website-sub-nav'
 import PillarSubNav from '@/components/website/pillar-sub-nav'
+import FindingList, { type NormalizedFinding } from '@/components/report/finding-list'
 import { formatDate, SEVERITY_DISPLAY_ORDER, SEVERITY_LABELS, severityTone } from '@/components/report/report-helpers'
 import OnPageSeoControls from './on-page-seo-controls'
 import { getWordPressConnectionSummary, toIntegrationFixabilityInputs } from '../wordpress-capabilities'
@@ -422,99 +423,91 @@ export default async function OnPageSeoPage(props: PageProps<'/dashboard/website
           ) : (
             <div className="space-y-4">
               <h2 className="text-base font-semibold text-gray-900">Biggest on-page opportunities</h2>
-              {sortedFindings.map((finding) => {
-                const instances = instancesByFinding.get(finding.id) ?? []
-                const shownInstances = instances.slice(0, MAX_INSTANCES_SHOWN)
-                const remainingCount = instances.length - shownInstances.length
-                const fixProvider = getFixProvider(finding)
-                // Only 'title'/'meta_description' ever reach a Shopify/Wix
-                // provider — evaluateShopifyIssueFixability/
-                // evaluateWixIssueFixability both return null for
-                // 'headings', so fixProvider can never be 'shopify'/'wix'
-                // for an H1 finding; this cast is safe, not assumed.
-                const shopifyWixFixKind = finding.category as 'title' | 'meta_description'
+              <FindingList
+                findings={sortedFindings.map((finding): NormalizedFinding => {
+                  const instances = instancesByFinding.get(finding.id) ?? []
+                  const shownInstances = instances.slice(0, MAX_INSTANCES_SHOWN)
+                  const remainingCount = instances.length - shownInstances.length
+                  const fixProvider = getFixProvider(finding)
+                  // Only 'title'/'meta_description' ever reach a Shopify/Wix
+                  // provider — evaluateShopifyIssueFixability/
+                  // evaluateWixIssueFixability both return null for
+                  // 'headings', so fixProvider can never be 'shopify'/'wix'
+                  // for an H1 finding; this cast is safe, not assumed.
+                  const shopifyWixFixKind = finding.category as 'title' | 'meta_description'
 
-                return (
-                  <Card key={finding.id} padding="md">
-                    {/* PROBLEM */}
-                    <div className="flex flex-wrap items-start justify-between gap-3">
-                      <div>
-                        <p className="text-xs font-semibold uppercase tracking-wide text-subtle">{CATEGORY_LABELS[finding.category]}</p>
-                        <h3 className="mt-1 text-base font-semibold text-gray-900">{finding.title}</h3>
-                      </div>
-                      {/* IMPACT/PRIORITY */}
-                      <div className="flex flex-wrap items-center gap-2">
-                        <Badge tone={severityTone(finding.severity)}>{SEVERITY_LABELS[finding.severity]}</Badge>
-                        <Badge tone="neutral">{CONFIDENCE_LABELS[finding.confidence]}</Badge>
-                      </div>
-                    </div>
+                  const fixButtonFor = (instance: FindingInstanceRow) => {
+                    if (fixProvider === 'wordpress') {
+                      return <PrepareFixButton websiteId={website.id} pageUrl={instance.url} pageLabel={instance.url} issueTitle={finding.title} />
+                    }
+                    if (fixProvider === 'shopify') {
+                      return (
+                        <ShopifyPrepareFixButton
+                          websiteId={website.id}
+                          pageLabel={instance.url}
+                          issueId={`${ON_PAGE_ISSUE_ID_PREFIX}${instance.id}`}
+                          fixKind={shopifyWixFixKind}
+                        />
+                      )
+                    }
+                    if (fixProvider === 'wix') {
+                      return (
+                        <WixPrepareFixButton
+                          websiteId={website.id}
+                          pageLabel={instance.url}
+                          issueId={`${ON_PAGE_ISSUE_ID_PREFIX}${instance.id}`}
+                          fixKind={shopifyWixFixKind}
+                        />
+                      )
+                    }
+                    return null
+                  }
 
-                    {/* AFFECTED PAGES */}
-                    <p className="mt-2 text-xs font-medium text-muted">{countsSummary(finding)}</p>
-
-                    {/* ACTIONABILITY */}
-                    <div className="mt-2">
-                      <Badge tone={ACTIONABILITY_TONE[finding.actionability]}>{ACTIONABILITY_LABELS[finding.actionability]}</Badge>
-                      {finding.actionability === 'prepared_fix' && !fixProvider && (
-                        <p className="mt-1 text-xs text-muted">
-                          <Link href={`/dashboard/websites/${website.id}/integrations`} className="underline hover:text-gray-700">
-                            Connect your website
-                          </Link>{' '}
-                          to let webioom apply this fix automatically.
-                        </p>
-                      )}
-                    </div>
-
-                    {/* EXACT EVIDENCE */}
-                    {shownInstances.length > 0 && (
-                      <ul className="mt-3 space-y-2">
-                        {shownInstances.map((instance, index) => (
-                          <li key={`${instance.url}-${instance.affected_resource_url ?? index}`}>
-                            <InstanceRow instance={instance} />
-                            {fixProvider === 'wordpress' && (
-                              <PrepareFixButton
-                                websiteId={website.id}
-                                pageUrl={instance.url}
-                                pageLabel={instance.url}
-                                issueTitle={finding.title}
-                              />
-                            )}
-                            {fixProvider === 'shopify' && (
-                              <ShopifyPrepareFixButton
-                                websiteId={website.id}
-                                pageLabel={instance.url}
-                                issueId={`${ON_PAGE_ISSUE_ID_PREFIX}${instance.id}`}
-                                fixKind={shopifyWixFixKind}
-                              />
-                            )}
-                            {fixProvider === 'wix' && (
-                              <WixPrepareFixButton
-                                websiteId={website.id}
-                                pageLabel={instance.url}
-                                issueId={`${ON_PAGE_ISSUE_ID_PREFIX}${instance.id}`}
-                                fixKind={shopifyWixFixKind}
-                              />
-                            )}
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                    {remainingCount > 0 && <p className="mt-2 text-xs text-muted">+{remainingCount} more page{remainingCount === 1 ? '' : 's'}</p>}
-
-                    {/* PROPOSED SOLUTION + educational context (secondary) */}
-                    <div className="mt-3 space-y-1.5 border-t border-border pt-3 text-sm text-gray-700">
-                      <p>
-                        <span className="font-semibold text-gray-900">Why it matters: </span>
-                        {finding.why_it_matters}
-                      </p>
-                      <p>
-                        <span className="font-semibold text-gray-900">General recommendation: </span>
-                        {finding.recommendation}
-                      </p>
-                    </div>
-                  </Card>
-                )
-              })}
+                  return {
+                    id: finding.id,
+                    categoryLabel: CATEGORY_LABELS[finding.category],
+                    title: finding.title,
+                    severity: finding.severity,
+                    actionabilityLabel: ACTIONABILITY_LABELS[finding.actionability],
+                    actionabilityTone: ACTIONABILITY_TONE[finding.actionability],
+                    whyItMatters: finding.why_it_matters,
+                    recommendation: finding.recommendation,
+                    confidenceLabel: CONFIDENCE_LABELS[finding.confidence],
+                    countsSummary: countsSummary(finding),
+                    // The one real action stays visible in BOTH Simple and
+                    // Expert view — this is the entire point of Simple View
+                    // (Section 15: "recommended action... next step"),
+                    // never something buried behind progressive disclosure.
+                    primaryAction:
+                      finding.actionability === 'prepared_fix' ? (
+                        fixProvider && shownInstances[0] ? (
+                          fixButtonFor(shownInstances[0])
+                        ) : (
+                          <p className="text-xs text-muted">
+                            <Link href={`/dashboard/websites/${website.id}/integrations`} className="underline hover:text-gray-700">
+                              Connect your website
+                            </Link>{' '}
+                            to let webioom apply this fix automatically.
+                          </p>
+                        )
+                      ) : undefined,
+                    evidence:
+                      shownInstances.length > 0 ? (
+                        <>
+                          <ul className="space-y-2">
+                            {shownInstances.map((instance, index) => (
+                              <li key={`${instance.url}-${instance.affected_resource_url ?? index}`}>
+                                <InstanceRow instance={instance} />
+                                {index > 0 && fixButtonFor(instance)}
+                              </li>
+                            ))}
+                          </ul>
+                          {remainingCount > 0 && <p className="mt-2 text-xs text-muted">+{remainingCount} more page{remainingCount === 1 ? '' : 's'}</p>}
+                        </>
+                      ) : undefined,
+                  }
+                })}
+              />
             </div>
           )}
         </div>

@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { Hand, Lock, ShieldCheck, Puzzle } from 'lucide-react'
+import { Hand, Lock, ShieldCheck, Puzzle, Plug, Activity } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { detectWordPress } from '@/lib/integrations/wordpress/detect-wordpress'
 import { getWordPressConnectionSummary } from '../wordpress-capabilities'
@@ -91,7 +91,10 @@ export default async function WebsiteIntegrationsPage(props: PageProps<'/dashboa
         </p>
       </div>
 
-      <h2 className="mt-8 text-sm font-semibold uppercase tracking-wide text-subtle">Integrations</h2>
+      <div className="mt-8 flex items-center gap-2 text-subtle">
+        <Plug className="h-4 w-4" aria-hidden="true" />
+        <h2 className="text-sm font-semibold uppercase tracking-wide">Integrations</h2>
+      </div>
       <p className="mt-1 max-w-xl text-sm text-muted">
         Connect supported platforms to let webioom prepare and apply supported changes after your review. Scanning
         and reporting work without an integration.
@@ -152,7 +155,10 @@ export default async function WebsiteIntegrationsPage(props: PageProps<'/dashboa
           audit: monitoring on/off/cadence is a preference, not a history
           record). Same MonitoringSettingsForm, same data, no behavior
           change — presentation location only. */}
-      <h2 className="mt-10 text-sm font-semibold uppercase tracking-wide text-subtle">Monitoring</h2>
+      <div className="mt-10 flex items-center gap-2 text-subtle">
+        <Activity className="h-4 w-4" aria-hidden="true" />
+        <h2 className="text-sm font-semibold uppercase tracking-wide">Monitoring</h2>
+      </div>
       {monitoringSettings && (
         <Card padding="md" className="mt-3">
           <MonitoringSettingsForm websiteId={website.id} initialSettings={monitoringSettings} grantedCadence={entitlements.monitoringCadence} />

@@ -10,6 +10,7 @@ import EmptyState from '@/components/ui/empty-state'
 import { buttonStyles } from '@/components/ui/button'
 import WebsiteSubNav, { type WebsiteSubNavActive } from '@/components/website/website-sub-nav'
 import PillarSubNav from '@/components/website/pillar-sub-nav'
+import FindingList, { type NormalizedFinding } from '@/components/report/finding-list'
 import { formatDate, SEVERITY_DISPLAY_ORDER, SEVERITY_LABELS, severityTone } from '@/components/report/report-helpers'
 import PillarControls from './pillar-controls'
 import PrepareFixButton from './prepare-fix-button'
@@ -140,132 +141,93 @@ function ImageAltFixControl({ websiteId, pageUrl, instance, wordpress }: { websi
   )
 }
 
-/**
- * Unified webioom engine, Prompt 3 — Technical Details, consistent across
- * all seven pillars (this file already provides it for the three new ones;
- * the four existing category pages already had their own equivalent
- * evidence display). Default Simple View above stays clean; this collapsed
- * `<details>` exposes exactly what an expert would want to verify a
- * finding — the check identifier, category, scope, confidence, and each
- * instance's raw evidence — as labeled key/value pairs, never a raw JSON
- * dump.
- */
-function TechnicalDetails({ finding, instances, analyzerVersion }: { finding: FindingRow; instances: FindingInstanceRow[]; analyzerVersion: string }) {
-  return (
-    <details className="mt-3 border-t border-border pt-3">
-      <summary className="cursor-pointer text-xs font-semibold uppercase tracking-wide text-subtle">Technical details</summary>
-      <div className="mt-2 space-y-1 text-xs text-muted">
-        <p>
-          <span className="font-medium text-gray-700">Check:</span> {finding.check_key}
-        </p>
-        <p>
-          <span className="font-medium text-gray-700">Category:</span> {finding.category}
-        </p>
-        <p>
-          <span className="font-medium text-gray-700">Scope:</span> {finding.scope === 'site' ? 'Site-wide' : 'Per page'}
-        </p>
-        <p>
-          <span className="font-medium text-gray-700">Confidence:</span> {CONFIDENCE_LABELS[finding.confidence]}
-        </p>
-        <p>
-          <span className="font-medium text-gray-700">Occurrences:</span> {finding.occurrence_count}
-        </p>
-        <p>
-          <span className="font-medium text-gray-700">Analyzer version:</span> {analyzerVersion}
-        </p>
-      </div>
-
-      {instances.length > 0 && (
-        <div className="mt-3">
-          <p className="text-xs font-medium text-gray-700">Evidence</p>
-          <ul className="mt-1 space-y-2">
-            {instances.map((instance, index) => (
-              <li key={`${instance.id}-tech-${index}`} className="rounded-md border border-border bg-surface p-2 text-xs">
-                <p className="truncate font-mono text-gray-700">{instance.url}</p>
-                {instance.affected_resource_url && <p className="truncate text-muted">Resource: {instance.affected_resource_url}</p>}
-                {instance.detail &&
-                  Object.entries(instance.detail).map(([key, value]) => (
-                    <p key={key} className="text-muted">
-                      {key}: {String(value)}
-                    </p>
-                  ))}
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-    </details>
-  )
+/** "core_web_vitals" -> "Core Web Vitals" — these three engines don't yet have a hand-authored category label map like the four older pillar pages, so this derives a readable label straight from the check's own `category` column. */
+function humanizeCategory(category: string): string {
+  return category
+    .split('_')
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ')
 }
 
-function FindingCard({
-  finding,
-  instances,
-  websiteId,
-  wordpress,
-  analyzerVersion,
-}: {
-  finding: FindingRow
-  instances: FindingInstanceRow[]
-  websiteId: string
-  wordpress: WordPressFixCapability
+/**
+ * Unified webioom engine, Sprint 3 Prompt 2B — maps this pillar's own
+ * `pillar_findings`/`pillar_finding_pages` shape onto the shared
+ * `NormalizedFinding`/`FindingList` system every other pillar page already
+ * uses (Section 15/16 — Simple/Expert must actually finish, and no pillar
+ * gets a bespoke card just because it shares this file with two others).
+ * Technical Details' former standalone `<details>` disclosure is folded
+ * straight into `evidence` — FindingList's own Expert tab + "Show evidence"
+ * toggle already gate it, so a second nested toggle inside would just be
+ * disclosure-behind-disclosure for no reason.
+ */
+function toNormalizedFinding(
+  finding: FindingRow,
+  instances: FindingInstanceRow[],
+  websiteId: string,
+  wordpress: WordPressFixCapability,
   analyzerVersion: string
-}) {
+): NormalizedFinding {
   const shown = instances.slice(0, MAX_INSTANCES_SHOWN)
   const remaining = instances.length - shown.length
   const isImageAltFinding = finding.check_key === 'images_missing_alt'
 
-  return (
-    <Card padding="md">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <h3 className="text-base font-semibold text-gray-900">{finding.title}</h3>
-        <div className="flex flex-wrap items-center gap-2">
-          {finding.finding_kind === 'problem' && <Badge tone={severityTone(finding.severity)}>{SEVERITY_LABELS[finding.severity]}</Badge>}
-          <Badge tone="neutral">{CONFIDENCE_LABELS[finding.confidence]}</Badge>
+  return {
+    id: finding.id,
+    categoryLabel: humanizeCategory(finding.category),
+    title: finding.title,
+    severity: finding.severity,
+    actionabilityLabel: ACTION_PATH_LABELS[finding.actionability],
+    actionabilityTone: ACTION_PATH_TONE[finding.actionability],
+    whyItMatters: finding.why_it_matters,
+    recommendation: finding.recommendation,
+    confidenceLabel: CONFIDENCE_LABELS[finding.confidence],
+    countsSummary: `${finding.affected_page_count} page${finding.affected_page_count === 1 ? '' : 's'} affected`,
+    // The one real action (currently: Accessibility's images_missing_alt
+    // Prepare Fix, for the first instance webioom captured a usable image
+    // src for) stays visible in both Simple and Expert view.
+    primaryAction: isImageAltFinding && shown[0] ? <ImageAltFixControl websiteId={websiteId} pageUrl={shown[0].url} instance={shown[0]} wordpress={wordpress} /> : undefined,
+    evidence: (
+      <>
+        <div className="space-y-1 text-xs text-muted">
+          <p>
+            <span className="font-medium text-gray-700">Check:</span> {finding.check_key}
+          </p>
+          <p>
+            <span className="font-medium text-gray-700">Scope:</span> {finding.scope === 'site' ? 'Site-wide' : 'Per page'}
+          </p>
+          <p>
+            <span className="font-medium text-gray-700">Occurrences:</span> {finding.occurrence_count}
+          </p>
+          <p>
+            <span className="font-medium text-gray-700">Analyzer version:</span> {analyzerVersion}
+          </p>
         </div>
-      </div>
 
-      <p className="mt-2 text-sm text-gray-700">{finding.explanation}</p>
-
-      <p className="mt-2 text-xs font-medium text-muted">
-        {finding.affected_page_count} page{finding.affected_page_count === 1 ? '' : 's'} affected
-      </p>
-
-      <div className="mt-2">
-        <Badge tone={ACTION_PATH_TONE[finding.actionability]}>{ACTION_PATH_LABELS[finding.actionability]}</Badge>
-      </div>
-
-      {shown.length > 0 && (
-        <ul className="mt-3 space-y-2">
-          {shown.map((instance, index) => (
-            <li key={`${instance.id}-${index}`} className="rounded-md border border-border bg-surface p-3 text-xs">
-              <p className="truncate font-medium text-gray-900">{instance.affected_resource_url ?? instance.url}</p>
-              {instance.current_state && (
-                <p className="mt-1 text-muted">
-                  <span className="font-medium">{instance.current_state.label}:</span> {instance.current_state.value ?? '—'}
-                </p>
-              )}
-              {isImageAltFinding && <ImageAltFixControl websiteId={websiteId} pageUrl={instance.url} instance={instance} wordpress={wordpress} />}
-            </li>
-          ))}
-        </ul>
-      )}
-      {remaining > 0 && <p className="mt-2 text-xs text-muted">+{remaining} more page{remaining === 1 ? '' : 's'}</p>}
-
-      <div className="mt-3 space-y-1.5 border-t border-border pt-3 text-sm text-gray-700">
-        <p>
-          <span className="font-semibold text-gray-900">Why it matters: </span>
-          {finding.why_it_matters}
-        </p>
-        <p>
-          <span className="font-semibold text-gray-900">What to do: </span>
-          {finding.recommendation}
-        </p>
-      </div>
-
-      <TechnicalDetails finding={finding} instances={instances} analyzerVersion={analyzerVersion} />
-    </Card>
-  )
+        {shown.length > 0 && (
+          <ul className="mt-3 space-y-2">
+            {shown.map((instance, index) => (
+              <li key={`${instance.id}-${index}`} className="rounded-md border border-border bg-surface p-3 text-xs">
+                <p className="truncate font-medium text-gray-900">{instance.affected_resource_url ?? instance.url}</p>
+                {instance.current_state && (
+                  <p className="mt-1 text-muted">
+                    <span className="font-medium">{instance.current_state.label}:</span> {instance.current_state.value ?? '—'}
+                  </p>
+                )}
+                {instance.detail &&
+                  Object.entries(instance.detail).map(([key, value]) => (
+                    <p key={key} className="mt-1 text-muted">
+                      {key}: {String(value)}
+                    </p>
+                  ))}
+                {isImageAltFinding && index > 0 && <ImageAltFixControl websiteId={websiteId} pageUrl={instance.url} instance={instance} wordpress={wordpress} />}
+              </li>
+            ))}
+          </ul>
+        )}
+        {remaining > 0 && <p className="mt-2 text-xs text-muted">+{remaining} more page{remaining === 1 ? '' : 's'}</p>}
+      </>
+    ),
+  }
 }
 
 export type PillarReportConfig = {
@@ -475,16 +437,9 @@ export async function renderPillarReportPage(websiteId: string, config: PillarRe
           ) : (
             <div className="space-y-4">
               <h2 className="text-base font-semibold text-gray-900">What should I fix?</h2>
-              {sortedProblems.map((finding) => (
-                <FindingCard
-                  key={finding.id}
-                  finding={finding}
-                  instances={instancesByFinding.get(finding.id) ?? []}
-                  websiteId={website.id}
-                  wordpress={wordpress}
-                  analyzerVersion={config.analyzerVersion}
-                />
-              ))}
+              <FindingList
+                findings={sortedProblems.map((finding) => toNormalizedFinding(finding, instancesByFinding.get(finding.id) ?? [], website.id, wordpress, config.analyzerVersion))}
+              />
             </div>
           )}
 
@@ -494,16 +449,9 @@ export async function renderPillarReportPage(websiteId: string, config: PillarRe
                 <h2 className="text-base font-semibold text-gray-900">Opportunities</h2>
                 <p className="mt-1 text-sm text-muted">Suggestions for already-adequate pages — these do not affect your {config.label} score.</p>
               </div>
-              {opportunities.map((finding) => (
-                <FindingCard
-                  key={finding.id}
-                  finding={finding}
-                  instances={instancesByFinding.get(finding.id) ?? []}
-                  websiteId={website.id}
-                  wordpress={wordpress}
-                  analyzerVersion={config.analyzerVersion}
-                />
-              ))}
+              <FindingList
+                findings={opportunities.map((finding) => toNormalizedFinding(finding, instancesByFinding.get(finding.id) ?? [], website.id, wordpress, config.analyzerVersion))}
+              />
             </div>
           )}
         </div>

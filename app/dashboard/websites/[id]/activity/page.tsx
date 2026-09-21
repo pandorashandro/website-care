@@ -92,27 +92,33 @@ export default async function WebsiteActivityPage(props: PageProps<'/dashboard/w
         />
       ) : (
         <>
-          <div className="mt-6 grid grid-cols-3 gap-4">
-            <Card padding="sm">
-              <div className="flex items-center gap-2 text-muted">
+          <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
+            <Card padding="sm" className="flex items-center gap-3">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-subtle text-brand">
                 <ClipboardList className="h-4 w-4" aria-hidden="true" />
-                <span className="text-xs font-medium">Recorded changes</span>
+              </span>
+              <div>
+                <p className="text-xs font-medium text-muted">Recorded changes</p>
+                <p className="text-xl font-semibold text-gray-900">{fixes.length}</p>
               </div>
-              <p className="mt-1.5 text-2xl font-semibold text-gray-900">{fixes.length}</p>
             </Card>
-            <Card padding="sm">
-              <div className="flex items-center gap-2 text-muted">
+            <Card padding="sm" className="flex items-center gap-3">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-success-subtle text-success">
                 <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
-                <span className="text-xs font-medium">Verified</span>
+              </span>
+              <div>
+                <p className="text-xs font-medium text-muted">Verified</p>
+                <p className="text-xl font-semibold text-gray-900">{verifiedCount}</p>
               </div>
-              <p className="mt-1.5 text-2xl font-semibold text-gray-900">{verifiedCount}</p>
             </Card>
-            <Card padding="sm">
-              <div className="flex items-center gap-2 text-muted">
+            <Card padding="sm" className="flex items-center gap-3">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-surface-muted text-gray-600">
                 <RotateCcw className="h-4 w-4" aria-hidden="true" />
-                <span className="text-xs font-medium">Undo actions</span>
+              </span>
+              <div>
+                <p className="text-xs font-medium text-muted">Undo actions</p>
+                <p className="text-xl font-semibold text-gray-900">{undoCount}</p>
               </div>
-              <p className="mt-1.5 text-2xl font-semibold text-gray-900">{undoCount}</p>
             </Card>
           </div>
 

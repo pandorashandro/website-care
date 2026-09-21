@@ -20,13 +20,21 @@ type PlanAccent = {
   iconWrap: string
   icon: typeof Sparkles
   highlightRing: string
+  /** A thin top accent bar matching this plan's own point on the brand spectrum — the same violet→sky→teal→green progression `--brand-gradient` uses site-wide, so the four cards read as one deliberate family rather than four unrelated colors. */
+  topBar: string
 }
 
 const PLAN_ACCENT: Record<PlanKey, PlanAccent> = {
-  free: { badgeTone: 'neutral', iconWrap: 'bg-surface-muted text-gray-600', icon: Sparkles, highlightRing: '' },
-  bloom: { badgeTone: 'brand', iconWrap: 'bg-brand-subtle text-brand', icon: Sprout, highlightRing: '' },
-  bloom_pro: { badgeTone: 'violet', iconWrap: 'bg-violet-subtle text-violet', icon: Leaf, highlightRing: 'border-violet ring-1 ring-violet' },
-  agency: { badgeTone: 'sky', iconWrap: 'bg-sky-subtle text-sky', icon: Users, highlightRing: '' },
+  free: { badgeTone: 'neutral', iconWrap: 'bg-surface-muted text-gray-600', icon: Sparkles, highlightRing: '', topBar: 'bg-border-strong' },
+  bloom: { badgeTone: 'brand', iconWrap: 'bg-brand-subtle text-brand', icon: Sprout, highlightRing: '', topBar: 'bg-brand-vivid' },
+  bloom_pro: {
+    badgeTone: 'violet',
+    iconWrap: 'bg-violet-subtle text-violet',
+    icon: Leaf,
+    highlightRing: 'border-violet ring-1 ring-violet',
+    topBar: '',
+  },
+  agency: { badgeTone: 'sky', iconWrap: 'bg-sky-subtle text-sky', icon: Users, highlightRing: '', topBar: 'bg-sky' },
 }
 
 /**
@@ -109,45 +117,55 @@ function PlanCard({
   const highlighted = plan === 'bloom_pro'
 
   return (
-    <Card className={cn('flex flex-col', highlighted ? accent.highlightRing : undefined)}>
-      <div className="flex items-center justify-between gap-2">
-        <span className={cn('inline-flex h-10 w-10 items-center justify-center rounded-full', accent.iconWrap)}>
-          <Icon className="h-5 w-5" aria-hidden="true" />
-        </span>
-        {highlighted && <Badge tone={accent.badgeTone}>Most Popular</Badge>}
-      </div>
-
-      <h3 className="mt-4 text-lg font-semibold text-gray-900">{presentation.cardTitle}</h3>
-      <p className="mt-1 text-sm text-muted">{presentation.tagline}</p>
-
-      <PriceDisplay plan={plan} cycle={cycle} />
-
-      <div className="mt-5">
-        <PlanCta plan={plan} isLoggedIn={isLoggedIn} currentPlan={currentPlan} />
-      </div>
-
-      {plan === 'free' && (
-        <p className="mt-4 rounded-md bg-brand-subtle px-3 py-2.5 text-xs text-brand">
-          Want to fix the issues? Upgrade to unlock guided fixes, Safe Fix and more.
-        </p>
+    <Card
+      padding="none"
+      className={cn(
+        'flex flex-col overflow-hidden motion-safe:animate-[webioom-rise-in_var(--duration-reveal)_var(--ease-out)_both]',
+        highlighted ? cn(accent.highlightRing, 'shadow-lg sm:-translate-y-2') : undefined
       )}
+    >
+      <div className={cn('h-1.5 w-full', highlighted ? '' : accent.topBar)} style={highlighted ? { background: 'var(--brand-gradient)' } : undefined} aria-hidden="true" />
 
-      <ul className="mt-6 flex-1 space-y-2.5 text-sm text-gray-700">
-        {presentation.liveFeatures.map((feature) => (
-          <li key={feature} className="flex items-start gap-2">
-            <Check className="mt-0.5 h-4 w-4 shrink-0 text-brand" aria-hidden="true" />
-            <span>{feature}</span>
-          </li>
-        ))}
-        {presentation.plannedFeatures.map((feature) => (
-          <li key={feature} className="flex items-start gap-2">
-            <Clock className="mt-0.5 h-4 w-4 shrink-0 text-subtle" aria-hidden="true" />
-            <span>
-              {feature} <span className="text-xs text-subtle">({presentation.plannedNote})</span>
-            </span>
-          </li>
-        ))}
-      </ul>
+      <div className={cn('flex flex-1 flex-col p-6', highlighted && 'sm:p-7')}>
+        <div className="flex items-center justify-between gap-2">
+          <span className={cn('inline-flex h-10 w-10 items-center justify-center rounded-full', accent.iconWrap)}>
+            <Icon className="h-5 w-5" aria-hidden="true" />
+          </span>
+          {highlighted && <Badge tone={accent.badgeTone}>Most Popular</Badge>}
+        </div>
+
+        <h3 className="mt-4 text-lg font-semibold text-gray-900">{presentation.cardTitle}</h3>
+        <p className="mt-1 text-sm text-muted">{presentation.tagline}</p>
+
+        <PriceDisplay plan={plan} cycle={cycle} />
+
+        <div className="mt-5">
+          <PlanCta plan={plan} isLoggedIn={isLoggedIn} currentPlan={currentPlan} />
+        </div>
+
+        {plan === 'free' && (
+          <p className="mt-4 rounded-md bg-brand-subtle px-3 py-2.5 text-xs text-brand">
+            Want to fix the issues? Upgrade to unlock guided fixes, Safe Fix and more.
+          </p>
+        )}
+
+        <ul className="mt-6 flex-1 space-y-2.5 text-sm text-gray-700">
+          {presentation.liveFeatures.map((feature) => (
+            <li key={feature} className="flex items-start gap-2">
+              <Check className="mt-0.5 h-4 w-4 shrink-0 text-brand" aria-hidden="true" />
+              <span>{feature}</span>
+            </li>
+          ))}
+          {presentation.plannedFeatures.map((feature) => (
+            <li key={feature} className="flex items-start gap-2">
+              <Clock className="mt-0.5 h-4 w-4 shrink-0 text-subtle" aria-hidden="true" />
+              <span>
+                {feature} <span className="text-xs text-subtle">({presentation.plannedNote})</span>
+              </span>
+            </li>
+          ))}
+        </ul>
+      </div>
     </Card>
   )
 }
