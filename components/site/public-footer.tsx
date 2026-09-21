@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import Logo from '@/components/brand/logo'
 import { buttonStyles } from '@/components/ui/button'
+import DarkAtmosphere from '@/components/ui/dark-atmosphere'
 import { RESOURCES } from '@/lib/content/resources'
 
 type FooterLink = { label: string; href?: string }
@@ -50,8 +51,9 @@ export default function PublicFooter() {
     <footer className="border-t border-border-dark bg-brand-dark">
       <div className="h-[2px] w-full" style={{ background: 'var(--brand-gradient)' }} aria-hidden="true" />
 
-      <div className="border-b border-border-dark">
-        <div className="mx-auto flex max-w-7xl flex-col items-center gap-5 px-4 py-14 text-center sm:px-6">
+      <div className="relative overflow-hidden border-b border-border-dark">
+        <DarkAtmosphere />
+        <div className="relative mx-auto flex max-w-7xl flex-col items-center gap-5 px-4 py-14 text-center sm:px-6">
           <h2 className="text-2xl font-semibold tracking-tight text-text-on-dark sm:text-3xl">Ready to see your website&rsquo;s health?</h2>
           <Link href="/signup" className={buttonStyles({ variant: 'primary', size: 'lg' })}>
             Scan your website for free

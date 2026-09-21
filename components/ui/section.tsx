@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import Container, { type ContainerSize } from '@/components/ui/container'
+import DarkAtmosphere from '@/components/ui/dark-atmosphere'
 import { cn } from '@/lib/ui/cn'
 
 export type SectionTint = 'none' | 'muted' | 'dark'
@@ -25,19 +26,26 @@ export type SectionProps = {
  * Padding is deliberately more generous than the old `py-16 sm:py-20`
  * (Wellows-benchmark "confident whitespace" — see the final-pass brief's
  * Section 2) without introducing any new visual language of its own.
+ *
+ * Sprint 3, Prompt 2B (final closed batch) — `tint="dark"` now always
+ * carries `DarkAtmosphere`'s layered violet/azure/green glow automatically,
+ * so every dark section across the site gets the same premium atmosphere
+ * for free rather than each page hand-rolling (or forgetting) its own.
  */
 export default function Section({ children, tint = 'none', border = 'none', size = 'lg', className, containerClassName }: SectionProps) {
   return (
     <div
       className={cn(
-        border === 'top' && 'border-t border-border',
-        border === 'bottom' && 'border-b border-border',
+        'relative overflow-hidden',
+        border === 'top' && (tint === 'dark' ? 'border-t border-border-dark' : 'border-t border-border'),
+        border === 'bottom' && (tint === 'dark' ? 'border-b border-border-dark' : 'border-b border-border'),
         tint === 'muted' && 'bg-surface-muted',
         tint === 'dark' && 'bg-brand-dark',
         className
       )}
     >
-      <Container size={size} className={cn('py-16 sm:py-24', containerClassName)}>
+      {tint === 'dark' && <DarkAtmosphere />}
+      <Container size={size} className={cn('relative py-16 sm:py-24', containerClassName)}>
         {children}
       </Container>
     </div>

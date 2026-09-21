@@ -122,7 +122,7 @@ export default function PublicHeader() {
       </div>
 
       {mobileOpen && (
-        <div className="border-t border-border bg-surface px-4 pb-4 lg:hidden">
+        <div className="border-t border-border bg-surface px-4 pb-4 motion-safe:animate-[webioom-rise-in_var(--duration-base)_var(--ease-out)_both] lg:hidden">
           <nav className="flex flex-col gap-1 pt-3" aria-label="Primary">
             {NAV_ITEMS.map((item) =>
               item.href ? (

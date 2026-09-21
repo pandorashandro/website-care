@@ -1,78 +1,48 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import {
-  ScanSearch,
-  BarChart3,
-  Wrench,
-  Eye,
-  CheckCircle2,
-  ShieldCheck,
-  History,
-  Zap,
-  Sparkles,
-  Compass,
-  Plug,
-  ScanLine,
-  Hand,
-  Target,
-  RotateCcw,
-  ShieldAlert,
-} from 'lucide-react'
-import Container from '@/components/ui/container'
+import { ScanSearch, BarChart3, Wrench, Eye, CheckCircle2, ShieldCheck, History, Zap, Sparkles, Compass, Target, Hand, ShieldAlert } from 'lucide-react'
 import Section from '@/components/ui/section'
 import ScrollReveal from '@/components/ui/scroll-reveal'
 import Card from '@/components/ui/card'
 import Badge from '@/components/ui/badge'
 import SectionHeading from '@/components/ui/section-heading'
 import ProductPreview from '@/components/marketing/product-preview'
+import FlowDiagram from '@/components/ui/flow-diagram'
 import { buttonStyles } from '@/components/ui/button'
 
 export const metadata: Metadata = {
   title: 'Product',
-  description:
-    'How webioom actually works: scanning vs. connecting an integration, how issues become Safe, AI-Assisted, or Guided fixes, and the Review → Apply → Verify → History workflow.',
+  description: 'How webioom actually works: scan, prioritize, fix, verify — a controlled, reviewable workflow for improving your website.',
 }
 
 const LOOP_STEPS = [
-  { icon: ScanSearch, title: 'Scan', description: 'Crawls your site for supported health issues.' },
-  { icon: BarChart3, title: 'Understand', description: 'Health score, severity, priority, and a plain-language reason for each finding.' },
-  { icon: Wrench, title: 'Act', description: 'Each issue becomes a Safe Fix, an AI-Assisted Fix, or clear guidance.' },
-  { icon: Eye, title: 'Review', description: 'Supported changes get a preview before anything is written.' },
-  { icon: CheckCircle2, title: 'Apply', description: 'Nothing changes until you approve it.' },
-  { icon: ShieldCheck, title: 'Verify', description: 'webioom confirms the change actually appears correctly.' },
-  { icon: History, title: 'History / Undo', description: 'Every change is recorded, and reversible where it can be confirmed safe.' },
+  { icon: ScanSearch, label: 'Scan' },
+  { icon: BarChart3, label: 'Understand' },
+  { icon: Wrench, label: 'Act' },
+  { icon: Eye, label: 'Review' },
+  { icon: CheckCircle2, label: 'Apply' },
+  { icon: ShieldCheck, label: 'Verify' },
+  { icon: History, label: 'History' },
+]
+
+const LOOP_DETAILS = [
+  { title: 'Scan & Understand', description: 'webioom crawls your site and turns every issue into a health score, severity, priority, and plain-language reason.' },
+  { title: 'Act & Review', description: 'Each issue becomes a Safe Fix, an AI-Assisted Fix, or clear guidance — with a preview before anything is written.' },
+  { title: 'Apply, Verify & Record', description: 'Nothing changes until you approve it. webioom then confirms the change worked, and records it for History and Undo.' },
 ]
 
 const FIX_TYPES = [
-  {
-    icon: Zap,
-    title: 'Safe Fix',
-    description:
-      'A constrained, deterministic change webioom can prepare with confidence — the kind of edit where there is one clearly correct outcome.',
-  },
-  {
-    icon: Sparkles,
-    title: 'AI-Assisted Fix',
-    description:
-      'AI drafts appropriate replacement content — like a title or description — based on your page. You always review it before anything is applied.',
-  },
-  {
-    icon: Compass,
-    title: 'Guided Fix',
-    description:
-      'When automating a change would be unsafe, ambiguous, or depend on judgment only you can make, webioom explains what to do instead of guessing.',
-  },
+  { icon: Zap, title: 'Safe Fix', description: 'A constrained, deterministic change webioom can prepare with confidence.' },
+  { icon: Sparkles, title: 'AI-Assisted Fix', description: 'AI drafts replacement content — like a title — for you to review before anything is applied.' },
+  { icon: Compass, title: 'Guided Fix', description: "When automating a change would be unsafe or ambiguous, webioom explains what to do instead of guessing." },
 ]
 
 const SUPPORTED_FIX_EXAMPLES = ['Page title', 'Meta description', 'Missing H1', 'Missing image alt text']
 
 const SAFETY_POINTS = [
-  { icon: Target, text: 'Supported fixes are narrowly scoped to the exact field they describe.' },
-  { icon: Hand, text: 'A supported change is applied only after you explicitly approve it.' },
-  { icon: ScanLine, text: 'webioom re-checks the target fresh, right before applying — not from a stale snapshot.' },
+  { icon: Target, text: 'Every supported fix is narrowly scoped to the exact field it describes.' },
+  { icon: Hand, text: 'A change is applied only after you explicitly approve it.' },
   { icon: ShieldCheck, text: 'A verification pass follows every supported write.' },
-  { icon: History, text: 'History gives you a record of exactly what changed, and when.' },
-  { icon: RotateCcw, text: 'Where it can safely confirm nothing else has changed, a supported fix can be undone.' },
   { icon: ShieldAlert, text: 'When webioom can’t safely confirm what it would be changing, it declines rather than guesses.' },
 ]
 
@@ -88,8 +58,7 @@ export default function ProductPage() {
               From website problems to clear next steps.
             </h1>
             <p className="mt-5 max-w-lg text-lg text-muted">
-              webioom scans your site, prioritizes what matters, and helps you resolve it through a
-              controlled, reviewable workflow.
+              webioom scans your site, prioritizes what matters, and helps you resolve it through a controlled, reviewable workflow.
             </p>
             <div className="mt-8 flex flex-wrap items-center gap-3">
               <Link href="/signup" className={buttonStyles({ variant: 'primary', size: 'lg' })}>
@@ -104,34 +73,34 @@ export default function ProductPage() {
         </div>
       </Section>
 
-      {/* 2. CORE PRODUCT LOOP */}
-      <Section size="md">
+      {/*
+        2. THE CORE LOOP — a deliberate dark gradient product moment
+        (Sprint 3, Prompt 2B closed batch, Section 24: purpose = the single
+        biggest visual "here is the whole product in one shape" statement
+        on the page). Seven stages as one connected flow instead of a
+        seven-item vertical list, with the mechanics grouped into three
+        plain-language beats underneath rather than seven repeated
+        paragraphs.
+      */}
+      <Section tint="dark">
         <ScrollReveal>
-          <SectionHeading eyebrow="The core loop" title="Seven stages, from first scan to a verified, recorded change" />
+          <p className="text-center text-sm font-semibold uppercase tracking-wide text-brand-vivid">The core loop</p>
+          <h2 className="mx-auto mt-2 max-w-xl text-center text-2xl font-semibold text-text-on-dark sm:text-3xl">
+            One connected workflow, start to finish
+          </h2>
+
+          <div className="mt-10 flex justify-center">
+            <FlowDiagram steps={LOOP_STEPS} variant="dark" className="justify-center" />
+          </div>
         </ScrollReveal>
 
-        <ScrollReveal delayMs={80}>
-          <ol className="mt-10 list-none">
-            {LOOP_STEPS.map((step, index) => {
-              const Icon = step.icon
-              const isLast = index === LOOP_STEPS.length - 1
-              return (
-                <li key={step.title} className="flex gap-4">
-                  <div className="flex flex-col items-center">
-                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand text-brand-foreground">
-                      <Icon className="h-5 w-5" aria-hidden="true" />
-                    </span>
-                    {!isLast && <span className="mt-1 w-px flex-1 bg-border-strong" aria-hidden="true" />}
-                  </div>
-                  <div className={isLast ? 'pb-1' : 'pb-8'}>
-                    <h3 className="pt-1.5 text-base font-semibold text-gray-900">{step.title}</h3>
-                    <p className="mt-1 text-sm text-muted">{step.description}</p>
-                  </div>
-                </li>
-              )
-            })}
-          </ol>
-          <p className="mt-2 text-sm text-subtle">Continuous monitoring between visits is planned, not available yet.</p>
+        <ScrollReveal delayMs={100} className="mt-12 grid grid-cols-1 gap-6 sm:grid-cols-3">
+          {LOOP_DETAILS.map((detail) => (
+            <div key={detail.title} className="rounded-lg border border-white/10 bg-white/5 p-5">
+              <h3 className="text-sm font-semibold text-text-on-dark">{detail.title}</h3>
+              <p className="mt-2 text-sm leading-relaxed text-text-on-dark-muted">{detail.description}</p>
+            </div>
+          ))}
         </ScrollReveal>
       </Section>
 
@@ -145,8 +114,7 @@ export default function ProductPage() {
               <h3 className="text-base font-semibold text-gray-900">Scanning</h3>
               <ul className="mt-4 space-y-2.5 text-sm text-gray-700">
                 <li>Works without connecting any integration or CMS</li>
-                <li>Analyzes your website and builds the health report</li>
-                <li>Identifies issues across all five health categories</li>
+                <li>Builds a full health report across all seven pillars</li>
               </ul>
             </Card>
 
@@ -155,17 +123,11 @@ export default function ProductPage() {
                 Integration <Badge tone="neutral">Optional</Badge>
               </h3>
               <ul className="mt-4 space-y-2.5 text-sm text-gray-700">
-                <li>Gives webioom authorized access to a supported system</li>
                 <li>Unlocks supported direct fixes for that site</li>
-                <li>Does not mean anything changes automatically — approval is still required for every fix</li>
+                <li>Never changes anything automatically — approval is still required for every fix</li>
               </ul>
             </Card>
           </div>
-
-          <p className="mt-6 text-sm text-muted">
-            WordPress is currently Integration #1. Any website can be scanned and reported on with or
-            without a connected integration.
-          </p>
 
           <div className="mt-6">
             <Link href="/integrations" className={buttonStyles({ variant: 'outline' })}>
@@ -178,11 +140,7 @@ export default function ProductPage() {
       {/* 4. WHAT HAPPENS TO EACH ISSUE */}
       <Section>
         <ScrollReveal>
-          <SectionHeading
-            eyebrow="Not every issue is the same"
-            title="webioom doesn't put an Apply button next to everything"
-            description="Every finding is matched to the kind of action that's actually appropriate for it."
-          />
+          <SectionHeading eyebrow="Not every issue is the same" title="webioom doesn't put an Apply button next to everything" />
         </ScrollReveal>
 
         <ScrollReveal delayMs={80} className="mt-10 grid grid-cols-1 gap-5 sm:grid-cols-3">
@@ -200,17 +158,10 @@ export default function ProductPage() {
           })}
         </ScrollReveal>
 
-        {/* 5. SUPPORTED FIX EXAMPLES */}
         <ScrollReveal delayMs={140}>
           <Card className="mt-8 bg-surface-muted">
-            <div className="flex items-center gap-2">
-              <Plug className="h-5 w-5 text-brand" aria-hidden="true" />
-              <h3 className="text-base font-semibold text-gray-900">Current supported fix examples</h3>
-            </div>
-            <p className="mt-2 max-w-2xl text-sm text-muted">
-              More issue types move from Guided into Safe or AI-Assisted as support grows.
-            </p>
-            <div className="mt-4 flex flex-wrap gap-2">
+            <h3 className="text-base font-semibold text-gray-900">Current supported fix examples</h3>
+            <div className="mt-3 flex flex-wrap gap-2">
               {SUPPORTED_FIX_EXAMPLES.map((example) => (
                 <Badge key={example} tone="brand">
                   {example}
@@ -221,41 +172,37 @@ export default function ProductPage() {
         </ScrollReveal>
       </Section>
 
-      {/* 6. SAFETY / CONTROL */}
-      <div className="border-t border-border bg-surface-muted">
-        <Container size="md" className="pb-8 pt-16 text-center sm:pt-24">
-          <ScrollReveal>
-            <p className="text-xl font-semibold tracking-tight text-gray-900 sm:text-2xl">
-              &ldquo;Automate what webioom can prove. Don&apos;t guess when intent matters.&rdquo;
-            </p>
-            <p className="mx-auto mt-3 max-w-xl text-sm text-muted">
-              That principle shapes every supported fix, not just the ones that happen to be easy.
-            </p>
-          </ScrollReveal>
-        </Container>
+      {/* 5. SAFETY / CONTROL — second dark moment: the trust principle closing the page's story */}
+      <Section tint="dark" border="top" size="md" containerClassName="text-center">
+        <ScrollReveal>
+          <p className="text-xl font-semibold tracking-tight text-text-on-dark sm:text-2xl">
+            &ldquo;Automate what webioom can prove. Don&apos;t guess when intent matters.&rdquo;
+          </p>
+        </ScrollReveal>
 
-        <Container size="lg" className="pb-16 pt-8 sm:pb-24">
-          <ScrollReveal delayMs={80} className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-            {SAFETY_POINTS.map((point) => {
-              const Icon = point.icon
-              return (
-                <div key={point.text} className="flex items-start gap-3">
-                  <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-surface text-brand">
-                    <Icon className="h-4 w-4" aria-hidden="true" />
-                  </div>
-                  <p className="text-sm text-gray-700">{point.text}</p>
+        <ScrollReveal delayMs={80} className="mx-auto mt-10 grid max-w-3xl grid-cols-1 gap-5 text-left sm:grid-cols-2">
+          {SAFETY_POINTS.map((point) => {
+            const Icon = point.icon
+            return (
+              <div key={point.text} className="flex items-start gap-3">
+                <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-white/5 text-brand-vivid">
+                  <Icon className="h-4 w-4" aria-hidden="true" />
                 </div>
-              )
-            })}
-          </ScrollReveal>
+                <p className="text-sm text-text-on-dark-muted">{point.text}</p>
+              </div>
+            )
+          })}
+        </ScrollReveal>
 
-          <div className="mt-8 text-center">
-            <Link href="/security" className={buttonStyles({ variant: 'outline' })}>
-              Read About Security
-            </Link>
-          </div>
-        </Container>
-      </div>
+        <div className="mt-10">
+          <Link
+            href="/security"
+            className="inline-flex items-center justify-center rounded-md border border-white/20 px-6 py-3 text-base font-medium text-text-on-dark transition-colors duration-150 ease-out hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-vivid"
+          >
+            Read About Security
+          </Link>
+        </div>
+      </Section>
     </>
   )
 }
