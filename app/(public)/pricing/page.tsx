@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { ShieldCheck, CalendarX, CreditCard } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { getCurrentUserEntitlements } from '@/lib/entitlements'
 import Container from '@/components/ui/container'
@@ -7,6 +8,12 @@ import ScrollReveal from '@/components/ui/scroll-reveal'
 import SectionHeading from '@/components/ui/section-heading'
 import FaqAccordion, { type FaqItem } from '@/components/ui/faq-accordion'
 import PricingCards from './pricing-cards'
+
+const VALUE_POINTS = [
+  { icon: ShieldCheck, title: 'Secure payments', description: 'Every payment is processed by Paddle — webioom never sees or stores your card details.' },
+  { icon: CalendarX, title: 'Cancel anytime', description: 'No minimum commitment. Cancel from your billing page whenever you want.' },
+  { icon: CreditCard, title: 'No card for the free scan', description: 'See a real health report for one website before you ever enter payment details.' },
+]
 
 export const metadata: Metadata = {
   title: 'Pricing',
@@ -87,13 +94,32 @@ export default async function PricingPage() {
 
       <Container size="xl" className="pb-20 pt-8 sm:pb-24">
         <PricingCards isLoggedIn={isLoggedIn} currentPlan={currentPlan} />
-
-        <p className="mt-10 text-center text-sm text-subtle">
-          <span className="inline-flex items-center gap-1.5">Secure payments via Paddle</span>
-          <span className="mx-2 text-border-strong">|</span>
-          <span>Cancel anytime</span>
-        </p>
       </Container>
+
+      {/*
+        Sprint 3, Prompt 2B (final continuation) — a deliberate dark band
+        (Section 24: every dark section needs a purpose) replacing what was
+        a single gray caption line beneath the cards. Its purpose is
+        conversion trust at exactly the moment someone is deciding whether
+        to pay — the same three facts the FAQ already states, now given
+        real visual weight instead of being buried as a footnote.
+      */}
+      <Section tint="dark" border="top">
+        <ScrollReveal className="grid grid-cols-1 gap-8 sm:grid-cols-3">
+          {VALUE_POINTS.map((point) => {
+            const Icon = point.icon
+            return (
+              <div key={point.title} className="text-center sm:text-left">
+                <span className="mx-auto flex h-11 w-11 items-center justify-center rounded-full bg-white/5 text-brand-vivid sm:mx-0">
+                  <Icon className="h-5 w-5" aria-hidden="true" />
+                </span>
+                <h3 className="mt-4 text-base font-semibold text-text-on-dark">{point.title}</h3>
+                <p className="mt-1.5 text-sm text-text-on-dark-muted">{point.description}</p>
+              </div>
+            )
+          })}
+        </ScrollReveal>
+      </Section>
 
       <Section tint="muted" border="top">
         <ScrollReveal>

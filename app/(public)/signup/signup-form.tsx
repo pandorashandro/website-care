@@ -3,13 +3,11 @@
 import { FormEvent, useState } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
-import Container from '@/components/ui/container'
-import Card from '@/components/ui/card'
 import { Input, Label } from '@/components/ui/input'
 import { PasswordInput } from '@/components/ui/password-input'
 import Button from '@/components/ui/button'
 import Alert from '@/components/ui/alert'
-import Logo from '@/components/brand/logo'
+import AuthShell from '@/components/auth/auth-shell'
 import { MIN_PASSWORD_LENGTH } from '@/lib/auth/password-policy'
 
 export default function SignupForm() {
@@ -44,21 +42,13 @@ export default function SignupForm() {
   }
 
   return (
-    <div className="relative flex flex-1 flex-col items-center justify-center overflow-hidden py-16">
-      <div
-        className="pointer-events-none absolute left-1/2 top-0 h-[420px] w-[720px] -translate-x-1/2 -translate-y-1/3 rounded-full opacity-[0.07] blur-3xl"
-        style={{ background: 'var(--brand-gradient)' }}
-        aria-hidden="true"
-      />
-
-      <Container size="sm" className="relative flex flex-col items-center motion-safe:animate-[webioom-rise-in_var(--duration-reveal)_var(--ease-out)_both]">
-        <Link href="/" className="mb-10 rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2" aria-label="webioom home">
-          <Logo className="h-12 sm:h-14" />
-        </Link>
-
-        <Card padding="md" className="w-full max-w-sm sm:p-8" style={{ boxShadow: 'var(--shadow-lg)' }}>
-          <h1 className="text-2xl font-semibold text-gray-900">Create your account</h1>
-          <p className="mt-1 text-sm text-muted">Start scanning and fixing your website in a few minutes.</p>
+    <AuthShell
+      brandHeadline="Start scanning your website in minutes."
+      brandDescription="A free scan shows you a real health report — no credit card, no commitment."
+    >
+      <div className="w-full max-w-sm motion-safe:animate-[webioom-rise-in_var(--duration-reveal)_var(--ease-out)_both]">
+        <h1 className="text-2xl font-semibold text-gray-900">Create your account</h1>
+        <p className="mt-1 text-sm text-muted">Start scanning and fixing your website in a few minutes.</p>
 
         <form onSubmit={handleSignup} className="mt-6 space-y-4">
           <div>
@@ -100,8 +90,7 @@ export default function SignupForm() {
             Log in
           </Link>
         </p>
-        </Card>
-      </Container>
-    </div>
+      </div>
+    </AuthShell>
   )
 }

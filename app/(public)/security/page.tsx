@@ -16,6 +16,7 @@ import {
   CheckCircle2,
   FileCheck,
   Sparkles,
+  ArrowRight,
 } from 'lucide-react'
 import Container from '@/components/ui/container'
 import Section from '@/components/ui/section'
@@ -23,7 +24,6 @@ import ScrollReveal from '@/components/ui/scroll-reveal'
 import Card from '@/components/ui/card'
 import Alert from '@/components/ui/alert'
 import { buttonStyles } from '@/components/ui/button'
-import FlowDiagram from '@/components/ui/flow-diagram'
 
 export const metadata: Metadata = {
   title: 'Security & Trust',
@@ -144,16 +144,47 @@ export default function SecurityPage() {
         </ScrollReveal>
       </Section>
 
-      {/* 10. TRUST WORKFLOW VISUAL */}
-      <Section tint="muted" border="top">
+      {/*
+        10. TRUST WORKFLOW VISUAL — a deliberate dark section (Sprint 3,
+        Prompt 2B final continuation, Section 24: every dark section needs
+        a purpose). This is the single most important trust claim on the
+        page — "nothing is applied until you approve it" — so it gets the
+        one immersive, focused moment on an otherwise light page, with the
+        human-approval step ("You Review") visually highlighted with a
+        restrained violet glow, since that is the actual safeguard the rest
+        of this page explains.
+      */}
+      <Section tint="dark" border="top">
         <ScrollReveal>
-          <Card>
-            <FlowDiagram steps={TRUST_WORKFLOW} />
-            <p className="mt-6 text-sm text-gray-700">
-              The important step is yours: nothing in the current supported direct-fix workflow is applied
-              until you approve it.
-            </p>
-          </Card>
+          <p className="text-center text-sm font-semibold uppercase tracking-wide text-brand-vivid">The trust workflow</p>
+          <h2 className="mx-auto mt-2 max-w-xl text-center text-2xl font-semibold text-text-on-dark sm:text-3xl">
+            Nothing is applied until you approve it
+          </h2>
+
+          <div className="mt-12 flex flex-wrap items-center justify-center gap-x-1 gap-y-8 sm:gap-x-2">
+            {TRUST_WORKFLOW.map((step, index) => {
+              const Icon = step.icon
+              const isReviewStep = step.label === 'You Review'
+              return (
+                <div key={step.label} className="flex items-center gap-1 sm:gap-2">
+                  <div className="flex flex-col items-center gap-2.5">
+                    <span
+                      className="flex h-12 w-12 items-center justify-center rounded-full border border-white/10 bg-white/5"
+                      style={isReviewStep ? { boxShadow: '0 0 0 1px var(--color-violet), 0 0 28px rgba(109,63,249,0.55)' } : undefined}
+                    >
+                      <Icon className={isReviewStep ? 'h-5 w-5 text-brand-vivid' : 'h-5 w-5 text-text-on-dark-muted'} aria-hidden="true" />
+                    </span>
+                    <span className={isReviewStep ? 'text-xs font-semibold text-text-on-dark' : 'text-xs font-medium text-text-on-dark-muted'}>{step.label}</span>
+                  </div>
+                  {index < TRUST_WORKFLOW.length - 1 && <ArrowRight className="h-4 w-4 shrink-0 text-white/15" aria-hidden="true" />}
+                </div>
+              )
+            })}
+          </div>
+
+          <p className="mx-auto mt-10 max-w-xl text-center text-sm text-text-on-dark-muted">
+            The important step is yours: nothing in the current supported direct-fix workflow is applied until you approve it.
+          </p>
         </ScrollReveal>
       </Section>
 

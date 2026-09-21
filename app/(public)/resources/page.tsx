@@ -84,6 +84,7 @@ export default function ResourcesPage() {
           </div>
         </ScrollReveal>
       </Section>
+
     </>
   )
 }

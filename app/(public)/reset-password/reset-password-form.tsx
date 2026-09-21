@@ -4,14 +4,12 @@ import { FormEvent, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { validateNewPassword, MIN_PASSWORD_LENGTH } from '@/lib/auth/password-policy'
-import Container from '@/components/ui/container'
-import Card from '@/components/ui/card'
 import { Label } from '@/components/ui/input'
 import { PasswordInput } from '@/components/ui/password-input'
 import Button from '@/components/ui/button'
 import Alert from '@/components/ui/alert'
 import Spinner from '@/components/ui/spinner'
-import Logo from '@/components/brand/logo'
+import AuthShell from '@/components/auth/auth-shell'
 
 type Stage = 'verifying' | 'ready' | 'invalid' | 'success'
 
@@ -119,19 +117,11 @@ export default function ResetPasswordForm() {
   }
 
   return (
-    <div className="relative flex flex-1 flex-col items-center justify-center overflow-hidden py-16">
-      <div
-        className="pointer-events-none absolute left-1/2 top-0 h-[420px] w-[720px] -translate-x-1/2 -translate-y-1/3 rounded-full opacity-[0.07] blur-3xl"
-        style={{ background: 'var(--brand-gradient)' }}
-        aria-hidden="true"
-      />
-
-      <Container size="sm" className="relative flex flex-col items-center motion-safe:animate-[webioom-rise-in_var(--duration-reveal)_var(--ease-out)_both]">
-        <Link href="/" className="mb-10 rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2" aria-label="webioom home">
-          <Logo className="h-12 sm:h-14" />
-        </Link>
-
-        <Card padding="md" className="w-full max-w-sm sm:p-8" style={{ boxShadow: 'var(--shadow-lg)' }}>
+    <AuthShell
+      brandHeadline="Almost there — a fresh password, a fresh start."
+      brandDescription="Once it's set, you'll be right back where you left off — your websites, reports, and settings are unchanged."
+    >
+      <div className="w-full max-w-sm motion-safe:animate-[webioom-rise-in_var(--duration-reveal)_var(--ease-out)_both]">
         {stage === 'verifying' && (
           <div className="flex flex-col items-center gap-3 py-6 text-center">
             <Spinner className="h-6 w-6 text-brand" />
@@ -203,8 +193,7 @@ export default function ResetPasswordForm() {
             </Link>
           </>
         )}
-        </Card>
-      </Container>
-    </div>
+      </div>
+    </AuthShell>
   )
 }
