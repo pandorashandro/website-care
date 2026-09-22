@@ -79,6 +79,27 @@ export function isEligibleContentPage(page: CrawlPageRow): boolean {
   return true
 }
 
+export type EligibilityFailureReason = 'not_fetched' | 'blocked_or_error_status' | 'non_html' | 'noindex' | 'cross_canonical'
+
+/**
+ * Founder-reported bug (2026-09-22): the on-page-seo report page needs to
+ * explain WHY a page didn't count toward analysis (blocked/403, noindex,
+ * etc.) instead of leaving a low eligible-page count unexplained. This
+ * shares the exact same checks isEligibleContentPage uses, in the same
+ * order, so the reason returned can never disagree with the eligibility
+ * verdict — a hand-rolled second copy of these checks would risk drifting
+ * out of sync (e.g. mis-flagging a SELF-referential canonical tag as
+ * "cross_canonical"). Returns null when the page IS eligible.
+ */
+export function eligibilityFailureReason(page: CrawlPageRow): EligibilityFailureReason | null {
+  if (page.status !== 'completed') return 'not_fetched'
+  if (!isHtmlLikeContentType(page)) return 'non_html'
+  if (typeof page.http_status !== 'number' || page.http_status < 200 || page.http_status >= 300) return 'blocked_or_error_status'
+  if (page.noindex === true) return 'noindex'
+  if (!selfCanonicalizes(page)) return 'cross_canonical'
+  return null
+}
+
 /**
  * Prompt 3 (PAYABLE V1 convergence) — real-world false-positive protection.
  *

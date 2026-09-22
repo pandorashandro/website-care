@@ -88,7 +88,7 @@ export async function getUnifiedCategorySummaries(websiteId: string): Promise<Un
 
   const { data: analyses } = await supabase
     .from('crawl_analyses')
-    .select('analyzer_version, health_score, findings_count, completed_at')
+    .select('analyzer_version, health_score, findings_count, completed_at, coverage')
     .eq('crawl_run_id', crawlRun.id)
     .in('analyzer_version', ALL_CANONICAL_ANALYZER_VERSIONS)
 

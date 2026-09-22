@@ -4,6 +4,8 @@ import { Search } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { ANALYZER_VERSION } from '@/lib/on-page/types'
 import type { FindingCategory, FindingScope, Confidence, Actionability, StateValue } from '@/lib/on-page/types'
+import { describeMostCommonIneligibilityReason, type OnPageAnalysisCoverage } from '@/lib/on-page/coverage'
+import type { CrawlPageRow } from '@/lib/crawler/types'
 import Container from '@/components/ui/container'
 import Card from '@/components/ui/card'
 import Badge from '@/components/ui/badge'
@@ -94,7 +96,7 @@ type LatestCrawlRun = {
   completed_at: string | null
 }
 
-type AnalysisRow = { id: string; health_score: number | null; completed_at: string | null }
+type AnalysisRow = { id: string; health_score: number | null; completed_at: string | null; coverage: OnPageAnalysisCoverage | null }
 
 type FindingRow = {
   id: string
@@ -168,7 +170,7 @@ function findingCountByKey(findings: FindingRow[], checkKey: string): number {
   return findings.find((f) => f.check_key === checkKey)?.affected_page_count ?? 0
 }
 
-function SummaryMetric({ label, value }: { label: string; value: number }) {
+function SummaryMetric({ label, value }: { label: string; value: number | string }) {
   return (
     <div>
       <p className="text-xl font-semibold text-gray-900">{value}</p>
@@ -247,7 +249,7 @@ export default async function OnPageSeoPage(props: PageProps<'/dashboard/website
   if (crawlRun && isAnalyzableCrawl) {
     const { data: analysisRow } = await supabase
       .from('crawl_analyses')
-      .select('id, health_score, completed_at')
+      .select('id, health_score, completed_at, coverage')
       .eq('crawl_run_id', crawlRun.id)
       .eq('analyzer_version', ANALYZER_VERSION)
       .maybeSingle()
@@ -285,9 +287,33 @@ export default async function OnPageSeoPage(props: PageProps<'/dashboard/website
     }
   }
 
+  // Founder-reported bug (2026-09-22): a coverage level of 'none' or 'low'
+  // means very few (or zero) pages were actually eligible for on-page
+  // analysis, even though the crawl itself may have "succeeded" at the
+  // transport level (e.g. a 403/blocked response is still a "completed"
+  // fetch). This one extra, small query — only ever run for a thin-coverage
+  // analysis, never for a healthy one — turns that low number into a real,
+  // evidence-based explanation instead of an unexplained gap.
+  let ineligibilityReason: string | null = null
+  if (crawlRun && analysis?.coverage && analysis.coverage.level !== 'adequate') {
+    const { data: pages } = await supabase
+      .from('crawl_pages')
+      .select('status, http_status, content_type, noindex, canonical_url, final_url, url')
+      .eq('crawl_run_id', crawlRun.id)
+      .returns<CrawlPageRow[]>()
+
+    ineligibilityReason = describeMostCommonIneligibilityReason(pages ?? [])
+  }
+
   // The score is read verbatim from the persisted analysis row — NEVER
-  // recomputed on this page.
+  // recomputed on this page. `coverage` (see lib/on-page/coverage.ts) is a
+  // SEPARATE, honest signal for how much real evidence that score is built
+  // on — null for every analysis persisted before this fix shipped, in
+  // which case this page falls back to the pre-fix presentation rather
+  // than assuming the worst about historical data it has no evidence for.
   const healthScore = analysis?.health_score ?? null
+  const coverage = analysis?.coverage ?? null
+  const pagesAnalyzedDisplay = coverage ? coverage.eligiblePageCount : (crawlRun?.pages_succeeded ?? 0)
 
   // Truthfulness correction (see this file's own top doc comment): a
   // `prepared_fix` badge only means "webioom can genuinely apply this
@@ -398,36 +424,64 @@ export default async function OnPageSeoPage(props: PageProps<'/dashboard/website
         />
       )}
 
-      {analysis && crawlRun && (
-        <div className="mt-6 space-y-6">
-          <Card padding="md">
-            <div className="flex flex-wrap items-center justify-between gap-4">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-wide text-subtle">On-Page SEO Health</p>
-                <p className="mt-1 text-3xl font-semibold text-gray-900">{healthScore ?? '—'}</p>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {SEVERITY_DISPLAY_ORDER.filter((severity) => severityCounts[severity] > 0).map((severity) => (
-                  <Badge key={severity} tone={severityTone(severity)}>
-                    {severityCounts[severity]} {SEVERITY_LABELS[severity]}
-                  </Badge>
-                ))}
-              </div>
-            </div>
+      {analysis && crawlRun && coverage?.level === 'none' ? (
+        // Founder-reported bug (2026-09-22): coverage 'none' means ZERO
+        // pages were actually eligible for on-page analysis — the
+        // persisted health_score is a hollow, unguarded 100 in that case
+        // (see lib/on-page/health.ts's doc comment: zero findings always
+        // yields 100, regardless of how much evidence existed). Showing
+        // "On-Page SEO Health: 100" / "No on-page problems found" here
+        // would be actively misleading — the honest fact is that nothing
+        // could be checked at all, not that everything checked out clean.
+        <Alert tone="warning" className="mt-6">
+          <p className="font-medium">webioom couldn&apos;t find any page it could confidently analyze for on-page SEO.</p>
+          <p className="mt-1">
+            {ineligibilityReason
+              ? `The page${pagesAnalyzedDisplay === 1 ? '' : 's'} webioom reached ${ineligibilityReason}.`
+              : "The page webioom reached didn't meet the criteria for a reliable on-page analysis."}{' '}
+            This is not the same as &ldquo;no problems found&rdquo; — there isn&apos;t enough evidence yet to check anything.
+          </p>
+        </Alert>
+      ) : (
+        analysis &&
+        crawlRun && (
+          <div className="mt-6 space-y-6">
+            {coverage?.level === 'low' && (
+              <Alert tone="info">
+                Only 1 page could be analyzed{ineligibilityReason ? ` — at least one other page webioom reached ${ineligibilityReason}` : ''}. The
+                checks below reflect that one page; duplicate-title and duplicate-meta-description checks need at least 2 pages to mean anything and
+                were not assessed.
+              </Alert>
+            )}
 
-            <div className="mt-4 grid grid-cols-2 gap-4 border-t border-border pt-4 sm:grid-cols-3 lg:grid-cols-6">
-              <SummaryMetric label="Pages analyzed" value={crawlRun.pages_succeeded} />
-              <SummaryMetric label="Missing titles" value={findingCountByKey(findings, 'missing_title')} />
-              <SummaryMetric label="Duplicate titles" value={findingCountByKey(findings, 'duplicate_title')} />
-              <SummaryMetric label="Missing meta descriptions" value={findingCountByKey(findings, 'missing_meta_description')} />
-              <SummaryMetric label="Missing H1s" value={findingCountByKey(findings, 'missing_h1')} />
-              <SummaryMetric label="Multiple H1s" value={findingCountByKey(findings, 'multiple_h1')} />
-            </div>
-          </Card>
+            <Card padding="md">
+              <div className="flex flex-wrap items-center justify-between gap-4">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-subtle">On-Page SEO Health</p>
+                  <p className="mt-1 text-3xl font-semibold text-gray-900">{healthScore ?? '—'}</p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {SEVERITY_DISPLAY_ORDER.filter((severity) => severityCounts[severity] > 0).map((severity) => (
+                    <Badge key={severity} tone={severityTone(severity)}>
+                      {severityCounts[severity]} {SEVERITY_LABELS[severity]}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
 
-          {findings.length === 0 ? (
-            <EmptyState title="No on-page problems found" description="webioom didn't detect any of the on-page conditions it currently checks for." />
-          ) : (
+              <div className="mt-4 grid grid-cols-2 gap-4 border-t border-border pt-4 sm:grid-cols-3 lg:grid-cols-6">
+                <SummaryMetric label="Pages analyzed" value={pagesAnalyzedDisplay} />
+                <SummaryMetric label="Missing titles" value={findingCountByKey(findings, 'missing_title')} />
+                <SummaryMetric label="Duplicate titles" value={coverage && !coverage.comparisonChecksAssessed ? 'Not assessed' : findingCountByKey(findings, 'duplicate_title')} />
+                <SummaryMetric label="Missing meta descriptions" value={findingCountByKey(findings, 'missing_meta_description')} />
+                <SummaryMetric label="Missing H1s" value={findingCountByKey(findings, 'missing_h1')} />
+                <SummaryMetric label="Multiple H1s" value={findingCountByKey(findings, 'multiple_h1')} />
+              </div>
+            </Card>
+
+            {findings.length === 0 ? (
+              <EmptyState title="No on-page problems found" description="webioom didn't detect any of the on-page conditions it currently checks for." />
+            ) : (
             <div className="space-y-4">
               <h2 className="text-base font-semibold text-gray-900">Biggest on-page opportunities</h2>
               <FindingList
@@ -516,8 +570,9 @@ export default async function OnPageSeoPage(props: PageProps<'/dashboard/website
                 })}
               />
             </div>
-          )}
-        </div>
+            )}
+          </div>
+        )
       )}
     </Container>
   )

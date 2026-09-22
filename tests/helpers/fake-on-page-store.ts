@@ -1,7 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import type { OnPageStore, SaveAnalysisInput, FindingWithPages } from '@/lib/on-page/store'
-import type { OnPageFindingRow, OnPageFindingPageRow } from '@/lib/on-page/types'
-import type { CrawlAnalysisRow } from '@/lib/technical-seo/types'
+import type { OnPageFindingRow, OnPageFindingPageRow, OnPageAnalysisRow } from '@/lib/on-page/types'
 import type { CrawlEvidence } from '@/lib/crawler/evidence'
 
 /**
@@ -11,11 +10,11 @@ import type { CrawlEvidence } from '@/lib/crawler/evidence'
  * semantics).
  */
 export function createFakeOnPageStore(seedEvidence: Record<string, CrawlEvidence>) {
-  const analyses: CrawlAnalysisRow[] = []
+  const analyses: OnPageAnalysisRow[] = []
   const findings: OnPageFindingRow[] = []
   const findingPages: OnPageFindingPageRow[] = []
 
-  const store: OnPageStore & { _analyses: CrawlAnalysisRow[]; _findings: OnPageFindingRow[]; _findingPages: OnPageFindingPageRow[] } = {
+  const store: OnPageStore & { _analyses: OnPageAnalysisRow[]; _findings: OnPageFindingRow[]; _findingPages: OnPageFindingPageRow[] } = {
     _analyses: analyses,
     _findings: findings,
     _findingPages: findingPages,
@@ -24,12 +23,12 @@ export function createFakeOnPageStore(seedEvidence: Record<string, CrawlEvidence
       return seedEvidence[crawlRunId] ?? null
     },
 
-    async saveAnalysis(input: SaveAnalysisInput): Promise<CrawlAnalysisRow> {
+    async saveAnalysis(input: SaveAnalysisInput): Promise<OnPageAnalysisRow> {
       const now = new Date().toISOString()
       let analysis = analyses.find((a) => a.crawl_run_id === input.crawlRunId && a.analyzer_version === input.analyzerVersion)
 
       if (analysis) {
-        Object.assign(analysis, { status: 'completed', findings_count: input.findings.length, health_score: input.healthScore, completed_at: now })
+        Object.assign(analysis, { status: 'completed', findings_count: input.findings.length, health_score: input.healthScore, coverage: input.coverage ?? null, completed_at: now })
       } else {
         analysis = {
           id: randomUUID(),
@@ -39,6 +38,7 @@ export function createFakeOnPageStore(seedEvidence: Record<string, CrawlEvidence
           analyzer_version: input.analyzerVersion,
           findings_count: input.findings.length,
           health_score: input.healthScore,
+          coverage: input.coverage ?? null,
           error_message: null,
           created_at: now,
           completed_at: now,

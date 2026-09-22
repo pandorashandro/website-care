@@ -1,6 +1,7 @@
 import 'server-only'
 import { createClient } from '@/lib/supabase/server'
 import { ANALYZER_VERSION } from '@/lib/on-page/types'
+import type { OnPageAnalysisCoverage } from '@/lib/on-page/coverage'
 import type { CategorySummary } from '@/lib/category-engine/types'
 
 const NOT_ANALYZED: CategorySummary = {
@@ -14,7 +15,14 @@ const NOT_ANALYZED: CategorySummary = {
 }
 
 type CrawlRunForSummary = { id: string; status: string } | null
-type AnalysisForSummary = { health_score: number | null; findings_count: number; completed_at: string | null; analyzer_version: string } | null
+type AnalysisForSummary = {
+  health_score: number | null
+  findings_count: number
+  completed_at: string | null
+  analyzer_version: string
+  /** Founder-reported bug (2026-09-22) — see lib/on-page/coverage.ts. Optional (not just nullable) so callers that don't select this column (it's a recent addition) remain valid — absent is treated identically to null, i.e. "unknown/legacy," never assumed 'none'. */
+  coverage?: OnPageAnalysisCoverage | null
+} | null
 
 /**
  * Phase 28 — pure (no I/O) mapping from the raw crawl_run/crawl_analyses
@@ -37,6 +45,25 @@ export function buildOnPageCategorySummary(crawlRun: CrawlRunForSummary, analysi
   }
 
   if (!analysis || analysis.health_score === null) {
+    return NOT_ANALYZED
+  }
+
+  // Founder-reported bug (2026-09-22): a coverage level of 'none' means
+  // ZERO pages were actually eligible for on-page analysis (e.g. the only
+  // fetched page was blocked/403, or noindexed) — the persisted
+  // health_score is a hollow, unguarded "100" in that case (see
+  // lib/on-page/health.ts's own doc comment on why zero findings always
+  // yields 100), not a genuine "verified clean" result. Reporting this
+  // exactly like NOT_ANALYZED means Overview's Category Health tile never
+  // shows a false "Excellent" score for a crawl that couldn't actually see
+  // the site, AND it makes computeOverallWebsiteHealth's own existing
+  // "skip not_analyzed categories" rule correctly exclude this hollow score
+  // from the site-wide average — no change needed to that aggregator at
+  // all. A coverage level of 'low' (exactly 1 eligible page) is NOT treated
+  // this way: a single real page's title/meta/H1 checks are still genuine
+  // evidence, just without duplicate-check coverage (see the dedicated
+  // report page's own caveat for that).
+  if (analysis.coverage?.level === 'none') {
     return NOT_ANALYZED
   }
 
@@ -76,7 +103,7 @@ export async function getOnPageCategorySummary(websiteId: string): Promise<Categ
 
   const { data: analysis } = await supabase
     .from('crawl_analyses')
-    .select('health_score, findings_count, completed_at, analyzer_version')
+    .select('health_score, findings_count, completed_at, analyzer_version, coverage')
     .eq('crawl_run_id', crawlRun.id)
     .eq('analyzer_version', ANALYZER_VERSION)
     .maybeSingle()

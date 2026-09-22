@@ -9,9 +9,9 @@ import { analyzeDuplicateMetaDescriptions } from './checks/duplicate-meta-descri
 import { analyzeHeadingStructure } from './checks/headings'
 import { aggregateFindings } from './aggregate'
 import { calculateOnPageHealth, type OnPageHealth } from './health'
+import { computeOnPageCoverage, type OnPageAnalysisCoverage } from './coverage'
 import { ANALYZER_VERSION } from './types'
-import type { AggregatedFinding, RawFinding } from './types'
-import type { CrawlAnalysisRow } from '@/lib/technical-seo/types'
+import type { AggregatedFinding, RawFinding, OnPageAnalysisRow } from './types'
 
 /**
  * Phase 28 — the On-Page SEO analysis engine's orchestration entry point,
@@ -26,7 +26,7 @@ import type { CrawlAnalysisRow } from '@/lib/technical-seo/types'
  */
 
 export type AnalyzeOnPageResult =
-  | { ok: true; analysis: CrawlAnalysisRow; findings: AggregatedFinding[]; health: OnPageHealth }
+  | { ok: true; analysis: OnPageAnalysisRow; findings: AggregatedFinding[]; health: OnPageHealth; coverage: OnPageAnalysisCoverage }
   | { ok: false; error: string }
 
 const ANALYZABLE_CRAWL_STATUSES = new Set(['completed', 'partial'])
@@ -86,13 +86,19 @@ export async function analyzeOnPage(store: OnPageStore, crawlRunId: string): Pro
     context.totalAnalyzedPages
   )
 
+  // Founder-reported bug (2026-09-22) — see lib/on-page/coverage.ts. Computed
+  // from the SAME eligiblePages/totalAnalyzedPages the checks above already
+  // used, so coverage can never drift from what actually happened.
+  const coverage = computeOnPageCoverage(context.eligiblePages.length, context.totalAnalyzedPages)
+
   const analysis = await store.saveAnalysis({
     crawlRunId,
     websiteId: evidence.crawlRun.website_id,
     analyzerVersion: ANALYZER_VERSION,
     findings: aggregated,
     healthScore: health.score,
+    coverage,
   })
 
-  return { ok: true, analysis, findings: aggregated, health }
+  return { ok: true, analysis, findings: aggregated, health, coverage }
 }

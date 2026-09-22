@@ -1,9 +1,8 @@
 import 'server-only'
 import { createAdminClient } from '@/lib/supabase/admin'
 import type { CrawlRunRow, CrawlPageRow } from '@/lib/crawler/types'
-import type { CrawlAnalysisRow } from '@/lib/technical-seo/types'
 import type { OnPageStore, SaveAnalysisInput, FindingWithPages } from './store'
-import type { OnPageFindingRow, OnPageFindingPageRow } from './types'
+import type { OnPageFindingRow, OnPageFindingPageRow, OnPageAnalysisRow } from './types'
 import type { CrawlEvidence } from '@/lib/crawler/evidence'
 
 /**
@@ -42,7 +41,7 @@ export function createSupabaseOnPageStore(): OnPageStore {
       }
     },
 
-    async saveAnalysis(input: SaveAnalysisInput): Promise<CrawlAnalysisRow> {
+    async saveAnalysis(input: SaveAnalysisInput): Promise<OnPageAnalysisRow> {
       const { data: analysis, error } = await admin
         .from('crawl_analyses')
         .upsert(
@@ -53,6 +52,7 @@ export function createSupabaseOnPageStore(): OnPageStore {
             status: 'completed',
             findings_count: input.findings.length,
             health_score: input.healthScore,
+            coverage: input.coverage ?? null,
             completed_at: new Date().toISOString(),
           },
           { onConflict: 'crawl_run_id,analyzer_version' }
@@ -122,10 +122,10 @@ export function createSupabaseOnPageStore(): OnPageStore {
         }
       }
 
-      return analysis as CrawlAnalysisRow
+      return analysis as OnPageAnalysisRow
     },
 
-    async getLatestAnalysis(crawlRunId: string, analyzerVersion: string): Promise<CrawlAnalysisRow | null> {
+    async getLatestAnalysis(crawlRunId: string, analyzerVersion: string): Promise<OnPageAnalysisRow | null> {
       const { data } = await admin
         .from('crawl_analyses')
         .select('*')
@@ -133,7 +133,7 @@ export function createSupabaseOnPageStore(): OnPageStore {
         .eq('analyzer_version', analyzerVersion)
         .maybeSingle()
 
-      return (data as CrawlAnalysisRow | null) ?? null
+      return (data as OnPageAnalysisRow | null) ?? null
     },
 
     async getFindingsWithPages(crawlAnalysisId: string): Promise<FindingWithPages[]> {

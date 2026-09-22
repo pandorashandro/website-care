@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { isArchitectureEligiblePage } from '@/lib/architecture/eligibility'
+import { eligibilityFailureReason } from '@/lib/category-engine/eligibility'
 import { analyzeOrphanPages } from '@/lib/architecture/checks/orphan'
 import { analyzeDeadEnds } from '@/lib/architecture/checks/dead-ends'
 import { analyzeDeepPages } from '@/lib/architecture/checks/deep-pages'
@@ -70,6 +71,51 @@ describe('isArchitectureEligiblePage', () => {
 
   it('unparseable (non-http/https) canonical evidence is treated conservatively (kept, not excluded)', () => {
     const page = makePage({ url: 'https://example.com/solutions', canonical_url: 'javascript:void(0)' })
+    expect(isArchitectureEligiblePage(page)).toBe(true)
+  })
+})
+
+/**
+ * Founder-reported bug (2026-09-22) — On-Page SEO's report page needs to
+ * explain WHY a page was excluded, not just that it was. eligibilityFailureReason
+ * shares isEligibleContentPage's own checks in the same order, so every case
+ * here doubles as a guarantee that the reason returned can never disagree
+ * with isEligibleContentPage's/isArchitectureEligiblePage's/isOnPageEligiblePage's
+ * own true/false verdict above.
+ */
+describe('eligibilityFailureReason', () => {
+  it('returns null for an eligible page', () => {
+    expect(eligibilityFailureReason(makePage({ url: 'https://example.com/solutions' }))).toBeNull()
+  })
+
+  it("returns 'not_fetched' for a page whose fetch never completed", () => {
+    const page = makePage({ url: 'https://example.com/gone', status: 'failed', http_status: null })
+    expect(eligibilityFailureReason(page)).toBe('not_fetched')
+  })
+
+  it("returns 'blocked_or_error_status' for a non-2xx response, even one that also carries noindex (the REPORTED BUG's exact shape) — status is checked before noindex", () => {
+    const page = makePage({ url: 'https://example.com/', http_status: 403, noindex: true })
+    expect(eligibilityFailureReason(page)).toBe('blocked_or_error_status')
+  })
+
+  it("returns 'non_html' for a non-HTML content type", () => {
+    const page = makePage({ url: 'https://example.com/file.pdf', content_type: 'application/pdf' })
+    expect(eligibilityFailureReason(page)).toBe('non_html')
+  })
+
+  it("returns 'noindex' for an otherwise-successful page marked noindex", () => {
+    const page = makePage({ url: 'https://example.com/utility', noindex: true })
+    expect(eligibilityFailureReason(page)).toBe('noindex')
+  })
+
+  it("returns 'cross_canonical' for a page whose canonical names a different URL", () => {
+    const page = makePage({ url: 'https://example.com/dup?x=1', canonical_url: 'https://example.com/real' })
+    expect(eligibilityFailureReason(page)).toBe('cross_canonical')
+  })
+
+  it('a self-referential canonical is NOT reported as cross_canonical (must agree with isArchitectureEligiblePage treating it as eligible)', () => {
+    const page = makePage({ url: 'https://example.com/solutions', canonical_url: 'https://example.com/solutions' })
+    expect(eligibilityFailureReason(page)).toBeNull()
     expect(isArchitectureEligiblePage(page)).toBe(true)
   })
 })

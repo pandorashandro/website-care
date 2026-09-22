@@ -1,5 +1,5 @@
-import type { CrawlAnalysisRow } from '@/lib/technical-seo/types'
-import type { OnPageFindingRow, OnPageFindingPageRow, AggregatedFinding } from './types'
+import type { OnPageFindingRow, OnPageFindingPageRow, AggregatedFinding, OnPageAnalysisRow } from './types'
+import type { OnPageAnalysisCoverage } from './coverage'
 import type { CrawlEvidence } from '@/lib/crawler/evidence'
 
 /**
@@ -20,6 +20,8 @@ export type SaveAnalysisInput = {
   analyzerVersion: string
   findings: AggregatedFinding[]
   healthScore: number
+  /** Founder-reported bug (2026-09-22) — persisted alongside the analysis; see lib/on-page/coverage.ts. Optional so a caller that genuinely cannot compute it (e.g. an older test) is not forced to. */
+  coverage?: OnPageAnalysisCoverage
 }
 
 export type FindingWithPages = OnPageFindingRow & { affectedPages: OnPageFindingPageRow[] }
@@ -34,10 +36,10 @@ export type OnPageStore = {
    * mechanism that makes re-analysis idempotent without an ever-growing
    * history of stale rows.
    */
-  saveAnalysis(input: SaveAnalysisInput): Promise<CrawlAnalysisRow>
+  saveAnalysis(input: SaveAnalysisInput): Promise<OnPageAnalysisRow>
 
   /** The most recent analysis for this (crawl_run, analyzer_version) pair, if one exists. */
-  getLatestAnalysis(crawlRunId: string, analyzerVersion: string): Promise<CrawlAnalysisRow | null>
+  getLatestAnalysis(crawlRunId: string, analyzerVersion: string): Promise<OnPageAnalysisRow | null>
 
   /** Every finding for one analysis, each with its own affected-page evidence attached. */
   getFindingsWithPages(crawlAnalysisId: string): Promise<FindingWithPages[]>

@@ -124,3 +124,57 @@ describe('analyzeOnPage — execution, idempotency, isolation', () => {
     expect(result.findings).toEqual([])
   })
 })
+
+/**
+ * Founder-reported bug (2026-09-22): a real customer's On-Page SEO report
+ * showed "Health: 100 / Pages analyzed: 1 / No on-page problems found" for
+ * a crawl whose one and only fetched page (the seed URL) came back HTTP
+ * 403 and noindex — genuinely ZERO eligible pages, not one. Every check
+ * trivially "passed" over an empty set, and the persisted health_score was
+ * an unguarded 100 with nothing to disclose that fact. These tests exercise
+ * the FULL analyzeOnPage pipeline (not just the pure coverage function in
+ * tests/on-page-coverage.test.ts) to prove `coverage` is now computed and
+ * persisted alongside health_score for exactly this scenario.
+ */
+describe('analyzeOnPage — coverage (founder-reported bug, 2026-09-22)', () => {
+  it("REGRESSION — the exact reported shape (single 403+noindex page) persists coverage.level 'none', even though health.score is still the unguarded 100", async () => {
+    const blocked = makePage({ url: 'https://bespoke-consultants.com/', http_status: 403, noindex: true })
+    const evidence: CrawlEvidence = { crawlRun: makeCrawlRun({ id: CRAWL_RUN_ID, status: 'completed' }), pages: [blocked], links: [] }
+    const store = createFakeOnPageStore({ [CRAWL_RUN_ID]: evidence })
+    const result = await analyzeOnPage(store, CRAWL_RUN_ID)
+
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    expect(result.findings).toEqual([])
+    expect(result.health.score).toBe(100) // the health FORMULA is intentionally unchanged
+    expect(result.coverage.level).toBe('none') // coverage is the SEPARATE signal that this 100 is hollow
+    expect(result.coverage.eligiblePageCount).toBe(0)
+
+    const stored = await store.getLatestAnalysis(CRAWL_RUN_ID, result.analysis.analyzer_version)
+    expect(stored?.coverage).toEqual(result.coverage)
+  })
+
+  it("exactly 1 GENUINELY eligible page persists coverage.level 'low' with comparisonChecksAssessed false", async () => {
+    const page = makePage({ url: 'https://example.com/' })
+    const evidence: CrawlEvidence = { crawlRun: makeCrawlRun({ id: CRAWL_RUN_ID, status: 'completed' }), pages: [page], links: [] }
+    const store = createFakeOnPageStore({ [CRAWL_RUN_ID]: evidence })
+    const result = await analyzeOnPage(store, CRAWL_RUN_ID)
+
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    expect(result.coverage.level).toBe('low')
+    expect(result.coverage.comparisonChecksAssessed).toBe(false)
+  })
+
+  it("2+ eligible pages persists coverage.level 'adequate' with comparisonChecksAssessed true", async () => {
+    const pages = [makePage({ url: 'https://example.com/a' }), makePage({ url: 'https://example.com/b' })]
+    const evidence: CrawlEvidence = { crawlRun: makeCrawlRun({ id: CRAWL_RUN_ID, status: 'completed' }), pages, links: [] }
+    const store = createFakeOnPageStore({ [CRAWL_RUN_ID]: evidence })
+    const result = await analyzeOnPage(store, CRAWL_RUN_ID)
+
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    expect(result.coverage.level).toBe('adequate')
+    expect(result.coverage.comparisonChecksAssessed).toBe(true)
+  })
+})

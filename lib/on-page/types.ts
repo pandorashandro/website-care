@@ -1,4 +1,6 @@
 import type { Severity, Confidence, Actionability, ImpactLevel, RemediationType, StateValue, RawFindingPageEvidence } from '@/lib/category-engine/types'
+import type { CrawlAnalysisRow } from '@/lib/technical-seo/types'
+import type { OnPageAnalysisCoverage } from './coverage'
 
 export type { Severity, Confidence, Actionability, ImpactLevel, RemediationType, StateValue, RawFindingPageEvidence }
 
@@ -145,3 +147,13 @@ export type OnPageFindingPageRow = {
  * not v2, for the identical reason).
  */
 export const ANALYZER_VERSION = 'on-page-v1'
+
+/**
+ * Founder-reported bug (2026-09-22) — mirrors lib/content/types.ts's own
+ * `ContentAnalysisRow` pattern exactly: `coverage` is read from
+ * crawl_analyses' existing generic, nullable column (see
+ * lib/on-page/coverage.ts's own doc comment). NULL for every analysis
+ * persisted before this fix shipped — callers must treat that as "unknown,
+ * legacy" and fall back to the pre-fix presentation, never assume 'none'/0.
+ */
+export type OnPageAnalysisRow = CrawlAnalysisRow & { coverage: OnPageAnalysisCoverage | null }

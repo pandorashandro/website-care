@@ -94,4 +94,52 @@ describe('buildOnPageCategorySummary (Phase 28)', () => {
     expect(summary.status).toBe('analyzed')
     expect(summary.findingsCount).toBe(0)
   })
+
+  /**
+   * Founder-reported bug (2026-09-22): a real customer's On-Page SEO
+   * Overview tile showed a false "Health: 100" for a crawl whose only page
+   * was blocked (403) and therefore had ZERO actually-eligible pages —
+   * coverage.level === 'none'. This is the fix: treat that case exactly
+   * like NOT_ANALYZED, so Overview never shows a false "Excellent" score,
+   * and so computeOverallWebsiteHealth's existing "skip not_analyzed
+   * categories" rule automatically excludes it from the site-wide average
+   * too, with no change needed to that aggregator.
+   */
+  it("REGRESSION — coverage.level 'none' (zero eligible pages) reports not_analyzed, overriding a hollow 100", () => {
+    const summary = buildOnPageCategorySummary(
+      { id: 'run-1', status: 'completed' },
+      {
+        health_score: 100,
+        findings_count: 0,
+        completed_at: '2026-02-01T12:00:00Z',
+        analyzer_version: 'on-page-v1',
+        coverage: { eligiblePageCount: 0, totalAnalyzedPages: 1, comparisonChecksAssessed: false, level: 'none' },
+      }
+    )
+    expect(summary.status).toBe('not_analyzed')
+    expect(summary.score).toBeNull()
+  })
+
+  it("coverage.level 'low' (exactly 1 eligible page) is still reported as a genuine 'analyzed' result — a thin analysis is not the same as no analysis", () => {
+    const summary = buildOnPageCategorySummary(
+      { id: 'run-1', status: 'completed' },
+      {
+        health_score: 100,
+        findings_count: 0,
+        completed_at: '2026-02-01T12:00:00Z',
+        analyzer_version: 'on-page-v1',
+        coverage: { eligiblePageCount: 1, totalAnalyzedPages: 1, comparisonChecksAssessed: false, level: 'low' },
+      }
+    )
+    expect(summary.status).toBe('analyzed')
+    expect(summary.score).toBe(100)
+  })
+
+  it("a NULL coverage (every analysis persisted before this fix) is treated as unknown/legacy, never assumed 'none' — falls back to the pre-fix behavior", () => {
+    const summary = buildOnPageCategorySummary(
+      { id: 'run-1', status: 'completed' },
+      { health_score: 100, findings_count: 0, completed_at: '2026-02-01T12:00:00Z', analyzer_version: 'on-page-v1', coverage: null }
+    )
+    expect(summary.status).toBe('analyzed')
+  })
 })
