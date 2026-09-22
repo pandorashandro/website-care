@@ -44,7 +44,19 @@ function isHtmlLikeContentType(page: Pick<CrawlPageRow, 'content_type'>): boolea
   return !page.content_type || page.content_type.toLowerCase().includes('html')
 }
 
-function isSuccessfulHtmlFetch(page: CrawlPageRow): boolean {
+/**
+ * Exported (Sprint: evidence-aware health scoring, 2026-09-22) for reuse by
+ * checks that need "was this page genuinely fetched as real content" WITHOUT
+ * the noindex/self-canonical narrowing `isEligibleContentPage` also applies
+ * — most importantly Technical SEO's own indexability/structured-data/
+ * hreflang checks, whose entire job is to examine a page's noindex/canonical
+ * signals and therefore cannot use a predicate that already excludes pages
+ * on those exact signals. Filtering on this (2xx HTML) instead of on
+ * `page.status === 'completed'` alone is what prevents a blocked/challenge
+ * response (still `status: 'completed'`, but e.g. HTTP 403) from having ITS
+ * noindex tag or structured data mistaken for the real page's own.
+ */
+export function isSuccessfulHtmlFetch(page: CrawlPageRow): boolean {
   return page.status === 'completed' && isHtmlLikeContentType(page) && typeof page.http_status === 'number' && page.http_status >= 200 && page.http_status < 300
 }
 

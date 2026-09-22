@@ -75,11 +75,14 @@ function CategoryEngineTile({ pillarKey, href, summary }: { pillarKey: PillarKey
             <p className="mt-0.5 truncate text-xs text-muted">
               {findingsCount} finding{findingsCount === 1 ? '' : 's'}
             </p>
-            {summary.partial && (
-              <Badge tone="neutral" className="mt-1">
-                Partial
-              </Badge>
-            )}
+            <div className="mt-1 flex flex-wrap gap-1">
+              {summary.partial && <Badge tone="neutral">Partial</Badge>}
+              {/* Evidence-aware health scoring (2026-09-22): 'low' means the
+                  score above is real but built from thin evidence (e.g. only
+                  1 eligible page) — shown ALONGSIDE the number, never in
+                  place of it. See lib/category-engine/types.ts's CoverageLevel. */}
+              {summary.coverage === 'low' && <Badge tone="warning">Limited data</Badge>}
+            </div>
           </div>
         </div>
       </Card>

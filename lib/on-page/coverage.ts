@@ -1,5 +1,4 @@
-import type { CrawlPageRow } from '@/lib/crawler/types'
-import { eligibilityFailureReason, type EligibilityFailureReason } from '@/lib/category-engine/eligibility'
+export { describeMostCommonIneligibilityReason } from '@/lib/category-engine/site-access'
 
 /**
  * Founder-reported bug (2026-09-22): a real customer's On-Page SEO report
@@ -58,37 +57,4 @@ export function computeOnPageCoverage(eligiblePageCount: number, totalAnalyzedPa
     comparisonChecksAssessed: eligiblePageCount >= 2,
     level,
   }
-}
-
-const INELIGIBILITY_REASON_LABEL: Record<EligibilityFailureReason, string> = {
-  blocked_or_error_status: 'returned an error or non-success response when webioom tried to fetch it (this often means a firewall or bot-protection block)',
-  non_html: "didn't return an HTML page webioom could read",
-  noindex: 'was explicitly marked "noindex" by the page itself',
-  cross_canonical: 'declared a different page as its canonical version',
-  not_fetched: 'could not be reached during the crawl',
-}
-
-/**
- * Classifies every crawled page EXCLUDED from on-page analysis using
- * lib/category-engine/eligibility.ts's own eligibilityFailureReason (the
- * SAME logic that decided the page was ineligible in the first place, so
- * this can never disagree with the eligibility verdict), and returns a
- * plain-language description of the most common reason. Powers the "why
- * weren't more pages analyzed" caveat shown whenever coverage is 'none' or
- * 'low' (see the on-page-seo report page) — the exact evidence trail the
- * founder's own bug report asked for, rather than an unexplained low
- * number.
- */
-export function describeMostCommonIneligibilityReason(pages: CrawlPageRow[]): string | null {
-  const counts: Record<EligibilityFailureReason, number> = { blocked_or_error_status: 0, non_html: 0, noindex: 0, cross_canonical: 0, not_fetched: 0 }
-
-  for (const page of pages) {
-    const reason = eligibilityFailureReason(page)
-    if (reason) counts[reason]++
-  }
-
-  const ranked = (Object.entries(counts) as [EligibilityFailureReason, number][]).sort((a, b) => b[1] - a[1])
-  const [topReason, topCount] = ranked[0]
-  if (topCount === 0) return null
-  return INELIGIBILITY_REASON_LABEL[topReason]
 }

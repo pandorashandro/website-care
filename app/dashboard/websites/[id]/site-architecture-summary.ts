@@ -1,6 +1,7 @@
 import 'server-only'
 import { createClient } from '@/lib/supabase/server'
 import { ANALYZER_VERSION } from '@/lib/architecture/types'
+import type { ArchitectureCoverage } from '@/lib/architecture/coverage'
 import type { CategorySummary } from '@/lib/category-engine/types'
 
 const NOT_ANALYZED: CategorySummary = {
@@ -14,7 +15,14 @@ const NOT_ANALYZED: CategorySummary = {
 }
 
 type CrawlRunForSummary = { id: string; status: string } | null
-type AnalysisForSummary = { health_score: number | null; findings_count: number; completed_at: string | null; analyzer_version: string } | null
+type AnalysisForSummary = {
+  health_score: number | null
+  findings_count: number
+  completed_at: string | null
+  analyzer_version: string
+  /** Evidence-aware health scoring (2026-09-22) — see lib/architecture/coverage.ts. Optional so callers that don't select this column remain valid — absent is treated identically to null, i.e. "unknown/legacy," never assumed 'none'. */
+  coverage?: ArchitectureCoverage | null
+} | null
 
 /**
  * Phase 27 — pure (no I/O) mapping from the raw crawl_run/crawl_analyses
@@ -37,6 +45,15 @@ export function buildSiteArchitectureCategorySummary(crawlRun: CrawlRunForSummar
     return NOT_ANALYZED
   }
 
+  // Evidence-aware health scoring (2026-09-22): coverage 'none' means ZERO
+  // pages were eligible to build a page graph from at all — see
+  // lib/architecture/coverage.ts. The persisted health_score in that case
+  // is a hollow, unguarded 100 (no orphan/underlinked/dead-end check could
+  // possibly have found anything to evaluate).
+  if (analysis.coverage?.level === 'none') {
+    return NOT_ANALYZED
+  }
+
   return {
     categoryKey: 'site_architecture',
     status: 'analyzed',
@@ -45,6 +62,7 @@ export function buildSiteArchitectureCategorySummary(crawlRun: CrawlRunForSummar
     partial: crawlRun.status === 'partial',
     analyzedAt: analysis.completed_at,
     analyzerVersion: analysis.analyzer_version,
+    coverage: analysis.coverage?.level ?? null,
   }
 }
 
@@ -75,7 +93,7 @@ export async function getSiteArchitectureCategorySummary(websiteId: string): Pro
 
   const { data: analysis } = await supabase
     .from('crawl_analyses')
-    .select('health_score, findings_count, completed_at, analyzer_version')
+    .select('health_score, findings_count, completed_at, analyzer_version, coverage')
     .eq('crawl_run_id', crawlRun.id)
     .eq('analyzer_version', ANALYZER_VERSION)
     .maybeSingle()

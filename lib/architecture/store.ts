@@ -1,5 +1,5 @@
-import type { CrawlAnalysisRow } from '@/lib/technical-seo/types'
-import type { ArchitectureFindingRow, ArchitectureFindingPageRow, AggregatedFinding } from './types'
+import type { ArchitectureFindingRow, ArchitectureFindingPageRow, AggregatedFinding, ArchitectureAnalysisRow } from './types'
+import type { ArchitectureCoverage } from './coverage'
 import type { CrawlEvidence } from '@/lib/crawler/evidence'
 
 /**
@@ -24,6 +24,8 @@ export type SaveAnalysisInput = {
   analyzerVersion: string
   findings: AggregatedFinding[]
   healthScore: number
+  /** Evidence-aware health scoring (2026-09-22) — persisted alongside the analysis; see lib/architecture/coverage.ts. Optional so a caller that genuinely cannot compute it (e.g. an older test) is not forced to. */
+  coverage?: ArchitectureCoverage
 }
 
 export type FindingWithPages = ArchitectureFindingRow & { affectedPages: ArchitectureFindingPageRow[] }
@@ -38,10 +40,10 @@ export type ArchitectureStore = {
    * the mechanism that makes re-analysis idempotent without an
    * ever-growing history of stale rows.
    */
-  saveAnalysis(input: SaveAnalysisInput): Promise<CrawlAnalysisRow>
+  saveAnalysis(input: SaveAnalysisInput): Promise<ArchitectureAnalysisRow>
 
   /** The most recent analysis for this (crawl_run, analyzer_version) pair, if one exists. */
-  getLatestAnalysis(crawlRunId: string, analyzerVersion: string): Promise<CrawlAnalysisRow | null>
+  getLatestAnalysis(crawlRunId: string, analyzerVersion: string): Promise<ArchitectureAnalysisRow | null>
 
   /** Every finding for one analysis, each with its own affected-page evidence attached. */
   getFindingsWithPages(crawlAnalysisId: string): Promise<FindingWithPages[]>

@@ -1,6 +1,7 @@
 import type { CrawlEvidence } from '../evidence'
 import type { AnalyzerContext } from '../context'
 import type { RawFinding, RawFindingPageEvidence } from '../types'
+import { isSuccessfulHtmlFetch } from '@/lib/category-engine/eligibility'
 
 /**
  * Phase 26B — hreflang / internationalization. Every check here only ever
@@ -19,7 +20,10 @@ const VALID_HREFLANG_PATTERN = /^(x-default|[a-z]{2,3}(-[a-z0-9]{2,8})?)$/i
 
 export function analyzeHreflang(evidence: CrawlEvidence, context: AnalyzerContext): RawFinding[] {
   const findings: RawFinding[] = []
-  const pagesWithHreflang = evidence.pages.filter((page) => page.status === 'completed' && page.hreflang_tags.length > 0)
+  // Evidence-aware health scoring fix (2026-09-22): `isSuccessfulHtmlFetch`
+  // (2xx HTML), not merely `status === 'completed'` — see
+  // lib/technical-seo/checks/indexability.ts's own doc comment.
+  const pagesWithHreflang = evidence.pages.filter((page) => isSuccessfulHtmlFetch(page) && page.hreflang_tags.length > 0)
 
   if (pagesWithHreflang.length === 0) return findings
 

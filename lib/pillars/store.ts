@@ -1,5 +1,5 @@
-import type { CrawlAnalysisRow } from '@/lib/technical-seo/types'
-import type { PillarKey, PillarFindingRow, PillarFindingPageRow, AggregatedFinding } from './types'
+import type { PillarKey, PillarFindingRow, PillarFindingPageRow, AggregatedFinding, PillarAnalysisRow } from './types'
+import type { PillarCoverage } from './coverage'
 import type { CrawlEvidence } from '@/lib/crawler/evidence'
 
 /**
@@ -16,13 +16,15 @@ export type SaveAnalysisInput = {
   analyzerVersion: string
   findings: AggregatedFinding[]
   healthScore: number
+  /** Evidence-aware health scoring (2026-09-22) — persisted alongside the analysis; see lib/pillars/coverage.ts. Optional so a caller that genuinely cannot compute it (e.g. an older test) is not forced to. */
+  coverage?: PillarCoverage
 }
 
 export type FindingWithPages = PillarFindingRow & { affectedPages: PillarFindingPageRow[] }
 
 export type PillarStore = {
   getCrawlEvidence(crawlRunId: string): Promise<CrawlEvidence | null>
-  saveAnalysis(input: SaveAnalysisInput): Promise<CrawlAnalysisRow>
-  getLatestAnalysis(crawlRunId: string, analyzerVersion: string): Promise<CrawlAnalysisRow | null>
+  saveAnalysis(input: SaveAnalysisInput): Promise<PillarAnalysisRow>
+  getLatestAnalysis(crawlRunId: string, analyzerVersion: string): Promise<PillarAnalysisRow | null>
   getFindingsWithPages(crawlAnalysisId: string): Promise<FindingWithPages[]>
 }

@@ -9,9 +9,20 @@ import { readSecurityEvidence } from '../evidence'
  * website-security-hygiene fact this engine can check. This is NOT a
  * penetration test and never claims a site IS secure when it passes — only
  * that this one, specific, well-established baseline is or isn't met.
+ *
+ * Evidence-aware health scoring (2026-09-22): deliberately reads
+ * `context.allCompletedPages` (every completed fetch, including a blocked/
+ * non-2xx response) rather than `context.eligiblePages` — unlike every
+ * other pillar check, whether a page loaded over HTTP survives a block: it
+ * is derivable from the URL/response alone (see
+ * lib/crawler/pillar-extract.ts's own emptySecurityEvidence), so a firewall
+ * returning a 403 over plain HTTP is still real, valid evidence of an
+ * insecure endpoint — narrowing this check's population to only
+ * fully-eligible pages would silently DROP a real, checkable security fact
+ * for exactly the crawls that need it discussed most.
  */
 export function analyzeNotUsingHttps(context: PillarAnalyzerContext): RawFinding[] {
-  const affected = context.eligiblePages.filter((page) => !readSecurityEvidence(page).isHttps)
+  const affected = context.allCompletedPages.filter((page) => !readSecurityEvidence(page).isHttps)
   if (affected.length === 0) return []
 
   return [

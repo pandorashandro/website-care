@@ -74,7 +74,44 @@ describe('buildSiteArchitectureCategorySummary (Phase 27)', () => {
       partial: false,
       analyzedAt: '2026-02-01T12:00:00Z',
       analyzerVersion: 'site-architecture-v3',
+      coverage: null,
     })
+  })
+
+  /**
+   * Evidence-aware health scoring (2026-09-22): coverage 'none' means ZERO
+   * pages were eligible to build a page graph from — see
+   * lib/architecture/coverage.ts. The persisted health_score in that case
+   * is a hollow, unguarded 100.
+   */
+  it("REGRESSION — coverage.level 'none' reports not_analyzed, overriding a hollow 100", () => {
+    const summary = buildSiteArchitectureCategorySummary(
+      { id: 'run-1', status: 'completed' },
+      {
+        health_score: 100,
+        findings_count: 0,
+        completed_at: '2026-02-01T12:00:00Z',
+        analyzer_version: 'site-architecture-v3',
+        coverage: { eligiblePageCount: 0, totalAnalyzedPages: 1, graphChecksAssessed: false, level: 'none' },
+      }
+    )
+    expect(summary.status).toBe('not_analyzed')
+    expect(summary.score).toBeNull()
+  })
+
+  it("coverage.level 'low' (exactly 1 eligible page) is still 'analyzed' — a thin graph is not the same as no graph", () => {
+    const summary = buildSiteArchitectureCategorySummary(
+      { id: 'run-1', status: 'completed' },
+      {
+        health_score: 100,
+        findings_count: 0,
+        completed_at: '2026-02-01T12:00:00Z',
+        analyzer_version: 'site-architecture-v3',
+        coverage: { eligiblePageCount: 1, totalAnalyzedPages: 1, graphChecksAssessed: false, level: 'low' },
+      }
+    )
+    expect(summary.status).toBe('analyzed')
+    expect(summary.coverage).toBe('low')
   })
 
   it('marks partial when the crawl_run status is partial — preserved, never hidden', () => {

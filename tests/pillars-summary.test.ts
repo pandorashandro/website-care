@@ -38,7 +38,46 @@ describe('buildPillarCategorySummary — shared across Performance/Accessibility
       partial: false,
       analyzedAt: '2026-02-01T12:00:00Z',
       analyzerVersion: 'performance-v1',
+      coverage: null,
     })
+  })
+
+  /**
+   * Evidence-aware health scoring (2026-09-22): coverage 'none' means ZERO
+   * pages were eligible for this pillar's checks — see
+   * lib/pillars/coverage.ts. The persisted health_score in that case is a
+   * hollow, unguarded 100.
+   */
+  it("REGRESSION — coverage.level 'none' reports not_analyzed, overriding a hollow 100", () => {
+    const summary = buildPillarCategorySummary(
+      'accessibility',
+      { id: 'run-1', status: 'completed' },
+      {
+        health_score: 100,
+        findings_count: 0,
+        completed_at: '2026-02-01T12:00:00Z',
+        analyzer_version: 'accessibility-v1',
+        coverage: { eligiblePageCount: 0, totalAnalyzedPages: 1, level: 'none' },
+      }
+    )
+    expect(summary.status).toBe('not_analyzed')
+    expect(summary.score).toBeNull()
+  })
+
+  it("coverage.level 'adequate' with even 1 eligible page is a genuine 'analyzed' result — pillar checks are meaningful from a single page", () => {
+    const summary = buildPillarCategorySummary(
+      'security',
+      { id: 'run-1', status: 'completed' },
+      {
+        health_score: 90,
+        findings_count: 1,
+        completed_at: '2026-02-01T12:00:00Z',
+        analyzer_version: 'security-v1',
+        coverage: { eligiblePageCount: 1, totalAnalyzedPages: 1, level: 'adequate' },
+      }
+    )
+    expect(summary.status).toBe('analyzed')
+    expect(summary.coverage).toBe('adequate')
   })
 
   it('marks partial when the crawl_run status is partial', () => {

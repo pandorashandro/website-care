@@ -1,7 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import type { ArchitectureStore, SaveAnalysisInput, FindingWithPages } from '@/lib/architecture/store'
-import type { ArchitectureFindingRow, ArchitectureFindingPageRow } from '@/lib/architecture/types'
-import type { CrawlAnalysisRow } from '@/lib/technical-seo/types'
+import type { ArchitectureFindingRow, ArchitectureFindingPageRow, ArchitectureAnalysisRow } from '@/lib/architecture/types'
 import type { CrawlEvidence } from '@/lib/crawler/evidence'
 
 /**
@@ -11,11 +10,11 @@ import type { CrawlEvidence } from '@/lib/crawler/evidence'
  * semantics).
  */
 export function createFakeArchitectureStore(seedEvidence: Record<string, CrawlEvidence>) {
-  const analyses: CrawlAnalysisRow[] = []
+  const analyses: ArchitectureAnalysisRow[] = []
   const findings: ArchitectureFindingRow[] = []
   const findingPages: ArchitectureFindingPageRow[] = []
 
-  const store: ArchitectureStore & { _analyses: CrawlAnalysisRow[]; _findings: ArchitectureFindingRow[]; _findingPages: ArchitectureFindingPageRow[] } = {
+  const store: ArchitectureStore & { _analyses: ArchitectureAnalysisRow[]; _findings: ArchitectureFindingRow[]; _findingPages: ArchitectureFindingPageRow[] } = {
     _analyses: analyses,
     _findings: findings,
     _findingPages: findingPages,
@@ -24,12 +23,12 @@ export function createFakeArchitectureStore(seedEvidence: Record<string, CrawlEv
       return seedEvidence[crawlRunId] ?? null
     },
 
-    async saveAnalysis(input: SaveAnalysisInput): Promise<CrawlAnalysisRow> {
+    async saveAnalysis(input: SaveAnalysisInput): Promise<ArchitectureAnalysisRow> {
       const now = new Date().toISOString()
       let analysis = analyses.find((a) => a.crawl_run_id === input.crawlRunId && a.analyzer_version === input.analyzerVersion)
 
       if (analysis) {
-        Object.assign(analysis, { status: 'completed', findings_count: input.findings.length, health_score: input.healthScore, completed_at: now })
+        Object.assign(analysis, { status: 'completed', findings_count: input.findings.length, health_score: input.healthScore, coverage: input.coverage ?? null, completed_at: now })
       } else {
         analysis = {
           id: randomUUID(),
@@ -39,6 +38,7 @@ export function createFakeArchitectureStore(seedEvidence: Record<string, CrawlEv
           analyzer_version: input.analyzerVersion,
           findings_count: input.findings.length,
           health_score: input.healthScore,
+          coverage: input.coverage ?? null,
           error_message: null,
           created_at: now,
           completed_at: now,

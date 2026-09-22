@@ -53,7 +53,58 @@ describe('buildContentCategorySummary (Phase 29)', () => {
       partial: false,
       analyzedAt: '2026-02-01T12:00:00Z',
       analyzerVersion: 'content-v2',
+      coverage: null,
     })
+  })
+
+  /**
+   * Evidence-aware health scoring (2026-09-22): connects Content
+   * Intelligence's ALREADY-EXISTING coverage record (lib/content/coverage.ts,
+   * since Phase 29) to Overview's Category Health tile for the first time —
+   * see this file's own updated doc comment. Not a new coverage model.
+   */
+  it("REGRESSION — coverage.eligiblePageCount === 0 reports not_analyzed, overriding a hollow 100", () => {
+    const summary = buildContentCategorySummary(
+      { id: 'run-1', status: 'completed' },
+      {
+        health_score: 100,
+        findings_count: 0,
+        completed_at: '2026-02-01T12:00:00Z',
+        analyzer_version: 'content-v2',
+        coverage: { eligiblePageCount: 0, highConfidenceExtractionCount: 0, lowConfidenceExtractionCount: 0, dimensionsAssessed: 0, dimensionsTotal: 9, percent: 0, level: 'low' },
+      }
+    )
+    expect(summary.status).toBe('not_analyzed')
+    expect(summary.score).toBeNull()
+  })
+
+  it("a 'low' content coverage with real eligible pages is still 'analyzed', flagged as shared level 'low' (not silenced, not treated as adequate)", () => {
+    const summary = buildContentCategorySummary(
+      { id: 'run-1', status: 'completed' },
+      {
+        health_score: 90,
+        findings_count: 1,
+        completed_at: '2026-02-01T12:00:00Z',
+        analyzer_version: 'content-v2',
+        coverage: { eligiblePageCount: 3, highConfidenceExtractionCount: 1, lowConfidenceExtractionCount: 2, dimensionsAssessed: 3, dimensionsTotal: 9, percent: 25, level: 'low' },
+      }
+    )
+    expect(summary.status).toBe('analyzed')
+    expect(summary.coverage).toBe('low')
+  })
+
+  it("a 'high' content coverage maps to the shared level 'adequate'", () => {
+    const summary = buildContentCategorySummary(
+      { id: 'run-1', status: 'completed' },
+      {
+        health_score: 90,
+        findings_count: 1,
+        completed_at: '2026-02-01T12:00:00Z',
+        analyzer_version: 'content-v2',
+        coverage: { eligiblePageCount: 20, highConfidenceExtractionCount: 20, lowConfidenceExtractionCount: 0, dimensionsAssessed: 9, dimensionsTotal: 9, percent: 88, level: 'high' },
+      }
+    )
+    expect(summary.coverage).toBe('adequate')
   })
 
   it('marks partial when the crawl_run status is partial', () => {

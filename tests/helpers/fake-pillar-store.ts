@@ -1,16 +1,15 @@
 import { randomUUID } from 'node:crypto'
 import type { PillarStore, SaveAnalysisInput, FindingWithPages } from '@/lib/pillars/store'
-import type { PillarFindingRow, PillarFindingPageRow } from '@/lib/pillars/types'
-import type { CrawlAnalysisRow } from '@/lib/technical-seo/types'
+import type { PillarFindingRow, PillarFindingPageRow, PillarAnalysisRow } from '@/lib/pillars/types'
 import type { CrawlEvidence } from '@/lib/crawler/evidence'
 
 /** Unified webioom engine, Prompt 2 — an in-memory PillarStore used only by tests, mirroring tests/helpers/fake-content-store.ts's own precedent. */
 export function createFakePillarStore(seedEvidence: Record<string, CrawlEvidence>) {
-  const analyses: CrawlAnalysisRow[] = []
+  const analyses: PillarAnalysisRow[] = []
   const findings: PillarFindingRow[] = []
   const findingPages: PillarFindingPageRow[] = []
 
-  const store: PillarStore & { _analyses: CrawlAnalysisRow[]; _findings: PillarFindingRow[] } = {
+  const store: PillarStore & { _analyses: PillarAnalysisRow[]; _findings: PillarFindingRow[] } = {
     _analyses: analyses,
     _findings: findings,
 
@@ -18,12 +17,12 @@ export function createFakePillarStore(seedEvidence: Record<string, CrawlEvidence
       return seedEvidence[crawlRunId] ?? null
     },
 
-    async saveAnalysis(input: SaveAnalysisInput): Promise<CrawlAnalysisRow> {
+    async saveAnalysis(input: SaveAnalysisInput): Promise<PillarAnalysisRow> {
       const now = new Date().toISOString()
       let analysis = analyses.find((a) => a.crawl_run_id === input.crawlRunId && a.analyzer_version === input.analyzerVersion)
 
       if (analysis) {
-        Object.assign(analysis, { status: 'completed', findings_count: input.findings.length, health_score: input.healthScore, completed_at: now })
+        Object.assign(analysis, { status: 'completed', findings_count: input.findings.length, health_score: input.healthScore, coverage: input.coverage ?? null, completed_at: now })
       } else {
         analysis = {
           id: randomUUID(),
@@ -33,6 +32,7 @@ export function createFakePillarStore(seedEvidence: Record<string, CrawlEvidence
           analyzer_version: input.analyzerVersion,
           findings_count: input.findings.length,
           health_score: input.healthScore,
+          coverage: input.coverage ?? null,
           error_message: null,
           created_at: now,
           completed_at: now,

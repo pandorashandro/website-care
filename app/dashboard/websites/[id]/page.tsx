@@ -33,7 +33,9 @@ import { getMonitoringSettings } from './monitoring-settings'
 import MonitoringStatus from '@/components/monitoring/monitoring-status'
 import { latestNotificationForWebsite } from '@/lib/monitoring/notification-service'
 import { getCurrentUserEntitlements } from '@/lib/entitlements'
-import { computeOverallWebsiteHealth } from '@/lib/category-engine/overall-health'
+import { computeOverallWebsiteHealth, isOverallHealthPartial } from '@/lib/category-engine/overall-health'
+import { computeSiteAccessState, describeMostCommonIneligibilityReason, type SiteAccessState } from '@/lib/category-engine/site-access'
+import type { CrawlPageRow } from '@/lib/crawler/types'
 import FixTheseFirst from '@/components/report/fix-these-first'
 import PriorityIssues from '@/components/report/priority-issues'
 import IssueGroup from '@/components/report/issue-group'
@@ -65,6 +67,36 @@ type Scan = {
 type Issue = RawIssueRow & { id: string }
 
 const TOP_ISSUE_COUNT = 3
+
+/**
+ * Evidence-aware health scoring (2026-09-22) — Section 14/15: a blocked
+ * crawl's root cause must be prominent and immediate, never something a
+ * customer has to infer by noticing all seven pillar cards independently
+ * say "Not analyzed." Placed ABOVE Fix These First and the pillar grid
+ * (Section 18: "prioritize resolving analysis access before showing
+ * unverified diagnoses"). Never blames the customer or claims the website
+ * itself is broken — a block is evidence about ACCESS, not about the
+ * site's own SEO health.
+ */
+function SiteAccessAlert({ state, reason }: { state: 'blocked' | 'fetch_failed' | 'insufficient_content'; reason: string | null }) {
+  const explanation =
+    state === 'fetch_failed'
+      ? "webioom could not reach this website at all during the last scan — this often means the site was temporarily down, or there's a DNS or hosting configuration issue."
+      : state === 'blocked'
+        ? `webioom could not analyze enough real site content to calculate reliable health scores${reason ? ` — the page${reason.startsWith('could not be reached') ? '' : ' it reached'} ${reason}` : ''}. A firewall, bot-protection service, or hosting security rule may be preventing webioom from accessing your site normally.`
+        : `webioom reached this website, but couldn't find enough content it could confidently analyze${reason ? ` — the page it reached ${reason}` : ''}.`
+
+  return (
+    <Alert tone="warning">
+      <p className="font-medium">We couldn&apos;t fully access this website.</p>
+      <p className="mt-1">{explanation}</p>
+      <p className="mt-2 text-xs">
+        The scores below reflect only what webioom could actually verify — they are not a claim that your website itself has a problem. If you use a
+        firewall or bot-protection service, check whether it needs to allow webioom&apos;s scans, then run a new scan.
+      </p>
+    </Alert>
+  )
+}
 
 export default async function WebsiteReportPage(props: PageProps<'/dashboard/websites/[id]'>) {
   const { id } = await props.params
@@ -191,6 +223,28 @@ export default async function WebsiteReportPage(props: PageProps<'/dashboard/web
   const canonicalSummaries = [technicalSeo, onPageSeo, siteArchitecture, content, performance, accessibility, security]
   const overallHealth = computeOverallWebsiteHealth(canonicalSummaries)
   const allCategoriesAnalyzed = canonicalSummaries.every((summary) => summary.status === 'analyzed')
+  const overallHealthIsPartial = isOverallHealthPartial(overallHealth)
+
+  // Evidence-aware health scoring (2026-09-22) — the ONE, coarse,
+  // whole-crawl "did webioom actually get into this website" signal (see
+  // lib/category-engine/site-access.ts's own doc comment). Deliberately
+  // computed from a tiny, targeted query (just the columns
+  // computeSiteAccessState needs) rather than reusing a bigger existing
+  // fetch, and only when a crawl_run actually exists.
+  let siteAccessState: SiteAccessState | null = null
+  let ineligibilityReason: string | null = null
+  if (crawlRun) {
+    const { data: accessPages } = await supabase
+      .from('crawl_pages')
+      .select('status, http_status, content_type, noindex, canonical_url, final_url, url')
+      .eq('crawl_run_id', crawlRun.id)
+      .returns<CrawlPageRow[]>()
+
+    siteAccessState = computeSiteAccessState(accessPages ?? [])
+    if (siteAccessState !== 'accessible') {
+      ineligibilityReason = describeMostCommonIneligibilityReason(accessPages ?? [])
+    }
+  }
 
   // "Latest website-analysis date" for the header card: the most recent
   // canonical category's own analyzedAt timestamp (all seven are analyzed
@@ -399,6 +453,22 @@ export default async function WebsiteReportPage(props: PageProps<'/dashboard/web
                 <p className="text-xs font-semibold uppercase tracking-wide text-subtle">Overall Health</p>
                 {overallHealth.score === null ? (
                   <p className="mt-1 text-sm text-muted">Run a scan to see this.</p>
+                ) : overallHealthIsPartial ? (
+                  // Evidence-aware health scoring (2026-09-22) — Section 13:
+                  // a score averaged from fewer than half the canonical
+                  // pillars (e.g. a blocked/thin crawl leaving only 1 of 7
+                  // with real evidence) must never read as a confident,
+                  // comprehensive verdict — a neutral badge and explicit
+                  // "partial" wording replace the usual health-tone Badge.
+                  <>
+                    <Badge tone="neutral" className="mt-1">
+                      Partial
+                    </Badge>
+                    <p className="mt-2 text-xs text-muted">
+                      Only {overallHealth.contributingCategoryCount} of {overallHealth.totalCanonicalCategories} pillars had enough evidence to score — not a full
+                      picture yet.
+                    </p>
+                  </>
                 ) : (
                   <>
                     <Badge tone={healthTone(overallHealth.score)} className="mt-1">
@@ -429,6 +499,10 @@ export default async function WebsiteReportPage(props: PageProps<'/dashboard/web
 
       {(crawlRun || latestScan) && (
         <div className="mt-6 space-y-6">
+          {siteAccessState && siteAccessState !== 'accessible' && siteAccessState !== 'partially_accessible' && (
+            <SiteAccessAlert state={siteAccessState} reason={ineligibilityReason} />
+          )}
+
           <SinceLastScan result={latestChange} />
 
           <FixTheseFirst problems={fixTheseFirst} />

@@ -9,6 +9,20 @@ describe('analyzeRobots', () => {
     expect(findings.find((f) => f.checkKey === 'robots_unreachable')).toBeDefined()
   })
 
+  /**
+   * REGRESSION (evidence-aware health scoring, 2026-09-22) — item 21's
+   * exact required fixture: "robots unknown due fetch failure must NOT
+   * become confirmed robots defect." Already correct before this sprint —
+   * locked in explicitly now alongside the equivalent sitemap fix.
+   */
+  it('an unreachable robots.txt is worded as uncertainty ("could not be checked"), never a confirmed defect', () => {
+    const evidence = makeEvidence({ crawlRun: { robots_status: 'unreachable' }, pages: [makePage({ url: 'https://example.com/' })] })
+    const finding = analyzeRobots(evidence).find((f) => f.checkKey === 'robots_unreachable')
+    expect(finding?.title.toLowerCase()).toContain('could not be checked')
+    expect(finding?.title.toLowerCase()).not.toContain('blocks')
+    expect(finding?.title.toLowerCase()).not.toContain('invalid')
+  })
+
   it('infers a site-wide robots block when nearly every crawled page is disallowed', () => {
     const pages = Array.from({ length: 10 }, (_, i) => makePage({ url: `https://example.com/p${i}`, robots_allowed: false }))
     const evidence = makeEvidence({ crawlRun: { robots_status: 'ok' }, pages })

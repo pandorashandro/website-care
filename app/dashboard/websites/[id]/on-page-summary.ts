@@ -75,6 +75,9 @@ export function buildOnPageCategorySummary(crawlRun: CrawlRunForSummary, analysi
     partial: crawlRun.status === 'partial',
     analyzedAt: analysis.completed_at,
     analyzerVersion: analysis.analyzer_version,
+    // OnPageCoverageLevel ('none'|'low'|'adequate') is the exact same
+    // vocabulary as the shared CoverageLevel — no translation needed.
+    coverage: analysis.coverage?.level ?? null,
   }
 }
 

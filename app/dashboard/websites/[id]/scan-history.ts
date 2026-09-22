@@ -151,7 +151,7 @@ async function fetchPillarSnapshot(
   const analyzerVersion = PILLAR_ANALYZER_VERSIONS[pillar]
   const { data: analysisRow } = await supabase
     .from('crawl_analyses')
-    .select('id, health_score, findings_count, completed_at, analyzer_version')
+    .select('id, health_score, findings_count, completed_at, analyzer_version, coverage')
     .eq('crawl_run_id', crawlRunId)
     .eq('analyzer_version', analyzerVersion)
     .maybeSingle()
@@ -162,6 +162,13 @@ async function fetchPillarSnapshot(
   if (summary.status !== 'analyzed' || !analysisRow) {
     return { pillar, coverage: 'not_analyzed', healthScore: null, findings: [] }
   }
+
+  // Evidence-aware health scoring (2026-09-22) — a real, persisted analysis
+  // exists, but the coverage it was built from is thin (e.g. only 1
+  // eligible page). See PillarCoverage's own doc comment (lib/monitoring/types.ts)
+  // for why this is kept OUT of monitoring comparisons even though the
+  // score itself is real and still shown in-app.
+  const monitoringCoverage: 'analyzed' | 'insufficient_data' = summary.coverage === 'low' ? 'insufficient_data' : 'analyzed'
 
   const config = PILLAR_TABLE_CONFIG[pillar]
   // Two literal select strings (never a runtime-concatenated one) so
@@ -175,7 +182,7 @@ async function fetchPillarSnapshot(
   const findings = ((findingRows ?? []) as unknown as FindingRow[]).filter((row) => !config.requiresProblemKind || row.finding_kind === 'problem')
 
   if (findings.length === 0) {
-    return { pillar, coverage: 'analyzed', healthScore: summary.score, findings: [] }
+    return { pillar, coverage: monitoringCoverage, healthScore: summary.score, findings: [] }
   }
 
   const { data: instanceRows } = await supabase
@@ -227,12 +234,21 @@ async function fetchPillarSnapshot(
     }))
   })
 
-  return { pillar, coverage: 'analyzed', healthScore: summary.score, findings: snapshotFindings }
+  return { pillar, coverage: monitoringCoverage, healthScore: summary.score, findings: snapshotFindings }
 }
 
 function buildCategorySummaryFor(
   pillar: CanonicalPillar,
   crawlRun: { id: string; status: string } | null,
+  // Deliberately NOT declaring `coverage` here: each pillar persists a
+  // DIFFERENT coverage shape (OnPageAnalysisCoverage/TechnicalSeoCoverage/
+  // ArchitectureCoverage/ContentAnalysisCoverage/PillarCoverage — all
+  // different types), so there is no single shape to name here. The actual
+  // runtime object (from the query below, which DOES select `coverage`)
+  // still carries the field through untouched — TypeScript's excess-
+  // property checking only applies to object LITERALS, never to a value
+  // passed through a variable, so each buildXCategorySummary below still
+  // receives and correctly reads its own `analysis.coverage` field.
   analysis: { health_score: number | null; findings_count: number; completed_at: string | null; analyzer_version: string } | null
 ): CategorySummary {
   switch (pillar) {

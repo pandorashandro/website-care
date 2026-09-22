@@ -62,10 +62,23 @@ export type SnapshotFinding = {
 }
 
 export type PillarCoverage =
-  /** This pillar produced a real, persisted analysis for this scan. */
+  /** This pillar produced a real, persisted analysis for this scan, built from adequate evidence. */
   | 'analyzed'
-  /** This pillar was not analyzed at all in this scan (e.g. a legacy scan predating a pillar's own launch, or an isolated per-analyzer failure). */
+  /** This pillar was not analyzed at all in this scan (e.g. a legacy scan predating a pillar's own launch, an isolated per-analyzer failure, or a crawl that reached zero eligible pages — see lib/category-engine/types.ts's CoverageLevel 'none'). */
   | 'not_analyzed'
+  /**
+   * Evidence-aware health scoring (2026-09-22) — a real, persisted analysis
+   * exists (unlike 'not_analyzed'), but its own coverage record reports
+   * 'low' (e.g. only 1 eligible page) — real evidence, just thin enough
+   * that comparing it against another scan's score risks attributing a
+   * coverage-driven swing (a website that suddenly has far fewer eligible
+   * pages, e.g. because a firewall started blocking webioom) to an actual
+   * website health change. `compare.ts`'s own `comparePillarScore`/
+   * `wasCoveredIn` already treat anything other than the literal string
+   * 'analyzed' as not-comparable, so this new value is additive and safe —
+   * no change needed to that comparison logic itself.
+   */
+  | 'insufficient_data'
 
 export type PillarSnapshot = {
   pillar: CanonicalPillar

@@ -2,7 +2,7 @@ import 'server-only'
 import { createAdminClient } from '@/lib/supabase/admin'
 import type { CrawlRunRow, CrawlPageRow, CrawlLinkRow } from '@/lib/crawler/types'
 import type { TechnicalSeoStore, SaveAnalysisInput, FindingWithPages } from './store'
-import type { CrawlAnalysisRow, TechnicalFindingRow, TechnicalFindingPageRow } from './types'
+import type { TechnicalFindingRow, TechnicalFindingPageRow, TechnicalSeoAnalysisRow } from './types'
 import type { CrawlEvidence } from './evidence'
 
 /**
@@ -37,7 +37,7 @@ export function createSupabaseTechnicalSeoStore(): TechnicalSeoStore {
       }
     },
 
-    async saveAnalysis(input: SaveAnalysisInput): Promise<CrawlAnalysisRow> {
+    async saveAnalysis(input: SaveAnalysisInput): Promise<TechnicalSeoAnalysisRow> {
       const { data: analysis, error } = await admin
         .from('crawl_analyses')
         .upsert(
@@ -48,6 +48,7 @@ export function createSupabaseTechnicalSeoStore(): TechnicalSeoStore {
             status: 'completed',
             findings_count: input.findings.length,
             health_score: input.healthScore,
+            coverage: input.coverage ?? null,
             completed_at: new Date().toISOString(),
           },
           { onConflict: 'crawl_run_id,analyzer_version' }
@@ -124,10 +125,10 @@ export function createSupabaseTechnicalSeoStore(): TechnicalSeoStore {
         }
       }
 
-      return analysis as CrawlAnalysisRow
+      return analysis as TechnicalSeoAnalysisRow
     },
 
-    async getLatestAnalysis(crawlRunId: string, analyzerVersion: string): Promise<CrawlAnalysisRow | null> {
+    async getLatestAnalysis(crawlRunId: string, analyzerVersion: string): Promise<TechnicalSeoAnalysisRow | null> {
       const { data } = await admin
         .from('crawl_analyses')
         .select('*')
@@ -135,7 +136,7 @@ export function createSupabaseTechnicalSeoStore(): TechnicalSeoStore {
         .eq('analyzer_version', analyzerVersion)
         .maybeSingle()
 
-      return (data as CrawlAnalysisRow | null) ?? null
+      return (data as TechnicalSeoAnalysisRow | null) ?? null
     },
 
     async getFindingsWithPages(crawlAnalysisId: string): Promise<FindingWithPages[]> {

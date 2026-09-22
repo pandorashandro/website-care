@@ -1,5 +1,6 @@
 import type { CrawlEvidence } from '../evidence'
 import type { RawFinding } from '../types'
+import { isSuccessfulHtmlFetch } from '@/lib/category-engine/eligibility'
 
 /**
  * Phase 26B — structured data (JSON-LD). Checks JSON-SYNTAX validity only
@@ -9,9 +10,16 @@ import type { RawFinding } from '../types'
  * perfectly valid, well-formed JSON that is nonetheless semantically wrong
  * schema.org markup is NOT flagged here — only genuinely broken JSON is,
  * which is the one thing this evidence can support with full confidence.
+ *
+ * Evidence-aware health scoring fix (2026-09-22): gated on
+ * `isSuccessfulHtmlFetch` (2xx HTML), not merely `status === 'completed'`,
+ * so a blocked/challenge response can never contribute a structured-data
+ * finding about content it never actually served — see
+ * lib/technical-seo/checks/indexability.ts's own doc comment for the full
+ * reasoning behind this same fix.
  */
 export function analyzeStructuredData(evidence: CrawlEvidence): RawFinding[] {
-  const invalidPages = evidence.pages.filter((page) => page.status === 'completed' && page.structured_data_present && page.structured_data_valid === false)
+  const invalidPages = evidence.pages.filter((page) => isSuccessfulHtmlFetch(page) && page.structured_data_present && page.structured_data_valid === false)
 
   if (invalidPages.length === 0) return []
 

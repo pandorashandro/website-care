@@ -4,8 +4,8 @@ import { completedPages, type CrawlEvidence } from '@/lib/crawler/evidence'
 import { isEligibleContentPage } from '@/lib/category-engine/eligibility'
 import { aggregatePillarFindings } from './aggregate'
 import { calculatePillarHealth, type PillarHealth } from './health'
-import type { AggregatedFinding, RawFinding, PillarKey } from './types'
-import type { CrawlAnalysisRow } from '@/lib/technical-seo/types'
+import { computePillarCoverage, type PillarCoverage } from './coverage'
+import type { AggregatedFinding, RawFinding, PillarKey, PillarAnalysisRow } from './types'
 
 /**
  * Unified webioom engine, Prompt 2 — ONE generic analysis engine shared by
@@ -28,7 +28,7 @@ import type { CrawlAnalysisRow } from '@/lib/technical-seo/types'
  * discards what the others already produced) mirrors every other engine.
  */
 export type AnalyzePillarResult =
-  | { ok: true; analysis: CrawlAnalysisRow; findings: AggregatedFinding[]; health: PillarHealth }
+  | { ok: true; analysis: PillarAnalysisRow; findings: AggregatedFinding[]; health: PillarHealth; coverage: PillarCoverage }
   | { ok: false; error: string }
 
 const ANALYZABLE_CRAWL_STATUSES = new Set(['completed', 'partial'])
@@ -53,6 +53,7 @@ export async function runPillarAnalysis(
     eligiblePages,
     totalAnalyzedPages: completedPages(evidence).length,
     isPartialCrawl: evidence.crawlRun.status === 'partial',
+    allCompletedPages: completedPages(evidence),
   }
 
   const rawFindings: RawFinding[] = []
@@ -80,6 +81,9 @@ export async function runPillarAnalysis(
     context.totalAnalyzedPages
   )
 
+  // Evidence-aware health scoring (2026-09-22) — see lib/pillars/coverage.ts.
+  const coverage = computePillarCoverage(evidence.pages, context.totalAnalyzedPages)
+
   const analysis = await store.saveAnalysis({
     pillar,
     crawlRunId,
@@ -87,7 +91,8 @@ export async function runPillarAnalysis(
     analyzerVersion,
     findings: aggregated,
     healthScore: health.score,
+    coverage,
   })
 
-  return { ok: true, analysis, findings: aggregated, health }
+  return { ok: true, analysis, findings: aggregated, health, coverage }
 }

@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import type { TechnicalSeoStore, SaveAnalysisInput, FindingWithPages } from '@/lib/technical-seo/store'
-import type { CrawlAnalysisRow, TechnicalFindingRow, TechnicalFindingPageRow } from '@/lib/technical-seo/types'
+import type { TechnicalFindingRow, TechnicalFindingPageRow, TechnicalSeoAnalysisRow } from '@/lib/technical-seo/types'
 import type { CrawlEvidence } from '@/lib/technical-seo/evidence'
 
 /**
@@ -12,11 +12,11 @@ import type { CrawlEvidence } from '@/lib/technical-seo/evidence'
  * meaningfully, without a live database.
  */
 export function createFakeTechnicalSeoStore(seedEvidence: Record<string, CrawlEvidence>) {
-  const analyses: CrawlAnalysisRow[] = []
+  const analyses: TechnicalSeoAnalysisRow[] = []
   const findings: TechnicalFindingRow[] = []
   const findingPages: TechnicalFindingPageRow[] = []
 
-  const store: TechnicalSeoStore & { _analyses: CrawlAnalysisRow[]; _findings: TechnicalFindingRow[]; _findingPages: TechnicalFindingPageRow[] } = {
+  const store: TechnicalSeoStore & { _analyses: TechnicalSeoAnalysisRow[]; _findings: TechnicalFindingRow[]; _findingPages: TechnicalFindingPageRow[] } = {
     _analyses: analyses,
     _findings: findings,
     _findingPages: findingPages,
@@ -25,12 +25,12 @@ export function createFakeTechnicalSeoStore(seedEvidence: Record<string, CrawlEv
       return seedEvidence[crawlRunId] ?? null
     },
 
-    async saveAnalysis(input: SaveAnalysisInput): Promise<CrawlAnalysisRow> {
+    async saveAnalysis(input: SaveAnalysisInput): Promise<TechnicalSeoAnalysisRow> {
       const now = new Date().toISOString()
       let analysis = analyses.find((a) => a.crawl_run_id === input.crawlRunId && a.analyzer_version === input.analyzerVersion)
 
       if (analysis) {
-        Object.assign(analysis, { status: 'completed', findings_count: input.findings.length, health_score: input.healthScore, completed_at: now })
+        Object.assign(analysis, { status: 'completed', findings_count: input.findings.length, health_score: input.healthScore, coverage: input.coverage ?? null, completed_at: now })
       } else {
         analysis = {
           id: randomUUID(),
@@ -40,6 +40,7 @@ export function createFakeTechnicalSeoStore(seedEvidence: Record<string, CrawlEv
           analyzer_version: input.analyzerVersion,
           findings_count: input.findings.length,
           health_score: input.healthScore,
+          coverage: input.coverage ?? null,
           error_message: null,
           created_at: now,
           completed_at: now,

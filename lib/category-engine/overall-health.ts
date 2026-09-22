@@ -44,6 +44,26 @@ export type OverallWebsiteHealth = {
   totalCanonicalCategories: number
 }
 
+/**
+ * Evidence-aware health scoring (2026-09-22) — Section 13's minimum
+ * coverage rule: `computeOverallWebsiteHealth` already refuses to fabricate
+ * a score from zero contributing categories, but a score built from just 1
+ * or 2 of 7 (e.g. every OTHER pillar returned 'not_analyzed' because a
+ * crawl was blocked, leaving only Technical SEO's own crawlability
+ * findings as real evidence) is still a single, unweighted-average number
+ * that can read as a confident, comprehensive verdict when it genuinely
+ * is not one. "Less than half the canonical categories contributed" is a
+ * simple, defensible, disclosed threshold — not a claim that a specific
+ * fraction is scientifically correct, just a floor below which Overview
+ * must say "partial," never present a bare number with no comparable
+ * evidence disclosure would give it. Never affects the score/averaging
+ * itself — this is purely a DISPLAY decision the caller (Overview) makes.
+ */
+export function isOverallHealthPartial(overallHealth: OverallWebsiteHealth): boolean {
+  if (overallHealth.score === null) return false
+  return overallHealth.contributingCategoryCount > 0 && overallHealth.contributingCategoryCount < overallHealth.totalCanonicalCategories / 2
+}
+
 export function computeOverallWebsiteHealth(categorySummaries: CategorySummary[]): OverallWebsiteHealth {
   const scored = categorySummaries.filter((summary): summary is CategorySummary & { score: number } => summary.status === 'analyzed' && typeof summary.score === 'number')
 

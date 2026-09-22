@@ -65,6 +65,7 @@ describe('buildOnPageCategorySummary (Phase 28)', () => {
       partial: false,
       analyzedAt: '2026-02-01T12:00:00Z',
       analyzerVersion: 'on-page-v1',
+      coverage: null,
     })
   })
 
@@ -141,5 +142,40 @@ describe('buildOnPageCategorySummary (Phase 28)', () => {
       { health_score: 100, findings_count: 0, completed_at: '2026-02-01T12:00:00Z', analyzer_version: 'on-page-v1', coverage: null }
     )
     expect(summary.status).toBe('analyzed')
+  })
+
+  /**
+   * Evidence-aware health scoring (2026-09-22) — this engine-specific
+   * coverage.level ('none'|'low'|'adequate') is passed through verbatim
+   * onto the SHARED CategorySummary.coverage field (lib/category-engine/
+   * types.ts's CoverageLevel), the exact same vocabulary, no translation —
+   * this is what lets Overview's CategoryScoreGrid render a "Limited data"
+   * badge for On-Page without knowing anything about On-Page's own richer
+   * persisted coverage shape.
+   */
+  it("passes coverage.level through verbatim onto the shared CategorySummary.coverage field", () => {
+    const low = buildOnPageCategorySummary(
+      { id: 'run-1', status: 'completed' },
+      {
+        health_score: 90,
+        findings_count: 1,
+        completed_at: '2026-02-01T12:00:00Z',
+        analyzer_version: 'on-page-v1',
+        coverage: { eligiblePageCount: 1, totalAnalyzedPages: 1, comparisonChecksAssessed: false, level: 'low' },
+      }
+    )
+    expect(low.coverage).toBe('low')
+
+    const adequate = buildOnPageCategorySummary(
+      { id: 'run-1', status: 'completed' },
+      {
+        health_score: 90,
+        findings_count: 1,
+        completed_at: '2026-02-01T12:00:00Z',
+        analyzer_version: 'on-page-v1',
+        coverage: { eligiblePageCount: 5, totalAnalyzedPages: 5, comparisonChecksAssessed: true, level: 'adequate' },
+      }
+    )
+    expect(adequate.coverage).toBe('adequate')
   })
 })

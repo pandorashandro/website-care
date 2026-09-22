@@ -8,5 +8,6 @@ export function pillarContextFor(pages: CrawlPageRow[], isPartialCrawl = false):
     eligiblePages: pages.filter(isEligibleContentPage),
     totalAnalyzedPages: pages.filter((p) => p.status === 'completed').length,
     isPartialCrawl,
+    allCompletedPages: pages.filter((p) => p.status === 'completed'),
   }
 }

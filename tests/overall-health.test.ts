@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { computeOverallWebsiteHealth } from '@/lib/category-engine/overall-health'
+import { computeOverallWebsiteHealth, isOverallHealthPartial } from '@/lib/category-engine/overall-health'
 import type { CategorySummary } from '@/lib/category-engine/types'
 
 function summary(overrides: Partial<CategorySummary> = {}): CategorySummary {
@@ -57,5 +57,36 @@ describe('computeOverallWebsiteHealth', () => {
   it('handles an empty category list without throwing', () => {
     expect(() => computeOverallWebsiteHealth([])).not.toThrow()
     expect(computeOverallWebsiteHealth([]).score).toBeNull()
+  })
+})
+
+/**
+ * Evidence-aware health scoring (2026-09-22) — Section 13's minimum
+ * coverage rule for Overview's display, not the score computation itself.
+ */
+describe('isOverallHealthPartial', () => {
+  it('REGRESSION — the exact reported bug\'s shape (only 1 of 7 canonical categories contributed, e.g. a blocked crawl) is partial', () => {
+    const result = computeOverallWebsiteHealth([summary({ score: 76 }), NOT_ANALYZED, NOT_ANALYZED, NOT_ANALYZED, NOT_ANALYZED, NOT_ANALYZED, NOT_ANALYZED])
+    expect(isOverallHealthPartial(result)).toBe(true)
+  })
+
+  it('a majority of categories contributing (4 of 7) is NOT partial', () => {
+    const result = computeOverallWebsiteHealth([summary(), summary(), summary(), summary(), NOT_ANALYZED, NOT_ANALYZED, NOT_ANALYZED])
+    expect(isOverallHealthPartial(result)).toBe(false)
+  })
+
+  it('exactly half (e.g. 1 of 2) is NOT partial — the threshold is strictly less than half', () => {
+    const result = computeOverallWebsiteHealth([summary(), NOT_ANALYZED])
+    expect(isOverallHealthPartial(result)).toBe(false)
+  })
+
+  it('a null score (zero contributors) is never "partial" — it is the separate, already-handled "unavailable" case', () => {
+    const result = computeOverallWebsiteHealth([NOT_ANALYZED, NOT_ANALYZED])
+    expect(isOverallHealthPartial(result)).toBe(false)
+  })
+
+  it('all seven categories contributing is never partial', () => {
+    const result = computeOverallWebsiteHealth(Array.from({ length: 7 }, () => summary()))
+    expect(isOverallHealthPartial(result)).toBe(false)
   })
 })

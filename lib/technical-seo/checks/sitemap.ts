@@ -13,16 +13,25 @@ export function analyzeSitemap(evidence: CrawlEvidence, context: AnalyzerContext
   const findings: RawFinding[] = []
 
   if (evidence.crawlRun.sitemap_status === 'unreachable') {
+    // Evidence-aware health scoring fix (2026-09-22): 'unreachable' means the
+    // FETCH failed (e.g. blocked by the same firewall/WAF that might be
+    // blocking the whole crawl) — it does NOT mean webioom confirmed there
+    // is no sitemap. The previous title ("No XML sitemap could be found")
+    // read as a confirmed absence; this is honestly framed as "couldn't
+    // confirm," matching sitemap_status's own three-way ok/empty/unreachable
+    // distinction (see lib/crawler/engine.ts) and robots.ts's own
+    // 'robots_unreachable' finding, which already gets this right.
     findings.push({
       checkKey: 'sitemap_unavailable',
       category: 'sitemap',
       scope: 'site',
       baseSeverity: 'medium',
       confidence: 'high',
-      title: 'No XML sitemap could be found',
-      explanation: "webioom could not find or fetch a sitemap for your site (checked robots.txt's Sitemap: directive and the standard /sitemap.xml location).",
+      title: "webioom couldn't confirm whether your site has a sitemap",
+      explanation:
+        "webioom could not fetch a sitemap for your site during this crawl (checked robots.txt's Sitemap: directive and the standard /sitemap.xml location) — this does not necessarily mean one doesn't exist.",
       whyItMatters: 'A sitemap helps search engines discover your important pages more reliably, especially on larger or less well-linked sites.',
-      recommendation: 'Create an XML sitemap listing your important pages and reference it from robots.txt.',
+      recommendation: 'Confirm your sitemap is reachable at its expected URL and not blocked by a firewall or access rule, then re-run this scan.',
       evidence: {},
       affectedPages: [],
     })

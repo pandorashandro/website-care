@@ -1,7 +1,8 @@
 import 'server-only'
 import { createClient } from '@/lib/supabase/server'
 import { ANALYZER_VERSION } from '@/lib/content/types'
-import type { CategorySummary } from '@/lib/category-engine/types'
+import type { ContentAnalysisCoverage } from '@/lib/content/coverage'
+import type { CategorySummary, CoverageLevel } from '@/lib/category-engine/types'
 
 const NOT_ANALYZED: CategorySummary = {
   categoryKey: 'content',
@@ -14,7 +15,28 @@ const NOT_ANALYZED: CategorySummary = {
 }
 
 type CrawlRunForSummary = { id: string; status: string } | null
-type AnalysisForSummary = { health_score: number | null; findings_count: number; completed_at: string | null; analyzer_version: string } | null
+type AnalysisForSummary = {
+  health_score: number | null
+  findings_count: number
+  completed_at: string | null
+  analyzer_version: string
+  /**
+   * Evidence-aware health scoring (2026-09-22) — Content Intelligence ALREADY
+   * computes and persists this (lib/content/coverage.ts, since Phase 29) —
+   * this is the FIRST time it reaches Overview's Category Health tile at
+   * all (previously selected in unified-summary.ts's own SQL, then silently
+   * dropped before reaching this function — see that file's own comment).
+   * Deliberately NOT a second coverage model: `eligiblePageCount === 0` is
+   * read directly off Content's own existing record, never recomputed.
+   */
+  coverage?: ContentAnalysisCoverage | null
+} | null
+
+/** Content's own high/medium/low vocabulary collapses onto the shared none/low/adequate scale ONLY for Overview's tile — Content's dedicated page keeps showing its own richer percent/level via CoverageIndicator, untouched. */
+function toSharedCoverageLevel(coverage: ContentAnalysisCoverage): CoverageLevel {
+  if (coverage.eligiblePageCount === 0) return 'none'
+  return coverage.level === 'high' ? 'adequate' : 'low'
+}
 
 /**
  * Phase 29 — pure (no I/O) mapping from the raw crawl_run/crawl_analyses
@@ -38,6 +60,17 @@ export function buildContentCategorySummary(crawlRun: CrawlRunForSummary, analys
     return NOT_ANALYZED
   }
 
+  // Evidence-aware health scoring (2026-09-22): eligiblePageCount === 0
+  // means ZERO pages were eligible for content analysis at all — the
+  // persisted health_score in that case is a hollow, unguarded 100 (see
+  // lib/content/health.ts). This mirrors exactly how On-Page/Technical
+  // SEO/Architecture/Pillars all treat their own 'none' coverage case —
+  // Content's OWN coverage record already carries this fact, this is only
+  // the first time Overview's tile actually reads it.
+  if (analysis.coverage && analysis.coverage.eligiblePageCount === 0) {
+    return NOT_ANALYZED
+  }
+
   return {
     categoryKey: 'content',
     status: 'analyzed',
@@ -46,6 +79,7 @@ export function buildContentCategorySummary(crawlRun: CrawlRunForSummary, analys
     partial: crawlRun.status === 'partial',
     analyzedAt: analysis.completed_at,
     analyzerVersion: analysis.analyzer_version,
+    coverage: analysis.coverage ? toSharedCoverageLevel(analysis.coverage) : null,
   }
 }
 
@@ -73,7 +107,7 @@ export async function getContentCategorySummary(websiteId: string): Promise<Cate
 
   const { data: analysis } = await supabase
     .from('crawl_analyses')
-    .select('health_score, findings_count, completed_at, analyzer_version')
+    .select('health_score, findings_count, completed_at, analyzer_version, coverage')
     .eq('crawl_run_id', crawlRun.id)
     .eq('analyzer_version', ANALYZER_VERSION)
     .maybeSingle()

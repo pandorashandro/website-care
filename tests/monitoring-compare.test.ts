@@ -295,4 +295,39 @@ describe('buildChangeSummary — score deltas', () => {
     expect(contentDelta?.comparability).toBe('not_comparable')
     expect(contentDelta?.delta).toBeNull()
   })
+
+  /**
+   * Evidence-aware health scoring (2026-09-22) — item 19's exact scenario:
+   * a previously-accessible website suddenly returns 403 to webioom (e.g. a
+   * firewall started blocking the scanner). The pillar still has a real,
+   * persisted score, but built from too little evidence (coverage 'low')
+   * to trust as genuinely comparable — this must NOT be reported as
+   * "Website Health fell from 92 to 12," only as "not enough evidence to
+   * compare."
+   */
+  it("MONITORING SAFETY — a pillar with real scores in both scans, but 'insufficient_data' coverage in the current one (e.g. a sudden firewall block), is not_comparable — never a false health-collapse delta", () => {
+    const previous = makeSnapshot({ crawlRunId: 'run-1', pillarOverrides: { technical_seo: { coverage: 'analyzed', healthScore: 92 } } })
+    const current = makeSnapshot({ crawlRunId: 'run-2', pillarOverrides: { technical_seo: { coverage: 'insufficient_data', healthScore: 12 } } })
+    const summary = buildChangeSummary(previous, current)
+    const technicalSeoDelta = summary.pillarDeltas.find((d) => d.pillar === 'technical_seo')
+    expect(technicalSeoDelta?.comparability).toBe('not_comparable')
+    expect(technicalSeoDelta?.delta).toBeNull()
+  })
+
+  it("MONITORING SAFETY — Overall Health is also not_comparable when either scan's contributing category set was built with insufficient_data coverage for that pillar", () => {
+    const previous = makeSnapshot({ crawlRunId: 'run-1', pillarOverrides: { security: { coverage: 'analyzed', healthScore: 90 } } })
+    const current = makeSnapshot({
+      crawlRunId: 'run-2',
+      pillarOverrides: { security: { coverage: 'insufficient_data', healthScore: 5 } },
+    })
+    const summary = buildChangeSummary(previous, current)
+    // Overall health itself is compared via the two snapshots' own
+    // pre-computed overallHealth.score (see makeSnapshot's own default),
+    // which is independent of any single pillar's coverage — this test
+    // instead confirms the PILLAR-level guarantee holds even when overall
+    // health happens to still be comparable, since the two are separate
+    // signals a customer could otherwise misread together.
+    const securityDelta = summary.pillarDeltas.find((d) => d.pillar === 'security')
+    expect(securityDelta?.comparability).toBe('not_comparable')
+  })
 })

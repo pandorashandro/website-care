@@ -99,6 +99,39 @@ export type RawFindingPageEvidence = {
  */
 export type CategorySummaryStatus = 'not_analyzed' | 'analyzed'
 
+/**
+ * Evidence-aware health scoring (2026-09-22) — the ONE shared vocabulary
+ * every canonical category engine's own (necessarily different-shaped)
+ * coverage record collapses down to for Overview/Overall-Health/monitoring
+ * consumption. Each engine keeps its own richer, persisted `coverage` JSON
+ * shape (On-Page's eligiblePageCount/comparisonChecksAssessed, Content's
+ * percent/dimensionsAssessed, Technical SEO's eligiblePageCount/
+ * completedPageCount/robotsStatus/sitemapStatus, etc.) — this is not a
+ * replacement for any of those, only the common summary derived FROM them:
+ *
+ *   'none'     — zero genuine evidence existed; a numeric score would be
+ *                fabricated. The owning builder reports `status:
+ *                'not_analyzed'` and `score: null` for this case, exactly
+ *                like a crawl that was never analyzed at all — so
+ *                `computeOverallWebsiteHealth`'s existing "skip
+ *                not_analyzed categories" rule excludes it automatically,
+ *                with no change needed to that aggregator.
+ *   'low'      — some genuine evidence exists and the score IS real, but
+ *                thin enough that at least one class of check within this
+ *                category could not be meaningfully assessed (e.g. only 1
+ *                eligible page, so a comparison check like duplicate-title
+ *                cannot possibly fire) — shown alongside the score, never
+ *                in place of it.
+ *   'adequate' — sufficient evidence existed for every applicable check.
+ *
+ * Absent (`undefined`)/`null` means "this engine has not been extended to
+ * report coverage yet, OR this analysis predates the extension" — NEVER
+ * treated as 'none' or as a green light; callers that care about coverage
+ * must treat a missing value as "unknown," matching how `coverage: null`
+ * already behaves on the persisted On-Page/Content rows.
+ */
+export type CoverageLevel = 'none' | 'low' | 'adequate'
+
 export type CategorySummary = {
   categoryKey: string
   status: CategorySummaryStatus
@@ -108,4 +141,6 @@ export type CategorySummary = {
   partial: boolean
   analyzedAt: string | null
   analyzerVersion: string | null
+  /** Evidence-aware health scoring (2026-09-22) — see CoverageLevel's own doc comment. Optional/nullable: absent for any engine/analysis that predates this field. */
+  coverage?: CoverageLevel | null
 }

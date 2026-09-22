@@ -14,8 +14,9 @@ import { analyzeHreflang } from './checks/hreflang'
 import { analyzeSiteWideConsistency } from './checks/site-wide'
 import { aggregateFindings } from './aggregate'
 import { calculateTechnicalSeoHealth, type TechnicalSeoHealth } from './health'
+import { computeTechnicalSeoCoverage, type TechnicalSeoCoverage } from './coverage'
 import { ANALYZER_VERSION } from './types'
-import type { RawFinding, CrawlAnalysisRow, AggregatedFinding } from './types'
+import type { RawFinding, AggregatedFinding, TechnicalSeoAnalysisRow } from './types'
 
 /**
  * Phase 26, Checkpoint 3/9 — the analysis engine's orchestration entry
@@ -35,7 +36,7 @@ import type { RawFinding, CrawlAnalysisRow, AggregatedFinding } from './types'
  */
 
 export type AnalyzeTechnicalSeoResult =
-  | { ok: true; analysis: CrawlAnalysisRow; findings: AggregatedFinding[]; health: TechnicalSeoHealth }
+  | { ok: true; analysis: TechnicalSeoAnalysisRow; findings: AggregatedFinding[]; health: TechnicalSeoHealth; coverage: TechnicalSeoCoverage }
   | { ok: false; error: string }
 
 /** Analysis requires a crawl that actually finished running — a queued/running crawl has no stable evidence yet, and a failed/cancelled one never produced meaningful evidence to analyze. */
@@ -102,13 +103,17 @@ export async function analyzeTechnicalSeo(store: TechnicalSeoStore, crawlRunId: 
     context.totalAnalyzedPages
   )
 
+  // Evidence-aware health scoring (2026-09-22) — see lib/technical-seo/coverage.ts.
+  const coverage = computeTechnicalSeoCoverage(evidence.pages, evidence.crawlRun)
+
   const analysis = await store.saveAnalysis({
     crawlRunId,
     websiteId: evidence.crawlRun.website_id,
     analyzerVersion: ANALYZER_VERSION,
     findings: aggregated,
     healthScore: health.score,
+    coverage,
   })
 
-  return { ok: true, analysis, findings: aggregated, health }
+  return { ok: true, analysis, findings: aggregated, health, coverage }
 }

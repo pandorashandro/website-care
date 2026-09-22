@@ -82,7 +82,43 @@ describe('buildTechnicalSeoCategorySummary (Phase 26B correction)', () => {
       partial: false,
       analyzedAt: '2026-02-01T12:00:00Z',
       analyzerVersion: 'technical-v2',
+      coverage: null,
     })
+  })
+
+  /**
+   * Evidence-aware health scoring (2026-09-22): coverage 'none' means the
+   * crawl reached ZERO pages at all — see lib/technical-seo/coverage.ts.
+   * The persisted health_score in that case is a hollow, unguarded 100.
+   */
+  it("REGRESSION — coverage.level 'none' reports not_analyzed, overriding a hollow 100", () => {
+    const summary = buildTechnicalSeoCategorySummary(
+      { id: 'run-1', status: 'completed' },
+      {
+        health_score: 100,
+        findings_count: 0,
+        completed_at: '2026-02-01T12:00:00Z',
+        analyzer_version: 'technical-v2',
+        coverage: { eligiblePageCount: 0, completedPageCount: 0, robotsStatus: null, sitemapStatus: null, level: 'none' },
+      }
+    )
+    expect(summary.status).toBe('not_analyzed')
+    expect(summary.score).toBeNull()
+  })
+
+  it("coverage.level 'low' (some pages responded, e.g. all blocked, but none were eligible real content) is still 'analyzed' — crawlability/robots/sitemap findings remain genuine evidence", () => {
+    const summary = buildTechnicalSeoCategorySummary(
+      { id: 'run-1', status: 'completed' },
+      {
+        health_score: 85,
+        findings_count: 1,
+        completed_at: '2026-02-01T12:00:00Z',
+        analyzer_version: 'technical-v2',
+        coverage: { eligiblePageCount: 0, completedPageCount: 1, robotsStatus: 'ok', sitemapStatus: 'ok', level: 'low' },
+      }
+    )
+    expect(summary.status).toBe('analyzed')
+    expect(summary.coverage).toBe('low')
   })
 
   it('marks partial when the crawl_run status is partial — preserved, never hidden', () => {

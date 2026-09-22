@@ -1,4 +1,5 @@
-import type { CrawlAnalysisRow, TechnicalFindingRow, TechnicalFindingPageRow, AggregatedFinding } from './types'
+import type { TechnicalFindingRow, TechnicalFindingPageRow, AggregatedFinding, TechnicalSeoAnalysisRow } from './types'
+import type { TechnicalSeoCoverage } from './coverage'
 import type { CrawlEvidence } from './evidence'
 
 /**
@@ -18,6 +19,8 @@ export type SaveAnalysisInput = {
   findings: AggregatedFinding[]
   /** Phase 26B — the ONE authoritative Technical SEO health score for this analysis, computed once by lib/technical-seo/health.ts and persisted here so every reader (Overview, the dedicated page) selects the same stored value instead of ever recomputing it. */
   healthScore: number
+  /** Evidence-aware health scoring (2026-09-22) — persisted alongside the analysis; see lib/technical-seo/coverage.ts. Optional so a caller that genuinely cannot compute it (e.g. an older test) is not forced to. */
+  coverage?: TechnicalSeoCoverage
 }
 
 export type FindingWithPages = TechnicalFindingRow & { affectedPages: TechnicalFindingPageRow[] }
@@ -33,10 +36,10 @@ export type TechnicalSeoStore = {
    * retry, no duplicate findings on repeated analysis") without an
    * ever-growing history of stale rows from earlier runs.
    */
-  saveAnalysis(input: SaveAnalysisInput): Promise<CrawlAnalysisRow>
+  saveAnalysis(input: SaveAnalysisInput): Promise<TechnicalSeoAnalysisRow>
 
   /** The most recent analysis for this (crawl_run, analyzer_version) pair, if one exists. */
-  getLatestAnalysis(crawlRunId: string, analyzerVersion: string): Promise<CrawlAnalysisRow | null>
+  getLatestAnalysis(crawlRunId: string, analyzerVersion: string): Promise<TechnicalSeoAnalysisRow | null>
 
   /** Every finding for one analysis, each with its own affected-page evidence attached. */
   getFindingsWithPages(crawlAnalysisId: string): Promise<FindingWithPages[]>

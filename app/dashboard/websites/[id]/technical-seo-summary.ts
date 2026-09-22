@@ -1,6 +1,7 @@
 import 'server-only'
 import { createClient } from '@/lib/supabase/server'
 import { ANALYZER_VERSION } from '@/lib/technical-seo/types'
+import type { TechnicalSeoCoverage } from '@/lib/technical-seo/coverage'
 import type { CategorySummary } from '@/lib/category-engine/types'
 
 const NOT_ANALYZED: CategorySummary = {
@@ -14,7 +15,14 @@ const NOT_ANALYZED: CategorySummary = {
 }
 
 type CrawlRunForSummary = { id: string; status: string } | null
-type AnalysisForSummary = { health_score: number | null; findings_count: number; completed_at: string | null; analyzer_version: string } | null
+type AnalysisForSummary = {
+  health_score: number | null
+  findings_count: number
+  completed_at: string | null
+  analyzer_version: string
+  /** Evidence-aware health scoring (2026-09-22) — see lib/technical-seo/coverage.ts. Optional so callers that don't select this column (older code paths) remain valid — absent is treated identically to null, i.e. "unknown/legacy," never assumed 'none'. */
+  coverage?: TechnicalSeoCoverage | null
+} | null
 
 /**
  * Phase 26B correction — pure (no I/O) mapping from the raw crawl_run/
@@ -40,6 +48,20 @@ export function buildTechnicalSeoCategorySummary(crawlRun: CrawlRunForSummary, a
     return NOT_ANALYZED
   }
 
+  // Evidence-aware health scoring (2026-09-22): coverage 'none' means the
+  // crawl reached ZERO pages at all (not even a blocked/error response) —
+  // there is no evidence of any kind, so the persisted health_score is a
+  // hollow, unguarded 100 (see lib/technical-seo/health.ts — zero findings
+  // always yields 100). Unlike On-Page/Architecture/Pillars, Technical
+  // SEO's 'low' coverage (some pages responded, even if all were
+  // blocked/erroring) is NOT treated as not_analyzed — crawlability/
+  // robots/sitemap findings remain genuine evidence in that case (see
+  // lib/technical-seo/coverage.ts's own doc comment) and the score built
+  // from them is real, just narrower than a fully-eligible crawl.
+  if (analysis.coverage?.level === 'none') {
+    return NOT_ANALYZED
+  }
+
   return {
     categoryKey: 'technical_seo',
     status: 'analyzed',
@@ -48,6 +70,7 @@ export function buildTechnicalSeoCategorySummary(crawlRun: CrawlRunForSummary, a
     partial: crawlRun.status === 'partial',
     analyzedAt: analysis.completed_at,
     analyzerVersion: analysis.analyzer_version,
+    coverage: analysis.coverage?.level ?? null,
   }
 }
 
@@ -79,7 +102,7 @@ export async function getTechnicalSeoCategorySummary(websiteId: string): Promise
 
   const { data: analysis } = await supabase
     .from('crawl_analyses')
-    .select('health_score, findings_count, completed_at, analyzer_version')
+    .select('health_score, findings_count, completed_at, analyzer_version, coverage')
     .eq('crawl_run_id', crawlRun.id)
     .eq('analyzer_version', ANALYZER_VERSION)
     .maybeSingle()

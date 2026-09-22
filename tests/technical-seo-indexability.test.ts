@@ -60,4 +60,39 @@ describe('analyzeIndexability', () => {
     const evidence = makeEvidence({ pages: [makePage({ url: 'https://example.com/', noindex: false, robots_allowed: true })] })
     expect(analyzeIndexability(evidence, contextFor(evidence))).toEqual([])
   })
+
+  /**
+   * REGRESSION (evidence-aware health scoring, 2026-09-22) — a real
+   * customer's crawl had its homepage blocked (HTTP 403, almost certainly a
+   * firewall/WAF challenge page), and that BLOCK PAGE's own noindex tag was
+   * reported as "your important homepage is not indexable." `status ===
+   * 'completed'` never implies a 2xx response — these prove the fix: a
+   * non-2xx "completed" page's noindex/robots signals can no longer produce
+   * ANY indexability finding, confirmed vs. depth===0 real homepage
+   * BLOCK-PAGE NOINDEX MUST NOT BECOME CONFIRMED HOMEPAGE NOINDEX).
+   */
+  it('BLOCK-PAGE NOINDEX MUST NOT BECOME CONFIRMED HOMEPAGE NOINDEX: a 403 homepage response carrying noindex produces NO indexability finding at all', () => {
+    const blockedHomepage = makePage({ url: 'https://example.com/', depth: 0, http_status: 403, noindex: true })
+    const evidence = makeEvidence({ pages: [blockedHomepage] })
+    const findings = analyzeIndexability(evidence, contextFor(evidence))
+    expect(findings).toEqual([])
+  })
+
+  it('a blocked (5xx) page with noindex+robots-blocked produces no conflicting-signals finding either', () => {
+    const blocked = makePage({ url: 'https://example.com/', depth: 0, http_status: 503, noindex: true, robots_allowed: false })
+    const evidence = makeEvidence({ pages: [blocked] })
+    expect(analyzeIndexability(evidence, contextFor(evidence))).toEqual([])
+  })
+
+  it('a blocked page with no noindex signal still does not produce indexable_page_blocked_by_robots — it was never successfully fetched as real content', () => {
+    const blocked = makePage({ url: 'https://example.com/blocked', http_status: 429, noindex: false, robots_allowed: false })
+    const evidence = makeEvidence({ pages: [blocked] })
+    expect(analyzeIndexability(evidence, contextFor(evidence))).toEqual([])
+  })
+
+  it('a genuinely successful (2xx) noindex homepage IS still flagged — the fix narrows evidence, it does not silence real findings', () => {
+    const homepage = makePage({ url: 'https://example.com/', depth: 0, http_status: 200, noindex: true })
+    const evidence = makeEvidence({ pages: [homepage] })
+    expect(analyzeIndexability(evidence, contextFor(evidence)).find((f) => f.checkKey === 'important_page_non_indexable')).toBeDefined()
+  })
 })

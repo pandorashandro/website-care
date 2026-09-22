@@ -1,4 +1,6 @@
 import type { Severity, Confidence, Actionability, ImpactLevel, RemediationType, StateValue, RawFindingPageEvidence } from '@/lib/category-engine/types'
+import type { CrawlAnalysisRow } from '@/lib/technical-seo/types'
+import type { PillarCoverage } from './coverage'
 
 export type { Severity, Confidence, Actionability, ImpactLevel, RemediationType, StateValue, RawFindingPageEvidence }
 
@@ -111,6 +113,14 @@ export type PillarFindingPageRow = {
   remediation_type: RemediationType | null
   detail: Record<string, unknown> | null
 }
+
+/**
+ * Evidence-aware health scoring (2026-09-22) — mirrors lib/on-page/types.ts's
+ * own `OnPageAnalysisRow` pattern: `coverage` is read from crawl_analyses'
+ * existing generic, nullable column (see lib/pillars/coverage.ts's own doc
+ * comment). NULL for every analysis persisted before this fix shipped.
+ */
+export type PillarAnalysisRow = CrawlAnalysisRow & { coverage: PillarCoverage | null }
 
 export const PERFORMANCE_ANALYZER_VERSION = 'performance-v1'
 export const ACCESSIBILITY_ANALYZER_VERSION = 'accessibility-v1'

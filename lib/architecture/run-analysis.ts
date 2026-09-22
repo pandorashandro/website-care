@@ -12,9 +12,9 @@ import { analyzeSiteWideConsistency } from './checks/site-wide'
 import { analyzeLinkOpportunities } from './link-opportunities'
 import { aggregateFindings } from './aggregate'
 import { calculateArchitectureHealth, type ArchitectureHealth } from './health'
+import { computeArchitectureCoverage, type ArchitectureCoverage } from './coverage'
 import { ANALYZER_VERSION } from './types'
-import type { RawFinding, AggregatedFinding } from './types'
-import type { CrawlAnalysisRow } from '@/lib/technical-seo/types'
+import type { RawFinding, AggregatedFinding, ArchitectureAnalysisRow } from './types'
 
 /**
  * Phase 27 — the Site Architecture analysis engine's orchestration entry
@@ -31,7 +31,7 @@ import type { CrawlAnalysisRow } from '@/lib/technical-seo/types'
  */
 
 export type AnalyzeArchitectureResult =
-  | { ok: true; analysis: CrawlAnalysisRow; findings: AggregatedFinding[]; health: ArchitectureHealth }
+  | { ok: true; analysis: ArchitectureAnalysisRow; findings: AggregatedFinding[]; health: ArchitectureHealth; coverage: ArchitectureCoverage }
   | { ok: false; error: string }
 
 const ANALYZABLE_CRAWL_STATUSES = new Set(['completed', 'partial'])
@@ -95,13 +95,17 @@ export async function analyzeArchitecture(store: ArchitectureStore, crawlRunId: 
     context.totalAnalyzedPages
   )
 
+  // Evidence-aware health scoring (2026-09-22) — see lib/architecture/coverage.ts.
+  const coverage = computeArchitectureCoverage(evidence.pages, context.totalAnalyzedPages)
+
   const analysis = await store.saveAnalysis({
     crawlRunId,
     websiteId: evidence.crawlRun.website_id,
     analyzerVersion: ANALYZER_VERSION,
     findings: aggregated,
     healthScore: health.score,
+    coverage,
   })
 
-  return { ok: true, analysis, findings: aggregated, health }
+  return { ok: true, analysis, findings: aggregated, health, coverage }
 }

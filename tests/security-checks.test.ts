@@ -20,6 +20,26 @@ describe('Security checks', () => {
     expect(analyzeNotUsingHttps(pillarContextFor([page]))).toEqual([])
   })
 
+  /**
+   * Evidence-aware health scoring (2026-09-22) — item 10's specific ask:
+   * "some security checks may have valid evidence even when page content
+   * is blocked, such as certain HTTPS/header observations." Whether a page
+   * loaded over HTTP is derivable from the URL/response alone, so it
+   * remains real evidence even for a page that failed On-Page/Architecture/
+   * Performance/Accessibility's own eligibility gate (non-2xx status).
+   */
+  it('REGRESSION — a blocked (403, ineligible) HTTP page is STILL flagged — the fact survives eligibility exclusion', () => {
+    const blocked = makePage({ url: 'http://example.com/', http_status: 403, security_evidence: { isHttps: false } })
+    const finding = analyzeNotUsingHttps(pillarContextFor([blocked]))[0]
+    expect(finding).toBeDefined()
+    expect(finding.affectedPages.map((p) => p.url)).toEqual(['http://example.com/'])
+  })
+
+  it('a blocked (403, ineligible) HTTPS page is correctly NOT flagged', () => {
+    const blocked = makePage({ url: 'https://example.com/', http_status: 403, security_evidence: { isHttps: true } })
+    expect(analyzeNotUsingHttps(pillarContextFor([blocked]))).toEqual([])
+  })
+
   it('flags mixed content references', () => {
     const page = makePage({ url: 'https://example.com/a', security_evidence: { isHttps: true, mixedContentCount: 2 } })
     expect(analyzeMixedContent(pillarContextFor([page]))).toHaveLength(1)

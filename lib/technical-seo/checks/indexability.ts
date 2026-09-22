@@ -2,16 +2,30 @@ import type { CrawlEvidence } from '../evidence'
 import { isImportantPage } from '../evidence'
 import type { AnalyzerContext } from '../context'
 import type { RawFinding } from '../types'
+import { isSuccessfulHtmlFetch } from '@/lib/category-engine/eligibility'
 
 /**
  * Phase 26, Category B — indexability. Every claim here is scoped to
  * "according to this crawl's own signals" — never "not indexed by Google,"
  * which would require GSC evidence this phase deliberately does not have
  * (out of scope; see the phase's DO NOT BUILD list).
+ *
+ * Evidence-aware health scoring fix (2026-09-22): a real customer's crawl
+ * had its homepage blocked (HTTP 403 from what was almost certainly a
+ * firewall/WAF challenge page), and that BLOCK PAGE'S OWN noindex tag was
+ * being reported as "your important homepage is not indexable" — a real,
+ * unguarded correctness bug. `page.status === 'completed'` never implies a
+ * 2xx response (see lib/scanner/checks.ts's fetchPage doc comment: "ok:
+ * true means a real HTTP response was obtained — including error statuses
+ * like 404/403/5xx"), so this now filters on `isSuccessfulHtmlFetch`
+ * instead — the SAME 2xx-HTML gate every other engine's eligibility
+ * predicate already requires. A noindex tag can only be attributed to a
+ * page once webioom has confirmed it actually reached that page's real
+ * content, not a firewall's block/challenge response.
  */
 export function analyzeIndexability(evidence: CrawlEvidence, context: AnalyzerContext): RawFinding[] {
   const findings: RawFinding[] = []
-  const completed = evidence.pages.filter((page) => page.status === 'completed')
+  const completed = evidence.pages.filter(isSuccessfulHtmlFetch)
 
   const noindexPages = completed.filter((page) => page.noindex === true)
   if (noindexPages.length > 0) {
@@ -30,9 +44,9 @@ export function analyzeIndexability(evidence: CrawlEvidence, context: AnalyzerCo
     })
   }
 
-  const blockedButOtherwiseIndexable = completed.filter(
-    (page) => page.robots_allowed === false && page.noindex !== true && (page.http_status === null || (page.http_status >= 200 && page.http_status < 300))
-  )
+  // `completed` already guarantees a 2xx HTML fetch (isSuccessfulHtmlFetch) —
+  // no separate http_status check needed here anymore.
+  const blockedButOtherwiseIndexable = completed.filter((page) => page.robots_allowed === false && page.noindex !== true)
   if (blockedButOtherwiseIndexable.length > 0) {
     findings.push({
       checkKey: 'indexable_page_blocked_by_robots',

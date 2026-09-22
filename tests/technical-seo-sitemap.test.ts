@@ -17,6 +17,22 @@ describe('analyzeSitemap', () => {
     expect(findings[0].checkKey).toBe('sitemap_unavailable')
   })
 
+  /**
+   * REGRESSION (evidence-aware health scoring, 2026-09-22) — item 21's
+   * exact required fixture: "sitemap unknown due access failure must NOT
+   * become confirmed missing sitemap." `sitemap_status: 'unreachable'`
+   * means the FETCH failed (e.g. the same firewall/WAF blocking the whole
+   * crawl) — it does not mean webioom confirmed there is no sitemap.
+   */
+  it('an unreachable sitemap is worded as uncertainty, never a confirmed absence', () => {
+    const evidence = makeEvidence({ crawlRun: { sitemap_status: 'unreachable' }, pages: [makePage({ url: 'https://example.com/' })] })
+    const finding = analyzeSitemap(evidence, contextFor(evidence))[0]
+    expect(finding.title.toLowerCase()).not.toContain('no xml sitemap')
+    expect(finding.title.toLowerCase()).not.toMatch(/no sitemap (was )?found/)
+    expect(finding.title.toLowerCase()).toContain("couldn't confirm")
+    expect(finding.explanation.toLowerCase()).toContain('does not necessarily mean')
+  })
+
   it('flags a sitemap that was reachable but had no usable URLs', () => {
     const evidence = makeEvidence({ crawlRun: { sitemap_status: 'empty' }, pages: [makePage({ url: 'https://example.com/' })] })
     const findings = analyzeSitemap(evidence, contextFor(evidence))

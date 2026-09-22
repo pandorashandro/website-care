@@ -21,6 +21,7 @@ export type {
   RawFindingPageEvidence,
 } from '@/lib/category-engine/types'
 import type { Actionability, ImpactLevel, RemediationType, StateValue, RawFindingPageEvidence, Severity, Confidence } from '@/lib/category-engine/types'
+import type { TechnicalSeoCoverage } from './coverage'
 
 export type FindingCategory =
   | 'crawlability'
@@ -200,6 +201,15 @@ export type CrawlAnalysisRow = {
 }
 
 /**
+ * Evidence-aware health scoring (2026-09-22) — mirrors lib/on-page/types.ts's
+ * own `OnPageAnalysisRow` pattern exactly: `coverage` is read from
+ * crawl_analyses' existing generic, nullable column (see
+ * lib/technical-seo/coverage.ts's own doc comment). NULL for every analysis
+ * persisted before this fix shipped.
+ */
+export type TechnicalSeoAnalysisRow = CrawlAnalysisRow & { coverage: TechnicalSeoCoverage | null }
+
+/**
  * The current analyzer's version tag — bumping this gives a re-analysis a
  * fresh crawl_analyses row (and fresh findings) instead of overwriting the
  * previous version's results, per the migration's own
@@ -208,5 +218,20 @@ export type CrawlAnalysisRow = {
  * fields, new checks) — a 26A-analyzer-version row and its findings are
  * left untouched (never migrated in place — see the Phase 26B migration's
  * own comment), and simply stop being the one the product reads.
+ *
+ * NOT bumped for the evidence-aware health scoring fix (2026-09-22), a
+ * deliberate decision: that fix (a) narrowed indexability/structured-data/
+ * hreflang to require `isSuccessfulHtmlFetch` instead of merely
+ * `status === 'completed'`, which changes results ONLY for a crawl that
+ * includes a blocked/non-2xx "completed" page — a no-op for the vast
+ * majority of already-healthy crawls — and (b) added a `coverage` record
+ * alongside the SAME health-score formula, not a new one. A version bump
+ * would force every website's Technical SEO history to look "un-analyzed"
+ * until re-run, which is a much blunter instrument than this actually
+ * needs. The real cross-scan comparability risk this fix addresses (a
+ * previously-accessible site suddenly returning thin/blocked evidence) is
+ * instead handled precisely, per comparison, by monitoring's new
+ * `PillarCoverage: 'insufficient_data'` state (lib/monitoring/types.ts) —
+ * see app/dashboard/websites/[id]/scan-history.ts's fetchPillarSnapshot.
  */
 export const ANALYZER_VERSION = 'technical-v2'

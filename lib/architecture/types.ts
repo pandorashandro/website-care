@@ -1,4 +1,6 @@
 import type { Severity, Confidence, Actionability, ImpactLevel, RemediationType, StateValue, RawFindingPageEvidence } from '@/lib/category-engine/types'
+import type { CrawlAnalysisRow } from '@/lib/technical-seo/types'
+import type { ArchitectureCoverage } from './coverage'
 
 export type { Severity, Confidence, Actionability, ImpactLevel, RemediationType, StateValue, RawFindingPageEvidence }
 
@@ -163,3 +165,11 @@ export type ArchitectureFindingPageRow = {
  * corrected eligibility model.
  */
 export const ANALYZER_VERSION = 'site-architecture-v3'
+
+/**
+ * Evidence-aware health scoring (2026-09-22) — mirrors lib/on-page/types.ts's
+ * own `OnPageAnalysisRow` pattern: `coverage` is read from crawl_analyses'
+ * existing generic, nullable column (see lib/architecture/coverage.ts's own
+ * doc comment). NULL for every analysis persisted before this fix shipped.
+ */
+export type ArchitectureAnalysisRow = CrawlAnalysisRow & { coverage: ArchitectureCoverage | null }
