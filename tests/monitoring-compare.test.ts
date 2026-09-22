@@ -192,6 +192,34 @@ describe('buildChangeSummary — finding classification', () => {
     expect(summary.counts.resolved).toBe(0)
   })
 
+  /**
+   * Blocked-crawl Technical SEO correction (2026-09-22, follow-up): a
+   * website that was previously accessible to webioom (real Technical SEO
+   * findings, real score) suddenly starts returning 403 to every request
+   * (a firewall/bot-protection rule). Technical SEO's own coverage now
+   * resolves to 'none' → CategorySummary.status 'not_analyzed' for that
+   * scan (see technical-seo-summary.ts / lib/technical-seo/coverage.ts) —
+   * which flows into monitoring exactly like ANY other not-analyzed
+   * pillar: this test names that specific real-world transition
+   * explicitly, on top of the already-generic coverage above.
+   */
+  it("BLOCKED-CRAWL TRANSITION — a website accessible last scan (real Technical SEO findings/score) that becomes blocked this scan reports its previous findings as UNVERIFIED, never falsely RESOLVED, and its score as not_comparable, never a fabricated collapse", () => {
+    const finding = makeFinding({ pillar: 'technical_seo', checkKey: 'internal_page_4xx', scope: 'page' })
+    const previous = makeSnapshot({ crawlRunId: 'run-1', pillarOverrides: { technical_seo: { coverage: 'analyzed', healthScore: 92, findings: [finding] } } })
+    const current = makeSnapshot({ crawlRunId: 'run-2', pillarOverrides: { technical_seo: { coverage: 'not_analyzed', healthScore: null, findings: [] } } })
+
+    const summary = buildChangeSummary(previous, current)
+
+    // Never "Fixed!" — webioom simply couldn't check this time.
+    expect(summary.counts.resolved).toBe(0)
+    expect(summary.counts.unverified).toBe(1)
+
+    // Never a fabricated "Technical SEO collapsed from 92 to null" delta.
+    const technicalSeoDelta = summary.pillarDeltas.find((d) => d.pillar === 'technical_seo')
+    expect(technicalSeoDelta?.comparability).toBe('not_comparable')
+    expect(technicalSeoDelta?.delta).toBeNull()
+  })
+
   it('a site-scoped finding IS correctly resolved when its pillar WAS analyzed again and the fact is simply gone', () => {
     const finding = makeFinding({ pillar: 'security', checkKey: 'not_using_https', scope: 'site' })
     const previous = makeSnapshot({ crawlRunId: 'run-1', pillarOverrides: { security: { findings: [finding] } } })

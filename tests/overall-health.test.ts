@@ -16,6 +16,34 @@ describe('computeOverallWebsiteHealth', () => {
     expect(result.totalCanonicalCategories).toBe(2)
   })
 
+  /**
+   * Blocked-crawl Technical SEO correction (2026-09-22, follow-up): before
+   * this fix, a blocked crawl left Technical SEO as the ONE "analyzed"
+   * category (a fabricated ~76 built from three consequences of the same
+   * access-denial event), so Overall Website Health showed "Partial: 76"
+   * even though webioom had genuinely verified NOTHING about the site. Now
+   * that Technical SEO also reports not_analyzed for a blocked/fetch-failed
+   * crawl (see technical-seo-summary.ts), all seven canonical categories
+   * are not_analyzed together, and this is the SAME "zero contributors"
+   * case already covered above — named explicitly here for direct
+   * traceability to the reported scenario.
+   */
+  it('REGRESSION — a fully blocked crawl (Technical SEO now correctly not_analyzed alongside the other six) reports Overall Website Health as unavailable (null), never a "Partial" score anchored on one mis-scored pillar', () => {
+    const technicalSeo: CategorySummary = { ...NOT_ANALYZED, categoryKey: 'technical_seo' }
+    const onPageSeo: CategorySummary = { ...NOT_ANALYZED, categoryKey: 'on_page_seo' }
+    const siteArchitecture: CategorySummary = { ...NOT_ANALYZED, categoryKey: 'site_architecture' }
+    const content: CategorySummary = { ...NOT_ANALYZED, categoryKey: 'content' }
+    const performance: CategorySummary = { ...NOT_ANALYZED, categoryKey: 'performance' }
+    const accessibility: CategorySummary = { ...NOT_ANALYZED, categoryKey: 'accessibility' }
+    const security: CategorySummary = { ...NOT_ANALYZED, categoryKey: 'security' }
+
+    const result = computeOverallWebsiteHealth([technicalSeo, onPageSeo, siteArchitecture, content, performance, accessibility, security])
+    expect(result.score).toBeNull()
+    expect(result.contributingCategoryCount).toBe(0)
+    expect(result.totalCanonicalCategories).toBe(7)
+    expect(isOverallHealthPartial(result)).toBe(false) // null score is "unavailable," a distinct state from "partial"
+  })
+
   it('is the plain unweighted mean of every analyzed category score', () => {
     const result = computeOverallWebsiteHealth([summary({ score: 80 }), summary({ score: 60 }), summary({ score: 100 })])
     expect(result.score).toBe(80)

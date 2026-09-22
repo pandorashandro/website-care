@@ -15,8 +15,9 @@ import { analyzeSiteWideConsistency } from './checks/site-wide'
 import { aggregateFindings } from './aggregate'
 import { calculateTechnicalSeoHealth, type TechnicalSeoHealth } from './health'
 import { computeTechnicalSeoCoverage, type TechnicalSeoCoverage } from './coverage'
+import { computeSiteAccessState } from '@/lib/category-engine/site-access'
 import { ANALYZER_VERSION } from './types'
-import type { RawFinding, AggregatedFinding, TechnicalSeoAnalysisRow } from './types'
+import type { RawFinding, AggregatedFinding, TechnicalSeoAnalysisRow, CheckKey } from './types'
 
 /**
  * Phase 26, Checkpoint 3/9 — the analysis engine's orchestration entry
@@ -43,6 +44,23 @@ export type AnalyzeTechnicalSeoResult =
 const ANALYZABLE_CRAWL_STATUSES = new Set(['completed', 'partial'])
 
 type Analyzer = (evidence: CrawlEvidence, context: AnalyzerContext) => RawFinding[]
+
+/**
+ * Founder-verified correction (2026-09-22, follow-up): when
+ * `computeSiteAccessState()` reports the ENTIRE crawl was blocked or
+ * fetch-failed (e.g. every request, including robots.txt/sitemap.xml, hit
+ * the same firewall/bot-protection rule), these four checkKeys stop being
+ * independent, confirmed website defects — they are three-to-four symptoms
+ * of ONE underlying access-denial event, and scoring all of them
+ * independently triple-penalizes a website for webioom's own inability to
+ * get in. An ISOLATED 4xx/5xx on an otherwise-accessible or
+ * partially-accessible crawl (computeSiteAccessState !== 'blocked' &&
+ * !== 'fetch_failed') is UNAFFECTED by this filter and continues to score
+ * normally — this is a narrow, evidence-gated suppression, not a general
+ * "hide errors" rule. See lib/technical-seo/coverage.ts's own doc comment
+ * for the matching coverage-level correction.
+ */
+const SUPPRESSED_ON_BLOCKED_ACCESS: ReadonlySet<CheckKey> = new Set(['internal_page_4xx', 'internal_page_5xx', 'robots_unreachable', 'sitemap_unavailable'])
 
 const ANALYZERS: Analyzer[] = [
   (evidence) => analyzeCrawlability(evidence),
@@ -97,14 +115,40 @@ export async function analyzeTechnicalSeo(store: TechnicalSeoStore, crawlRunId: 
     }
   }
 
-  const aggregated = aggregateFindings(rawFindings, context.totalAnalyzedPages)
+  // Founder-verified correction (2026-09-22, follow-up) — see
+  // SUPPRESSED_ON_BLOCKED_ACCESS's own doc comment. Filtering here, once,
+  // before aggregation/scoring/persistence, is what stops these findings
+  // from EVER reaching technical_findings — so they can never surface via
+  // Fix These First either, without Fix These First needing to know
+  // anything about site-access state itself.
+  //
+  // Wrapped in the SAME per-step isolation guarantee as the analyzer loop
+  // above: malformed page evidence (e.g. a getter that throws) must not
+  // crash the whole analysis just because THIS one classification step
+  // touched it — failing open to 'accessible' (never suppress) is the safe
+  // default, since suppressing findings on a classification we couldn't
+  // trust would risk hiding genuine evidence.
+  let siteAccessState: ReturnType<typeof computeSiteAccessState> = 'accessible'
+  try {
+    siteAccessState = computeSiteAccessState(evidence.pages)
+  } catch {
+    // Isolation — see comment above.
+  }
+  const eligibleFindings =
+    siteAccessState === 'blocked' || siteAccessState === 'fetch_failed'
+      ? rawFindings.filter((finding) => !SUPPRESSED_ON_BLOCKED_ACCESS.has(finding.checkKey))
+      : rawFindings
+
+  const aggregated = aggregateFindings(eligibleFindings, context.totalAnalyzedPages)
   const health = calculateTechnicalSeoHealth(
     aggregated.map((finding) => ({ severity: finding.severity, confidence: finding.confidence, scope: finding.scope, affectedPageCount: finding.affectedPageCount })),
     context.totalAnalyzedPages
   )
 
   // Evidence-aware health scoring (2026-09-22) — see lib/technical-seo/coverage.ts.
-  const coverage = computeTechnicalSeoCoverage(evidence.pages, evidence.crawlRun)
+  // Passes the ALREADY-computed (and isolation-guarded) siteAccessState
+  // through rather than letting this recompute it a second time.
+  const coverage = computeTechnicalSeoCoverage(evidence.pages, evidence.crawlRun, siteAccessState)
 
   const analysis = await store.saveAnalysis({
     crawlRunId,

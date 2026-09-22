@@ -99,7 +99,7 @@ describe('buildTechnicalSeoCategorySummary (Phase 26B correction)', () => {
         findings_count: 0,
         completed_at: '2026-02-01T12:00:00Z',
         analyzer_version: 'technical-v2',
-        coverage: { eligiblePageCount: 0, completedPageCount: 0, robotsStatus: null, sitemapStatus: null, level: 'none' },
+        coverage: { eligiblePageCount: 0, completedPageCount: 0, robotsStatus: null, sitemapStatus: null, siteAccessState: 'fetch_failed', level: 'none' },
       }
     )
     expect(summary.status).toBe('not_analyzed')
@@ -114,7 +114,7 @@ describe('buildTechnicalSeoCategorySummary (Phase 26B correction)', () => {
         findings_count: 1,
         completed_at: '2026-02-01T12:00:00Z',
         analyzer_version: 'technical-v2',
-        coverage: { eligiblePageCount: 0, completedPageCount: 1, robotsStatus: 'ok', sitemapStatus: 'ok', level: 'low' },
+        coverage: { eligiblePageCount: 0, completedPageCount: 1, robotsStatus: 'ok', sitemapStatus: 'ok', siteAccessState: 'insufficient_content', level: 'low' },
       }
     )
     expect(summary.status).toBe('analyzed')
