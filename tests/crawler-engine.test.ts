@@ -497,6 +497,97 @@ describe('processCrawlBatch — persistence, discovery, duplicate prevention, fi
   })
 })
 
+describe('engine hardening — a scan must always terminate, never remain stuck (2026-09-24)', () => {
+  it('a crawl where every attempted page fails is marked "failed", not "completed" — zero successfully fetched evidence must never be reported as a completed audit', async () => {
+    vi.mocked(fetchPage).mockResolvedValue({ ok: false as const, reason: 'network' as const })
+
+    const store = createFakeCrawlStore()
+    const { crawlRun } = await startCrawlRun(store, 'website-1', 'https://example.com/')
+    const outcome = await processCrawlBatch(store, crawlRun.id)
+
+    expect(outcome.status).toBe('failed')
+    const finalRun = await store.getCrawlRun(crawlRun.id)
+    expect(finalRun?.status).toBe('failed')
+    expect(finalRun?.pages_succeeded).toBe(0)
+    expect(finalRun?.failure_summary).toMatch(/could not successfully fetch/i)
+  })
+
+  it('a fundamentally unreachable site (every page fails) is failed FAST — it does not grind through its entire page budget one identical failure at a time', async () => {
+    vi.mocked(fetchPage).mockResolvedValue({ ok: false as const, reason: 'network' as const })
+
+    const store = createFakeCrawlStore()
+    const { crawlRun } = await startCrawlRun(store, 'website-1', 'https://example.com/', { requestedPageBudget: 50 })
+    // Pre-seed several more queued pages directly (a real unreachable site
+    // never gets far enough into link discovery to enqueue any of these
+    // itself — this simulates the sitemap-discovery seeding startCrawlRun
+    // itself already performs, so more than BATCH_SIZE work exists up
+    // front for a single processCrawlBatch invocation to grind through).
+    await store.upsertQueuedPages(
+      Array.from({ length: 9 }, (_, i) => ({
+        crawlRunId: crawlRun.id,
+        websiteId: 'website-1',
+        url: `https://example.com/page-${i}`,
+        discoveredUrl: null,
+        depth: 1,
+        discoveredVia: 'sitemap' as const,
+      }))
+    )
+
+    const outcome = await processCrawlBatch(store, crawlRun.id)
+
+    expect(outcome.status).toBe('failed')
+    const finalRun = await store.getCrawlRun(crawlRun.id)
+    expect(finalRun?.pages_succeeded).toBe(0)
+    // 10 pages were queued (1 seed + 9 pre-seeded) against a budget of 50 —
+    // if the engine had ground through the whole frontier before noticing
+    // the site was unreachable, pages_failed would be 10. The fast-fail
+    // must have stopped it at the unreachable-abort threshold instead.
+    expect(finalRun!.pages_failed).toBeLessThan(10)
+    expect(store._pages.some((p) => p.status === 'skipped' && p.error_reason === 'crawl_site_presumed_unreachable')).toBe(true)
+  })
+
+  it('a crawl run that went stale (its driving browser tab disappeared) is terminated the next time anything touches it, instead of being handed a fresh wall-clock budget forever', async () => {
+    vi.mocked(fetchPage).mockResolvedValue(htmlResult('<title>leaf</title>', { finalUrl: 'https://example.com/' }))
+
+    const store = createFakeCrawlStore()
+    const { crawlRun } = await startCrawlRun(store, 'website-1', 'https://example.com/')
+
+    // Simulate a run that started, made some progress, then was abandoned
+    // (the tab closed) well past MAX_CRAWL_RUN_AGE_MINUTES ago.
+    const staleStartedAt = new Date(Date.now() - 60 * 60_000).toISOString()
+    await store.updateCrawlRun(crawlRun.id, { status: 'running', started_at: staleStartedAt })
+    // One page already succeeded before abandonment, so this must resolve
+    // as a genuine partial result, not a zero-evidence failure.
+    await store.upsertQueuedPages([
+      { crawlRunId: crawlRun.id, websiteId: 'website-1', url: 'https://example.com/', discoveredUrl: null, depth: 0, discoveredVia: 'seed' },
+    ])
+    const seedPage = store._pages.find((p) => p.url === 'https://example.com/')!
+    seedPage.status = 'completed'
+
+    const outcome = await processCrawlBatch(store, crawlRun.id)
+
+    expect(outcome.status).toBe('partial')
+    expect(outcome.pagesProcessedThisInvocation).toBe(0) // no NEW work was ever claimed — the timeout check runs before claiming
+    const finalRun = await store.getCrawlRun(crawlRun.id)
+    expect(finalRun?.status).toBe('partial')
+    expect(finalRun?.completed_at).not.toBeNull()
+  })
+
+  it('an unexpected error from the store layer itself (not a single page fetch) marks the run "failed" instead of leaving it silently stuck in "running"', async () => {
+    vi.mocked(fetchPage).mockResolvedValue(htmlResult('<title>Home</title>', { finalUrl: 'https://example.com/' }))
+
+    const store = createFakeCrawlStore()
+    const { crawlRun } = await startCrawlRun(store, 'website-1', 'https://example.com/')
+    store._failNextClaimPages = true
+
+    await expect(processCrawlBatch(store, crawlRun.id)).rejects.toThrow()
+
+    const finalRun = await store.getCrawlRun(crawlRun.id)
+    expect(finalRun?.status).toBe('failed')
+    expect(finalRun?.failure_summary).toMatch(/unexpected error/i)
+  })
+})
+
 describe('resumability', () => {
   beforeEach(() => {
     vi.mocked(fetchPage).mockReset()

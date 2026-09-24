@@ -6,7 +6,18 @@ import { extractContentEvidence } from './content-extract'
 import { extractPerformanceEvidence, extractAccessibilityEvidence, extractSecurityEvidence, emptyPerformanceEvidence, emptyAccessibilityEvidence, emptySecurityEvidence } from './pillar-extract'
 import { fetchRobotsRules, isPathAllowed, type RobotsRules } from './robots'
 import { discoverSitemapUrls } from './sitemap'
-import { clampPageBudget, clampDepth, BATCH_SIZE, BATCH_WALL_CLOCK_BUDGET_MS, STALE_CLAIM_MINUTES, MAX_LINKS_PER_PAGE, BUDGET_SKIP_REASON } from './limits'
+import {
+  clampPageBudget,
+  clampDepth,
+  BATCH_SIZE,
+  BATCH_WALL_CLOCK_BUDGET_MS,
+  STALE_CLAIM_MINUTES,
+  MAX_LINKS_PER_PAGE,
+  BUDGET_SKIP_REASON,
+  UNREACHABLE_SKIP_REASON,
+  isCrawlRunTimedOut,
+  isCrawlPresumedUnreachable,
+} from './limits'
 import type { CrawlStore } from './store'
 import type { CrawlRunRow, CrawlRunStatus, CrawlPageRow, CrawlLinkInsert, DiscoveredUrl } from './types'
 
@@ -332,6 +343,28 @@ export type ProcessCrawlBatchOptions = {
   batchWallClockBudgetMs?: number
 }
 
+/**
+ * Engine-hardening pass (2026-09-24): the one place every natural
+ * completion path (budget-reached, frontier-exhausted, timed-out,
+ * presumed-unreachable) funnels through to decide the run's terminal
+ * status — never `'completed'` or `'partial'` when literally nothing was
+ * ever successfully fetched, because a scan that produced zero usable
+ * evidence was not meaningfully audited, whatever its page-accounting
+ * otherwise looks like (see the "CRAWL RELIABILITY" product requirement:
+ * "If the site cannot be meaningfully audited, fail the scan rather than
+ * inventing a score"). A zero-evidence run gets an explicit,
+ * customer-legible `failure_summary` instead of a bare status change.
+ */
+function resolveTerminalStatus(candidateStatus: 'completed' | 'partial', counts: { pagesSucceeded: number }): { status: CrawlRunStatus; failureSummary: string | null } {
+  if (counts.pagesSucceeded === 0) {
+    return {
+      status: 'failed',
+      failureSummary: 'webioom could not successfully fetch any page from this website. It may be offline, blocking automated requests, or misconfigured.',
+    }
+  }
+  return { status: candidateStatus, failureSummary: null }
+}
+
 export async function processCrawlBatch(store: CrawlStore, crawlRunId: string, options?: ProcessCrawlBatchOptions): Promise<BatchOutcome> {
   const wallClockBudgetMs = options?.batchWallClockBudgetMs ?? BATCH_WALL_CLOCK_BUDGET_MS
   const crawlRun = await store.getCrawlRun(crawlRunId)
@@ -341,98 +374,24 @@ export async function processCrawlBatch(store: CrawlStore, crawlRunId: string, o
     return { done: true, status: crawlRun.status, pagesProcessedThisInvocation: 0 }
   }
 
+  let startedAt = crawlRun.started_at
   if (crawlRun.status === 'queued') {
-    await store.updateCrawlRun(crawlRunId, { status: 'running', started_at: new Date().toISOString() })
+    startedAt = new Date().toISOString()
+    await store.updateCrawlRun(crawlRunId, { status: 'running', started_at: startedAt })
   }
 
-  // Phase 25B: fresh, authoritative counts — see CrawlStore.recomputeCrawlRunCounts'
-  // own doc comment for why this replaces locally-accumulated counters.
-  // Never trusts `crawlRun.pages_processed` itself for the budget check
-  // below, since a concurrent invocation of this same function (a
-  // double-clicked "Continue Scan", a retried request) may have already
-  // advanced it since the `getCrawlRun` call above.
-  let counts = await store.recomputeCrawlRunCounts(crawlRunId)
-
-  const batchStartedAt = Date.now()
-  let processedThisInvocation = 0
-  let budgetReached = counts.pagesProcessed >= crawlRun.effective_page_budget
-  let robotsRules: RobotsRules | null = null
-  let robotsChecked = false
-
-  while (!budgetReached && Date.now() - batchStartedAt < wallClockBudgetMs) {
-    const remainingBudget = crawlRun.effective_page_budget - counts.pagesProcessed
-    if (remainingBudget <= 0) {
-      budgetReached = true
-      break
-    }
-
-    const claimed = await store.claimPages(crawlRunId, Math.min(BATCH_SIZE, remainingBudget), STALE_CLAIM_MINUTES)
-    if (claimed.length === 0) break
-
-    if (!robotsChecked) {
-      robotsChecked = true
-      const urlParts = safeUrlParts(claimed[0].url)
-      if (urlParts) {
-        const robotsResult = await fetchRobotsRules(urlParts.origin)
-        // fetchRobotsRules 'not_found'/'unreachable' both fail OPEN
-        // (null rules = isPathAllowed treats everything as allowed) —
-        // see fetchRobotsRules's own doc comment for why an unreachable
-        // robots.txt must never itself block an entire crawl.
-        robotsRules = robotsResult.ok ? robotsResult.rules : null
-      }
-    }
-
-    for (const page of claimed) {
-      try {
-        await processOnePage(store, page, crawlRun.max_depth, robotsRules)
-        processedThisInvocation++
-      } catch (err) {
-        // A persistence failure while processing ONE page must never look
-        // like a silent success, but it also must not abort the entire
-        // batch (see this function's own doc comment: "never throws for a
-        // single bad page"). Left uncaught, a single transient write error
-        // (e.g. a schema mismatch, a dropped connection) would previously
-        // have been swallowed inside the store methods themselves with no
-        // trace at all; now it is at minimum logged, and the page is left
-        // in its claimed 'processing' state so claimPages' own stale-reclaim
-        // picks it up again on a later invocation instead of it silently
-        // vanishing from the frontier.
-        console.error(`[crawler] processOnePage failed for page ${page.id} (${page.url}):`, err)
-      }
-    }
-
-    counts = await store.recomputeCrawlRunCounts(crawlRunId)
+  // Engine-hardening pass (2026-09-24): checked BEFORE claiming any work,
+  // so a run that went stale while nothing was driving it (the browser tab
+  // that was supposed to keep calling this function got closed) is
+  // terminated the instant anything next touches it, instead of being
+  // handed a fresh wall-clock budget and left running indefinitely. See
+  // MAX_CRAWL_RUN_AGE_MINUTES's own doc comment.
+  if (startedAt && isCrawlRunTimedOut({ started_at: startedAt, created_at: crawlRun.created_at })) {
+    const counts = await store.recomputeCrawlRunCounts(crawlRunId)
+    const { status, failureSummary } = resolveTerminalStatus('partial', counts)
     await store.updateCrawlRun(crawlRunId, {
-      pages_discovered: counts.pagesDiscovered,
-      pages_processed: counts.pagesProcessed,
-      pages_succeeded: counts.pagesSucceeded,
-      pages_failed: counts.pagesFailed,
-      pages_skipped: counts.pagesSkipped,
-    })
-
-    budgetReached = counts.pagesProcessed >= crawlRun.effective_page_budget
-  }
-
-  if (budgetReached) {
-    const skippedCount = await store.skipRemainingQueuedPages(crawlRunId, BUDGET_SKIP_REASON)
-    if (skippedCount > 0) counts = await store.recomputeCrawlRunCounts(crawlRunId)
-
-    // Reaching the budget is only a genuine PARTIAL result if something was
-    // actually left uncrawled because of it — either a still-queued page
-    // skipRemainingQueuedPages just cut off, or a page some other
-    // invocation still has claimed (`processing`) that this invocation is
-    // now forbidden from reclaiming (the while loop's own remainingBudget
-    // check above never lets it claim past the budget). When a site's
-    // total discoverable pages lands exactly ON the budget with nothing
-    // left in either state, the crawl covered everything there was —
-    // that is a completion, not a partial one, even though the same
-    // `pagesProcessed >= effective_page_budget` condition triggered this
-    // branch either way.
-    const stillHasUnprocessedWork = skippedCount > 0 || (await store.hasRemainingWork(crawlRunId, STALE_CLAIM_MINUTES))
-    const finalStatus: CrawlRunStatus = stillHasUnprocessedWork ? 'partial' : 'completed'
-
-    await store.updateCrawlRun(crawlRunId, {
-      status: finalStatus,
+      status,
+      failure_summary: failureSummary ?? (status === 'partial' ? 'The scan took too long to finish and was stopped with the evidence collected so far.' : null),
       completed_at: new Date().toISOString(),
       pages_discovered: counts.pagesDiscovered,
       pages_processed: counts.pagesProcessed,
@@ -440,16 +399,158 @@ export async function processCrawlBatch(store: CrawlStore, crawlRunId: string, o
       pages_failed: counts.pagesFailed,
       pages_skipped: counts.pagesSkipped,
     })
-
-    return { done: true, status: finalStatus, pagesProcessedThisInvocation: processedThisInvocation }
+    return { done: true, status, pagesProcessedThisInvocation: 0 }
   }
 
-  const stillHasWork = await store.hasRemainingWork(crawlRunId, STALE_CLAIM_MINUTES)
+  try {
+    // Phase 25B: fresh, authoritative counts — see CrawlStore.recomputeCrawlRunCounts'
+    // own doc comment for why this replaces locally-accumulated counters.
+    // Never trusts `crawlRun.pages_processed` itself for the budget check
+    // below, since a concurrent invocation of this same function (a
+    // double-clicked "Continue Scan", a retried request) may have already
+    // advanced it since the `getCrawlRun` call above.
+    let counts = await store.recomputeCrawlRunCounts(crawlRunId)
 
-  if (!stillHasWork) {
-    await store.updateCrawlRun(crawlRunId, { status: 'completed', completed_at: new Date().toISOString() })
-    return { done: true, status: 'completed', pagesProcessedThisInvocation: processedThisInvocation }
+    const batchStartedAt = Date.now()
+    let processedThisInvocation = 0
+    let budgetReached = counts.pagesProcessed >= crawlRun.effective_page_budget
+    let presumedUnreachable = isCrawlPresumedUnreachable(counts)
+    let robotsRules: RobotsRules | null = null
+    let robotsChecked = false
+
+    while (!budgetReached && !presumedUnreachable && Date.now() - batchStartedAt < wallClockBudgetMs) {
+      const remainingBudget = crawlRun.effective_page_budget - counts.pagesProcessed
+      if (remainingBudget <= 0) {
+        budgetReached = true
+        break
+      }
+
+      const claimed = await store.claimPages(crawlRunId, Math.min(BATCH_SIZE, remainingBudget), STALE_CLAIM_MINUTES)
+      if (claimed.length === 0) break
+
+      if (!robotsChecked) {
+        robotsChecked = true
+        const urlParts = safeUrlParts(claimed[0].url)
+        if (urlParts) {
+          const robotsResult = await fetchRobotsRules(urlParts.origin)
+          // fetchRobotsRules 'not_found'/'unreachable' both fail OPEN
+          // (null rules = isPathAllowed treats everything as allowed) —
+          // see fetchRobotsRules's own doc comment for why an unreachable
+          // robots.txt must never itself block an entire crawl.
+          robotsRules = robotsResult.ok ? robotsResult.rules : null
+        }
+      }
+
+      for (const page of claimed) {
+        try {
+          await processOnePage(store, page, crawlRun.max_depth, robotsRules)
+          processedThisInvocation++
+        } catch (err) {
+          // A persistence failure while processing ONE page must never look
+          // like a silent success, but it also must not abort the entire
+          // batch (see this function's own doc comment: "never throws for a
+          // single bad page"). Left uncaught, a single transient write error
+          // (e.g. a schema mismatch, a dropped connection) would previously
+          // have been swallowed inside the store methods themselves with no
+          // trace at all; now it is at minimum logged, and the page is left
+          // in its claimed 'processing' state so claimPages' own stale-reclaim
+          // picks it up again on a later invocation instead of it silently
+          // vanishing from the frontier.
+          console.error(`[crawler] processOnePage failed for page ${page.id} (${page.url}):`, err)
+        }
+      }
+
+      counts = await store.recomputeCrawlRunCounts(crawlRunId)
+      await store.updateCrawlRun(crawlRunId, {
+        pages_discovered: counts.pagesDiscovered,
+        pages_processed: counts.pagesProcessed,
+        pages_succeeded: counts.pagesSucceeded,
+        pages_failed: counts.pagesFailed,
+        pages_skipped: counts.pagesSkipped,
+      })
+
+      budgetReached = counts.pagesProcessed >= crawlRun.effective_page_budget
+      presumedUnreachable = isCrawlPresumedUnreachable(counts)
+    }
+
+    // Engine-hardening pass (2026-09-24): a presumed-unreachable site fails
+    // fast, on its OWN dedicated path — never routed through the
+    // budget/frontier logic below, since there is no point discovering
+    // "nothing left to claim" or "budget exhausted" for a site that has
+    // already shown it cannot be fetched at all.
+    if (presumedUnreachable) {
+      await store.skipRemainingQueuedPages(crawlRunId, UNREACHABLE_SKIP_REASON)
+      const finalCounts = await store.recomputeCrawlRunCounts(crawlRunId)
+      await store.updateCrawlRun(crawlRunId, {
+        status: 'failed',
+        failure_summary: 'webioom could not successfully fetch any page from this website. It may be offline, blocking automated requests, or misconfigured.',
+        completed_at: new Date().toISOString(),
+        pages_discovered: finalCounts.pagesDiscovered,
+        pages_processed: finalCounts.pagesProcessed,
+        pages_succeeded: finalCounts.pagesSucceeded,
+        pages_failed: finalCounts.pagesFailed,
+        pages_skipped: finalCounts.pagesSkipped,
+      })
+      return { done: true, status: 'failed', pagesProcessedThisInvocation: processedThisInvocation }
+    }
+
+    if (budgetReached) {
+      const skippedCount = await store.skipRemainingQueuedPages(crawlRunId, BUDGET_SKIP_REASON)
+      if (skippedCount > 0) counts = await store.recomputeCrawlRunCounts(crawlRunId)
+
+      // Reaching the budget is only a genuine PARTIAL result if something was
+      // actually left uncrawled because of it — either a still-queued page
+      // skipRemainingQueuedPages just cut off, or a page some other
+      // invocation still has claimed (`processing`) that this invocation is
+      // now forbidden from reclaiming (the while loop's own remainingBudget
+      // check above never lets it claim past the budget). When a site's
+      // total discoverable pages lands exactly ON the budget with nothing
+      // left in either state, the crawl covered everything there was —
+      // that is a completion, not a partial one, even though the same
+      // `pagesProcessed >= effective_page_budget` condition triggered this
+      // branch either way.
+      const stillHasUnprocessedWork = skippedCount > 0 || (await store.hasRemainingWork(crawlRunId, STALE_CLAIM_MINUTES))
+      const { status: finalStatus, failureSummary } = resolveTerminalStatus(stillHasUnprocessedWork ? 'partial' : 'completed', counts)
+
+      await store.updateCrawlRun(crawlRunId, {
+        status: finalStatus,
+        failure_summary: failureSummary,
+        completed_at: new Date().toISOString(),
+        pages_discovered: counts.pagesDiscovered,
+        pages_processed: counts.pagesProcessed,
+        pages_succeeded: counts.pagesSucceeded,
+        pages_failed: counts.pagesFailed,
+        pages_skipped: counts.pagesSkipped,
+      })
+
+      return { done: true, status: finalStatus, pagesProcessedThisInvocation: processedThisInvocation }
+    }
+
+    const stillHasWork = await store.hasRemainingWork(crawlRunId, STALE_CLAIM_MINUTES)
+
+    if (!stillHasWork) {
+      const { status: finalStatus, failureSummary } = resolveTerminalStatus('completed', counts)
+      await store.updateCrawlRun(crawlRunId, { status: finalStatus, failure_summary: failureSummary, completed_at: new Date().toISOString() })
+      return { done: true, status: finalStatus, pagesProcessedThisInvocation: processedThisInvocation }
+    }
+
+    return { done: false, status: 'running', pagesProcessedThisInvocation: processedThisInvocation }
+  } catch (err) {
+    // Engine-hardening pass (2026-09-24): anything unexpected thrown by the
+    // store layer itself (not an individual page's fetch/parse — that is
+    // already isolated above) must never leave the run silently stuck in
+    // 'running'. Best-effort: if even THIS write fails, the original error
+    // still propagates to the caller so it is at minimum surfaced there.
+    console.error(`[crawler] processCrawlBatch failed unexpectedly for crawl run ${crawlRunId}:`, err)
+    try {
+      await store.updateCrawlRun(crawlRunId, {
+        status: 'failed',
+        failure_summary: 'The scan stopped due to an unexpected error.',
+        completed_at: new Date().toISOString(),
+      })
+    } catch (persistErr) {
+      console.error(`[crawler] failed to persist failure status for crawl run ${crawlRunId}:`, persistErr)
+    }
+    throw err
   }
-
-  return { done: false, status: 'running', pagesProcessedThisInvocation: processedThisInvocation }
 }

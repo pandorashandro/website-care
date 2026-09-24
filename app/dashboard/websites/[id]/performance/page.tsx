@@ -11,7 +11,8 @@ export default async function PerformancePage(props: PageProps<'/dashboard/websi
     analyzerVersion: PERFORMANCE_ANALYZER_VERSION,
     navKey: 'performance',
     label: 'Performance',
-    description: 'How quickly and efficiently your pages load, based on directly measured page weight, scripts, and resource loading.',
+    description:
+      'Static, directly measured page weight, script/resource counts, and caching signals from the page webioom fetched. This is not a Lighthouse or Core Web Vitals report — it does not measure real-browser load time, LCP, CLS, or INP.',
     icon: Gauge,
     emptyStateDescription: "webioom didn't detect any of the performance conditions it currently checks for.",
     analyzeAction: analyzePerformanceCrawlRun,

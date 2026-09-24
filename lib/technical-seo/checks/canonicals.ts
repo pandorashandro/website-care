@@ -93,6 +93,20 @@ export function analyzeCanonicals(evidence: CrawlEvidence, context: AnalyzerCont
     const targetPage = context.pageIndex.get(resolved)
     if (!targetPage) continue // target outside what this crawl discovered — not evaluable, not claimed to be broken
 
+    // Scoring Engine V2 false-positive fix (2026-09-24): a SELF-referencing
+    // canonical (the target IS this same page) can never be a "broken" or
+    // "non-indexable target" finding — a noindex page correctly
+    // self-canonicalizing (textbook-correct configuration for an
+    // intentionally excluded utility page, e.g. a thank-you/confirmation
+    // page) was previously flagged as "canonical target is non-indexable,"
+    // which is tautological: the page is simply declaring itself as its
+    // own canonical, non-indexed version of itself. Whether THIS page
+    // itself is noindex is already, separately, exactly what
+    // indexability.ts's own noindex_page check evaluates — this check's
+    // actual job is cross-referencing a DIFFERENT page's canonical target,
+    // which self-reference is not.
+    if (targetPage === page) continue
+
     if (targetPage.status === 'failed' || (typeof targetPage.http_status === 'number' && (targetPage.http_status < 200 || targetPage.http_status >= 300))) {
       canonicalTargetError.push({ page, targetStatus: targetPage.http_status, targetFailed: targetPage.status === 'failed' })
     } else if (targetPage.noindex === true) {

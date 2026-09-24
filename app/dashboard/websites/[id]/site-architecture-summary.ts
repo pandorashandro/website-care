@@ -50,7 +50,16 @@ export function buildSiteArchitectureCategorySummary(crawlRun: CrawlRunForSummar
   // lib/architecture/coverage.ts. The persisted health_score in that case
   // is a hollow, unguarded 100 (no orphan/underlinked/dead-end check could
   // possibly have found anything to evaluate).
-  if (analysis.coverage?.level === 'none') {
+  //
+  // Scoring Engine V1 calibration (2026-09-24): 'low' (exactly 1 eligible
+  // page) is now WITHHELD too, not merely capped. Every graph-shaped check
+  // (orphan/underlinked/dead-end) requires at least 2 eligible pages to
+  // have ANY real relationship to evaluate (see dead-ends.ts's own doc
+  // comment) — with only 1, there is no applicable check left to have
+  // earned a score from, so a numeric result here would still be "we
+  // scored this," when the true fact is "there is nothing yet for this
+  // pillar to assess." See docs/scoring-contract-v1.md.
+  if (analysis.coverage?.level === 'none' || analysis.coverage?.level === 'low') {
     return NOT_ANALYZED
   }
 

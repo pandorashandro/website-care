@@ -153,6 +153,17 @@ export async function analyzeContent(store: ContentStore, crawlRunId: string, op
       : eligiblePages.filter((p) => p.extractionConfidence === 'low').length
   const coverage = computeContentAnalysisCoverage({ eligiblePageCount: eligiblePages.length, lowExtractionConfidenceCount, dimensions })
 
+  // Scoring Engine V1 calibration (2026-09-24): a prior pass capped the
+  // score whenever every eligible page came back thin. Removed — thin
+  // content is not an EVIDENCE GAP, it is directly observed, evidence-
+  // backed evidence of a real defect, and belongs entirely in the
+  // deduction formula, not a separate ceiling layered on top of it.
+  // thin-content.ts now escalates a page below HALF its page-type's
+  // expected minimum to 'high' severity (was a flat 'medium' regardless of
+  // how extreme the shortfall was) — a page with barely any content earns
+  // its own low score through one traceable, evidence-driven rule, exactly
+  // as docs/category-score-standard.md's own Property 5 requires. See
+  // docs/scoring-contract-v1.md for the full reasoning against ceilings.
   const analysis = await store.saveAnalysis({
     crawlRunId,
     websiteId: evidence.crawlRun.website_id,

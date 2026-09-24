@@ -1,14 +1,24 @@
 import { describe, expect, it } from 'vitest'
-import { computeOverallWebsiteHealth, isOverallHealthPartial } from '@/lib/category-engine/overall-health'
+import { computeOverallWebsiteHealth } from '@/lib/category-engine/overall-health'
 import type { CategorySummary } from '@/lib/category-engine/types'
 
+/**
+ * Scoring Engine V1 contract (2026-09-24, see docs/scoring-contract-v1.md):
+ * `summary()`'s default now includes `coverage: 'adequate'` — a category
+ * summary that is `analyzed` but silent on coverage is exactly the
+ * "unknown confidence" case the contract treats as NOT sufficient (see
+ * lib/category-engine/types.ts's own doc comment: a missing coverage value
+ * is never a green light) — tests that want to exercise the "withheld"
+ * path override `coverage` explicitly, exactly like they already override
+ * `status`/`score` for the not_analyzed case.
+ */
 function summary(overrides: Partial<CategorySummary> = {}): CategorySummary {
-  return { categoryKey: 'x', status: 'analyzed', score: 80, findingsCount: 2, partial: false, analyzedAt: '2026-01-01T00:00:00Z', analyzerVersion: 'x-v1', ...overrides }
+  return { categoryKey: 'x', status: 'analyzed', score: 80, findingsCount: 2, partial: false, analyzedAt: '2026-01-01T00:00:00Z', analyzerVersion: 'x-v1', coverage: 'adequate', ...overrides }
 }
 
 const NOT_ANALYZED: CategorySummary = { categoryKey: 'y', status: 'not_analyzed', score: null, findingsCount: null, partial: false, analyzedAt: null, analyzerVersion: null }
 
-describe('computeOverallWebsiteHealth', () => {
+describe('computeOverallWebsiteHealth — WITHHELD (score: null) cases', () => {
   it('returns null score with zero contributors when no category has been analyzed', () => {
     const result = computeOverallWebsiteHealth([NOT_ANALYZED, NOT_ANALYZED])
     expect(result.score).toBeNull()
@@ -16,69 +26,49 @@ describe('computeOverallWebsiteHealth', () => {
     expect(result.totalCanonicalCategories).toBe(2)
   })
 
-  /**
-   * Blocked-crawl Technical SEO correction (2026-09-22, follow-up): before
-   * this fix, a blocked crawl left Technical SEO as the ONE "analyzed"
-   * category (a fabricated ~76 built from three consequences of the same
-   * access-denial event), so Overall Website Health showed "Partial: 76"
-   * even though webioom had genuinely verified NOTHING about the site. Now
-   * that Technical SEO also reports not_analyzed for a blocked/fetch-failed
-   * crawl (see technical-seo-summary.ts), all seven canonical categories
-   * are not_analyzed together, and this is the SAME "zero contributors"
-   * case already covered above — named explicitly here for direct
-   * traceability to the reported scenario.
-   */
-  it('REGRESSION — a fully blocked crawl (Technical SEO now correctly not_analyzed alongside the other six) reports Overall Website Health as unavailable (null), never a "Partial" score anchored on one mis-scored pillar', () => {
-    const technicalSeo: CategorySummary = { ...NOT_ANALYZED, categoryKey: 'technical_seo' }
-    const onPageSeo: CategorySummary = { ...NOT_ANALYZED, categoryKey: 'on_page_seo' }
-    const siteArchitecture: CategorySummary = { ...NOT_ANALYZED, categoryKey: 'site_architecture' }
-    const content: CategorySummary = { ...NOT_ANALYZED, categoryKey: 'content' }
-    const performance: CategorySummary = { ...NOT_ANALYZED, categoryKey: 'performance' }
-    const accessibility: CategorySummary = { ...NOT_ANALYZED, categoryKey: 'accessibility' }
-    const security: CategorySummary = { ...NOT_ANALYZED, categoryKey: 'security' }
-
-    const result = computeOverallWebsiteHealth([technicalSeo, onPageSeo, siteArchitecture, content, performance, accessibility, security])
+  it('REGRESSION — a fully blocked crawl (every pillar not_analyzed) withholds Overall Website Health, never a fabricated score anchored on nothing', () => {
+    const allSeven = Array.from({ length: 7 }, (_, i) => ({ ...NOT_ANALYZED, categoryKey: `pillar-${i}` }))
+    const result = computeOverallWebsiteHealth(allSeven)
     expect(result.score).toBeNull()
     expect(result.contributingCategoryCount).toBe(0)
     expect(result.totalCanonicalCategories).toBe(7)
-    expect(isOverallHealthPartial(result)).toBe(false) // null score is "unavailable," a distinct state from "partial"
   })
 
-  it('is the plain unweighted mean of every analyzed category score', () => {
-    const result = computeOverallWebsiteHealth([summary({ score: 80 }), summary({ score: 60 }), summary({ score: 100 })])
-    expect(result.score).toBe(80)
-    expect(result.contributingCategoryCount).toBe(3)
+  it('REGRESSION — the exact reported failure shape: 4 of 7 pillars genuinely analyzed (Technical SEO=95, On-Page=92, Accessibility=94, Security=96) with the other 3 not_analyzed is WITHHELD, not presented as a plain ~94', () => {
+    const technicalSeo = summary({ categoryKey: 'technical_seo', score: 95 })
+    const onPageSeo = summary({ categoryKey: 'on_page_seo', score: 92 })
+    const accessibility = summary({ categoryKey: 'accessibility', score: 94 })
+    const security = summary({ categoryKey: 'security', score: 96 })
+    const siteArchitecture = { ...NOT_ANALYZED, categoryKey: 'site_architecture' }
+    const content = { ...NOT_ANALYZED, categoryKey: 'content' }
+    const performance = { ...NOT_ANALYZED, categoryKey: 'performance' }
+
+    const result = computeOverallWebsiteHealth([technicalSeo, onPageSeo, siteArchitecture, content, performance, accessibility, security])
+    expect(result.score).toBeNull()
+    expect(result.contributingCategoryCount).toBe(4)
+    expect(result.totalCanonicalCategories).toBe(7)
   })
 
-  it('excludes not_analyzed categories from the average entirely — never fabricates 0 or 100 for them', () => {
-    const result = computeOverallWebsiteHealth([summary({ score: 80 }), NOT_ANALYZED, NOT_ANALYZED, NOT_ANALYZED])
-    expect(result.score).toBe(80) // NOT (80+0+0+0)/4 = 20, and NOT (80+100+100+100)/4 = 95
-    expect(result.contributingCategoryCount).toBe(1)
-    expect(result.totalCanonicalCategories).toBe(4)
+  it('withholds the score when all seven are "analyzed" but even ONE has thin (\'low\') coverage — a complete-looking status set is not the same as complete evidence', () => {
+    const sixAdequate = Array.from({ length: 6 }, (_, i) => summary({ categoryKey: `pillar-${i}` }))
+    const oneThin = summary({ categoryKey: 'pillar-6', coverage: 'low' })
+    const result = computeOverallWebsiteHealth([...sixAdequate, oneThin])
+    expect(result.score).toBeNull()
+    expect(result.contributingCategoryCount).toBe(7) // all 7 have a numeric score...
+    expect(result.totalCanonicalCategories).toBe(7) // ...but that alone does not earn a displayed Overall Score
   })
 
-  it('reports how many of the total canonical categories contributed', () => {
-    const result = computeOverallWebsiteHealth([summary(), summary(), NOT_ANALYZED, NOT_ANALYZED])
-    expect(result.contributingCategoryCount).toBe(2)
-    expect(result.totalCanonicalCategories).toBe(4)
+  it('withholds the score when a coverage value is missing/null entirely — never silently treated as adequate', () => {
+    const sixAdequate = Array.from({ length: 6 }, (_, i) => summary({ categoryKey: `pillar-${i}` }))
+    const legacyRow = summary({ categoryKey: 'pillar-6', coverage: null })
+    const result = computeOverallWebsiteHealth([...sixAdequate, legacyRow])
+    expect(result.score).toBeNull()
   })
 
-  it('rounds the average to the nearest whole number', () => {
-    const result = computeOverallWebsiteHealth([summary({ score: 80 }), summary({ score: 81 }), summary({ score: 81 })])
-    expect(result.score).toBe(Math.round((80 + 81 + 81) / 3))
-  })
-
-  it('is deterministic — identical input always produces identical output', () => {
-    const input = [summary({ score: 73 }), summary({ score: 44 }), NOT_ANALYZED]
-    const a = computeOverallWebsiteHealth(input)
-    const b = computeOverallWebsiteHealth(input)
-    expect(a).toEqual(b)
-  })
-
-  it('treats a status:"analyzed" summary with a null score the same as not_analyzed (defensive — should never happen in practice, but never divides by a phantom contributor)', () => {
+  it('treats a status:"analyzed" summary with a null score the same as not_analyzed — never divides by a phantom contributor', () => {
     const malformed: CategorySummary = { ...summary(), score: null }
-    const result = computeOverallWebsiteHealth([summary({ score: 80 }), malformed])
-    expect(result.score).toBe(80)
+    const result = computeOverallWebsiteHealth([summary(), malformed])
+    expect(result.score).toBeNull()
     expect(result.contributingCategoryCount).toBe(1)
   })
 
@@ -88,33 +78,32 @@ describe('computeOverallWebsiteHealth', () => {
   })
 })
 
-/**
- * Evidence-aware health scoring (2026-09-22) — Section 13's minimum
- * coverage rule for Overview's display, not the score computation itself.
- */
-describe('isOverallHealthPartial', () => {
-  it('REGRESSION — the exact reported bug\'s shape (only 1 of 7 canonical categories contributed, e.g. a blocked crawl) is partial', () => {
-    const result = computeOverallWebsiteHealth([summary({ score: 76 }), NOT_ANALYZED, NOT_ANALYZED, NOT_ANALYZED, NOT_ANALYZED, NOT_ANALYZED, NOT_ANALYZED])
-    expect(isOverallHealthPartial(result)).toBe(true)
+describe('computeOverallWebsiteHealth — COMPLETE (exact seven-pillar arithmetic mean) cases', () => {
+  it('is the plain unweighted mean of every analyzed category score when ALL are analyzed with adequate coverage', () => {
+    const result = computeOverallWebsiteHealth([summary({ score: 80 }), summary({ score: 60 }), summary({ score: 100 })])
+    expect(result.score).toBe(80)
+    expect(result.contributingCategoryCount).toBe(3)
   })
 
-  it('a majority of categories contributing (4 of 7) is NOT partial', () => {
-    const result = computeOverallWebsiteHealth([summary(), summary(), summary(), summary(), NOT_ANALYZED, NOT_ANALYZED, NOT_ANALYZED])
-    expect(isOverallHealthPartial(result)).toBe(false)
+  it('rounds the average to the nearest whole number', () => {
+    const result = computeOverallWebsiteHealth([summary({ score: 80 }), summary({ score: 81 }), summary({ score: 81 })])
+    expect(result.score).toBe(Math.round((80 + 81 + 81) / 3))
   })
 
-  it('exactly half (e.g. 1 of 2) is NOT partial — the threshold is strictly less than half', () => {
-    const result = computeOverallWebsiteHealth([summary(), NOT_ANALYZED])
-    expect(isOverallHealthPartial(result)).toBe(false)
+  it('is deterministic — identical input always produces identical output', () => {
+    const input = [summary({ score: 73 }), summary({ score: 44 }), summary({ score: 91 })]
+    const a = computeOverallWebsiteHealth(input)
+    const b = computeOverallWebsiteHealth(input)
+    expect(a).toEqual(b)
   })
 
-  it('a null score (zero contributors) is never "partial" — it is the separate, already-handled "unavailable" case', () => {
-    const result = computeOverallWebsiteHealth([NOT_ANALYZED, NOT_ANALYZED])
-    expect(isOverallHealthPartial(result)).toBe(false)
-  })
-
-  it('all seven categories contributing is never partial', () => {
-    const result = computeOverallWebsiteHealth(Array.from({ length: 7 }, () => summary()))
-    expect(isOverallHealthPartial(result)).toBe(false)
+  it('the exact seven-pillar formula: round(sum(seven scores) / 7) when all seven are adequate', () => {
+    const scores = [95, 88, 100, 72, 91, 84, 77]
+    const summaries = scores.map((score, i) => summary({ categoryKey: `pillar-${i}`, score }))
+    const result = computeOverallWebsiteHealth(summaries)
+    const expected = Math.round(scores.reduce((sum, s) => sum + s, 0) / 7)
+    expect(result.score).toBe(expected)
+    expect(result.contributingCategoryCount).toBe(7)
+    expect(result.totalCanonicalCategories).toBe(7)
   })
 })

@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import type { CrawlStore, NewCrawlRunInput, NewCrawlPageInput } from '@/lib/crawler/store'
 import type { CrawlRunRow, CrawlPageRow, CrawlLinkInsert } from '@/lib/crawler/types'
-import { BUDGET_SKIP_REASON } from '@/lib/crawler/limits'
+import { BUDGET_SKIP_REASON, UNREACHABLE_SKIP_REASON } from '@/lib/crawler/limits'
 
 /**
  * Phase 25A — an in-memory CrawlStore used only by tests. Mirrors the real
@@ -21,11 +21,13 @@ export function createFakeCrawlStore(): CrawlStore & {
   _links: CrawlLinkInsert[]
   /** Test-only fault injection: when set, the NEXT updatePage() call throws once (then clears itself) — used to prove processCrawlBatch survives a single page's persistence failure without silently treating it as succeeded. */
   _failNextUpdatePage: boolean
+  /** Test-only fault injection: when set, the NEXT claimPages() call throws once (then clears itself) — used to prove processCrawlBatch's own top-level error handling marks the run 'failed' instead of leaving it silently stuck when the store layer itself (not one page's fetch) throws unexpectedly. */
+  _failNextClaimPages: boolean
 } {
   const runs: CrawlRunRow[] = []
   const pages: CrawlPageRow[] = []
   const links: CrawlLinkInsert[] = []
-  const state = { failNextUpdatePage: false }
+  const state = { failNextUpdatePage: false, failNextClaimPages: false }
 
   function isStale(page: CrawlPageRow, staleAfterMinutes: number): boolean {
     if (page.status !== 'processing' || !page.claimed_at) return false
@@ -37,6 +39,7 @@ export function createFakeCrawlStore(): CrawlStore & {
     _runs: CrawlRunRow[]
     _links: CrawlLinkInsert[]
     _failNextUpdatePage: boolean
+    _failNextClaimPages: boolean
   } = {
     _pages: pages,
     _runs: runs,
@@ -46,6 +49,12 @@ export function createFakeCrawlStore(): CrawlStore & {
     },
     set _failNextUpdatePage(value: boolean) {
       state.failNextUpdatePage = value
+    },
+    get _failNextClaimPages() {
+      return state.failNextClaimPages
+    },
+    set _failNextClaimPages(value: boolean) {
+      state.failNextClaimPages = value
     },
 
     async createCrawlRun(input: NewCrawlRunInput): Promise<CrawlRunRow> {
@@ -93,6 +102,10 @@ export function createFakeCrawlStore(): CrawlStore & {
     },
 
     async claimPages(crawlRunId, batchSize, staleAfterMinutes) {
+      if (state.failNextClaimPages) {
+        state.failNextClaimPages = false
+        throw new Error('Simulated Supabase claim failure (fake store fault injection)')
+      }
       const claimable = pages
         .filter((p) => p.crawl_run_id === crawlRunId && (p.status === 'queued' || isStale(p, staleAfterMinutes)))
         .sort((a, b) => a.depth - b.depth || new Date(a.discovered_at).getTime() - new Date(b.discovered_at).getTime())
@@ -195,10 +208,13 @@ export function createFakeCrawlStore(): CrawlStore & {
       const succeeded = runPages.filter((p) => p.status === 'completed').length
       const failed = runPages.filter((p) => p.status === 'failed').length
       const skippedTotal = runPages.filter((p) => p.status === 'skipped').length
-      // See BUDGET_SKIP_REASON's own doc comment: a budget-exhausted skip
-      // was never actually claimed/attempted, so it must not count toward
-      // pagesProcessed — mirrors supabase-store.ts's real implementation.
-      const skippedByBudget = runPages.filter((p) => p.status === 'skipped' && p.error_reason === BUDGET_SKIP_REASON).length
+      // See BUDGET_SKIP_REASON's/UNREACHABLE_SKIP_REASON's own doc
+      // comments: neither kind of bulk skip was ever actually
+      // claimed/attempted, so neither counts toward pagesProcessed —
+      // mirrors supabase-store.ts's real implementation.
+      const skippedByBudget = runPages.filter(
+        (p) => p.status === 'skipped' && (p.error_reason === BUDGET_SKIP_REASON || p.error_reason === UNREACHABLE_SKIP_REASON)
+      ).length
       const attemptedSkipped = skippedTotal - skippedByBudget
 
       return {

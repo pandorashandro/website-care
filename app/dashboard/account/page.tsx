@@ -1,10 +1,11 @@
 import type { Metadata } from 'next'
 import { redirect } from 'next/navigation'
-import { UserRound, Bell, LogOut } from 'lucide-react'
+import { UserRound, Bell, ShieldCheck, LogOut } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import Container from '@/components/ui/container'
 import Card from '@/components/ui/card'
 import { buttonStyles } from '@/components/ui/button'
+import CookiePreferencesLink from '@/components/consent/cookie-preferences-link'
 import { logout } from '../actions'
 
 export const metadata: Metadata = { title: 'Account' }
@@ -62,6 +63,15 @@ export default async function AccountPage() {
           <h2 className="text-sm font-semibold uppercase tracking-wide">Notifications</h2>
         </div>
         <p className="mt-2 text-sm text-muted">Notification preferences are coming soon.</p>
+      </Card>
+
+      <Card padding="md" className="mt-4">
+        <div className="flex items-center gap-2 text-subtle">
+          <ShieldCheck className="h-4 w-4" aria-hidden="true" />
+          <h2 className="text-sm font-semibold uppercase tracking-wide">Privacy</h2>
+        </div>
+        <p className="mt-2 text-sm text-muted">Manage which optional technologies webioom can use on this device.</p>
+        <CookiePreferencesLink className={buttonStyles({ variant: 'outline', size: 'sm', className: 'mt-3' })} />
       </Card>
 
       <div className="mt-6 border-t border-border pt-6">

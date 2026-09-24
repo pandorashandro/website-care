@@ -37,6 +37,52 @@ export const BATCH_WALL_CLOCK_BUDGET_MS = 8_000
 /** A crawl_pages row claimed ('processing') longer than this without a persisted result is treated as abandoned by a crashed/timed-out invocation and becomes re-claimable. Must comfortably exceed one page's worst-case processing time (a single fetchPage call already caps at ~10s). */
 export const STALE_CLAIM_MINUTES = 5
 
+/**
+ * Engine-hardening pass (2026-09-24): a crawl run that has been
+ * queued/running longer than this — regardless of how much of its page
+ * budget it has nominally left to claim — is presumed abandoned (the
+ * browser tab that was driving it via repeated bounded
+ * processCrawlBatch() calls was closed, lost network, or crashed; see
+ * lib/crawler/engine.ts's own module doc comment on why this codebase has
+ * no background worker to otherwise notice). Without this ceiling, such a
+ * run stays 'running' in the database forever — nothing ever revisits it
+ * to declare it done — which is exactly the "permanently stuck Scanning"
+ * failure mode. `processCrawlBatch` checks this on ENTRY, so the very next
+ * time anything touches the run (a reopened dashboard tab's auto-resume
+ * effect, a manual "Continue Scan" click, a monitoring cron tick) is what
+ * actually terminates it — there is still no proactive background sweep,
+ * but no normal path can leave the run stuck without ever being noticed
+ * again, and revisiting it is the ordinary product flow (reopening a
+ * website's Overview page, or the dashboard, both auto-resume any active
+ * crawl on mount).
+ */
+export const MAX_CRAWL_RUN_AGE_MINUTES = 30
+
+/**
+ * Engine-hardening pass (2026-09-24): if a crawl has attempted at least
+ * this many pages and NONE of them succeeded, the website is presumed
+ * fundamentally unreachable (DNS failure, TLS failure, a blanket
+ * bot-blocking rule, the server being down) — continuing to grind through
+ * the rest of the page budget one identical failure at a time would only
+ * waste the remaining wall-clock/request budget without ever producing
+ * usable evidence. `processCrawlBatch` fails the run fast once this
+ * threshold is crossed, rather than waiting for the full budget or the
+ * wall-clock ceiling above to notice the same thing much later.
+ */
+export const MIN_ATTEMPTS_BEFORE_UNREACHABLE_ABORT = 5
+
+/** True once a crawl run has been active longer than MAX_CRAWL_RUN_AGE_MINUTES — see that constant's own doc comment. */
+export function isCrawlRunTimedOut(crawlRun: { started_at: string | null; created_at: string }, nowMs: number = Date.now()): boolean {
+  const referenceTime = crawlRun.started_at ?? crawlRun.created_at
+  const ageMs = nowMs - new Date(referenceTime).getTime()
+  return Number.isFinite(ageMs) && ageMs > MAX_CRAWL_RUN_AGE_MINUTES * 60_000
+}
+
+/** True once enough pages have been attempted with zero successes that the site is presumed unreachable — see MIN_ATTEMPTS_BEFORE_UNREACHABLE_ABORT's own doc comment. */
+export function isCrawlPresumedUnreachable(counts: { pagesProcessed: number; pagesSucceeded: number }): boolean {
+  return counts.pagesProcessed >= MIN_ATTEMPTS_BEFORE_UNREACHABLE_ABORT && counts.pagesSucceeded === 0
+}
+
 /** Per-page hard cap on discovered outbound links actually persisted/enqueued — bounds a single pathological page (e.g. a machine-generated link farm) from exploding the frontier in one step. */
 export const MAX_LINKS_PER_PAGE = 200
 
@@ -56,6 +102,9 @@ export const MAX_LINKS_PER_PAGE = 200
  * read sides (supabase-store.ts, the test fake) can never drift apart.
  */
 export const BUDGET_SKIP_REASON = 'crawl_page_budget_reached'
+
+/** The `crawl_pages.error_reason` used when still-queued pages are bulk-skipped because the site was presumed unreachable (see MIN_ATTEMPTS_BEFORE_UNREACHABLE_ABORT) — distinct from BUDGET_SKIP_REASON so the dashboard/debugging can tell "we stopped early because nothing was reachable" apart from "we stopped because the plan's page limit was reached." */
+export const UNREACHABLE_SKIP_REASON = 'crawl_site_presumed_unreachable'
 
 /** Sitemap discovery safety limits — see lib/crawler/sitemap.ts. */
 export const MAX_SITEMAP_FILES = 10

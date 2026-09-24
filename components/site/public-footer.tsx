@@ -2,6 +2,7 @@ import Link from 'next/link'
 import Logo from '@/components/brand/logo'
 import { buttonStyles } from '@/components/ui/button'
 import { RESOURCES } from '@/lib/content/resources'
+import CookiePreferencesLink from '@/components/consent/cookie-preferences-link'
 
 type FooterLink = { label: string; href?: string }
 
@@ -112,6 +113,7 @@ export default function PublicFooter() {
 
           <div className="mt-12 flex flex-col items-center justify-between gap-4 border-t border-border-dark pt-6 sm:flex-row">
             <p className="text-sm text-text-on-dark-muted">© {new Date().getFullYear()} webioom. All rights reserved.</p>
+            <CookiePreferencesLink className="text-sm text-text-on-dark-muted transition-colors duration-150 ease-out hover:text-text-on-dark" />
           </div>
         </div>
       </footer>

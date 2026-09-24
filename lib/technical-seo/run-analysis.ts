@@ -150,6 +150,18 @@ export async function analyzeTechnicalSeo(store: TechnicalSeoStore, crawlRunId: 
   // through rather than letting this recompute it a second time.
   const coverage = computeTechnicalSeoCoverage(evidence.pages, evidence.crawlRun, siteAccessState)
 
+  // Scoring Engine V1 calibration (2026-09-24): a prior pass capped the
+  // score whenever coverage.level === 'low'. Removed — 'low' means zero
+  // pages cleared the narrow isSuccessfulHtmlFetch bar (e.g. a
+  // non-HTML-only site) despite some completed fetches, but crawlability/
+  // robots/sitemap/URL-protocol checks remain fully applicable and
+  // evidence-backed in that case (they do not require HTML content — see
+  // lib/technical-seo/coverage.ts's own doc comment). Only the
+  // HTML-content-dependent checks (indexability/canonical/structured-data/
+  // hreflang) have nothing to evaluate, which is an honest NOT_APPLICABLE
+  // for those specific checks, not a reason to discount the whole pillar's
+  // otherwise-genuine score. A normal single-HTML-page site was already
+  // unaffected ('adequate' coverage) — see docs/scoring-contract-v1.md.
   const analysis = await store.saveAnalysis({
     crawlRunId,
     websiteId: evidence.crawlRun.website_id,

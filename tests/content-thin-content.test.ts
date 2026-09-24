@@ -81,3 +81,44 @@ describe('analyzeThinContent — context-aware thresholds', () => {
     expect(analyzeThinContent(contextFor([page], true))).toHaveLength(1)
   })
 })
+
+/**
+ * Scoring Engine V1 calibration (2026-09-24) — a page barely below its own
+ * page-type threshold and a page with almost no content at all were
+ * previously reported as the identical flat 'medium' severity. Root cause
+ * of a reported ~94 placeholder-site score: with only 1-2 real deductions
+ * possible, a flat medium severity left too little room for genuinely
+ * extreme thinness to be distinguished from a page that just barely missed
+ * the bar. See CRITICALLY_THIN_FRACTION's own doc comment.
+ */
+describe('analyzeThinContent — severity escalation for EXTREME thinness', () => {
+  it('a page just under its page-type threshold is "medium" base severity — barely short, not "critically" thin', () => {
+    // homepage threshold is 60 words; 55 is just under it, well above half (30)
+    const page = makePage({ url: 'https://example.com/', depth: 0, content_word_count: 55 })
+    const finding = analyzeThinContent(contextFor([page])).find((f) => f.checkKey === 'substantively_thin_page')
+    expect(finding?.baseSeverity).toBe('medium')
+  })
+
+  it('a page under HALF its page-type threshold is "high" base severity — categorically worse than "just short"', () => {
+    // homepage threshold is 60 words; 20 is under half (30)
+    const page = makePage({ url: 'https://example.com/', depth: 0, content_word_count: 20 })
+    const finding = analyzeThinContent(contextFor([page])).find((f) => f.checkKey === 'substantively_thin_page')
+    expect(finding?.baseSeverity).toBe('high')
+  })
+
+  it('exactly at the halfway point is treated as the less severe (moderate) tier, not critical — the boundary is inclusive on the lenient side', () => {
+    // homepage threshold 60, half is exactly 30
+    const page = makePage({ url: 'https://example.com/', depth: 0, content_word_count: 30 })
+    const finding = analyzeThinContent(contextFor([page])).find((f) => f.checkKey === 'substantively_thin_page')
+    expect(finding?.baseSeverity).toBe('medium')
+  })
+
+  it('produces two distinct-severity findings when a mix of moderately-thin and critically-thin pages both exist', () => {
+    const moderatelyThin = makePage({ url: 'https://example.com/', depth: 0, content_word_count: 45 }) // homepage threshold 60, half 30; 45 is between them
+    const criticallyThin = makePage({ url: 'https://example.com/contact', title: 'Contact Us', content_word_count: 5 }) // contact threshold 40, half 20; 5 is well under
+    const findings = analyzeThinContent(contextFor([moderatelyThin, criticallyThin]))
+    const severities = findings.map((f) => f.baseSeverity).sort()
+    expect(severities).toEqual(['high', 'medium'])
+    expect(findings.every((f) => f.checkKey === 'substantively_thin_page')).toBe(true)
+  })
+})

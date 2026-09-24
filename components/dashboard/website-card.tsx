@@ -7,7 +7,8 @@ import ScanWebsiteControls from '@/app/dashboard/websites/[id]/scan-website-cont
 import { healthLabel, healthTone } from '@/lib/scanner/health-label'
 import type { OverallWebsiteHealth } from '@/lib/category-engine/overall-health'
 
-export type DashboardWebsiteStatus = 'analyzed' | 'scanning' | 'failed' | 'not_scanned'
+/** 'limited' (2026-09-24, see docs/scoring-contract-v1.md) — a crawl that finished with some real pillar evidence, but not a complete, fully-adequate set of all seven, so Overall Website Health is withheld rather than shown as a plain number. */
+export type DashboardWebsiteStatus = 'analyzed' | 'limited' | 'scanning' | 'failed' | 'not_scanned'
 
 export type DashboardWebsite = {
   id: string
@@ -71,13 +72,13 @@ export default function WebsiteCard({ website }: { website: DashboardWebsite }) 
 
           <div className="mt-2.5">
             {website.status === 'analyzed' && score !== null ? (
+              <Badge tone={healthTone(score)}>{healthLabel(score)}</Badge>
+            ) : website.status === 'limited' ? (
               <>
-                <Badge tone={healthTone(score)}>{healthLabel(score)}</Badge>
-                {!website.allCategoriesAnalyzed && (
-                  <p className="mt-1.5 text-xs text-subtle">
-                    {overallHealth.contributingCategoryCount} of {overallHealth.totalCanonicalCategories} pillars
-                  </p>
-                )}
+                <Badge tone="neutral">Limited analysis</Badge>
+                <p className="mt-1.5 text-xs text-subtle">
+                  {overallHealth.contributingCategoryCount} of {overallHealth.totalCanonicalCategories} pillars
+                </p>
               </>
             ) : website.status === 'scanning' ? (
               <Badge tone="info">Scanning…</Badge>
@@ -91,7 +92,7 @@ export default function WebsiteCard({ website }: { website: DashboardWebsite }) 
       </div>
 
       <div className="mt-auto flex flex-col gap-2 border-t border-border p-4">
-        {website.status === 'analyzed' && (
+        {(website.status === 'analyzed' || website.status === 'limited') && (
           <Link href={`/dashboard/websites/${website.id}`} className={buttonStyles({ variant: 'outline', className: 'text-center' })}>
             View report
           </Link>

@@ -1,5 +1,7 @@
 # Category score quality standard (Phase 27 score-calibration audit)
 
+See also `docs/scoring-contract-v1.md` for the companion document on what a score is allowed to CLAIM (evidence sufficiency, withholding vs. capping, Overall Website Health eligibility) — this document is about how the deduction FORMULA itself must behave once a pillar has decided it has enough evidence to score at all.
+
 This document defines the properties a canonical webioom category score MUST satisfy before it can be presented as an authoritative 0-100 health number. It is a **quality standard, not a shared formula** — Technical SEO and Site Architecture already use similar-shaped deduction models because that shape happens to fit both, but a future category (Performance, driven by measured Core Web Vitals; Accessibility, driven by a different violation taxonomy) may legitimately need a different formula. What must NOT differ is whether that formula satisfies every property below.
 
 This standard exists because a real audit (this document's own origin) found that a scoring model can look reasonable in isolation and still systematically overestimate health for structural reasons — too few possible checks, occurrence-blindness, a severity signal that can't scale with its own evidence. Every future category engine should be checked against this list before its score is trusted.

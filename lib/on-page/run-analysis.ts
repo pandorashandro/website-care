@@ -91,6 +91,20 @@ export async function analyzeOnPage(store: OnPageStore, crawlRunId: string): Pro
   // used, so coverage can never drift from what actually happened.
   const coverage = computeOnPageCoverage(context.eligiblePages.length, context.totalAnalyzedPages)
 
+  // Scoring Engine V1 calibration (2026-09-24): a prior pass capped the
+  // score whenever coverage.level === 'low' (exactly 1 eligible page).
+  // Removed — unlike Site Architecture, On-Page's per-page checks
+  // (title/meta/heading existence, length, genericness) are FULLY
+  // applicable and meaningful on a single page; only the CROSS-page
+  // comparison checks (duplicate_title/duplicate_meta_description) cannot
+  // run with 1 page, and they correctly, honestly return no finding rather
+  // than a false pass (see coverage.ts's own `comparisonChecksAssessed`
+  // flag, which the UI already surfaces as a "Limited data" disclosure).
+  // Capping an otherwise fully-earned per-page score for a LIMITATION of a
+  // different, inapplicable check was a category error — see
+  // docs/scoring-contract-v1.md. A single genuinely well-formed page can
+  // now legitimately score 100 on this pillar; a single page with real
+  // title/meta/heading defects scores exactly what those defects earn.
   const analysis = await store.saveAnalysis({
     crawlRunId,
     websiteId: evidence.crawlRun.website_id,

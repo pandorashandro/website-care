@@ -205,8 +205,23 @@ export type ContentFindingPageRow = {
  * were computed with the OLD extraction logic and cannot be corrected by
  * re-analysis alone — only a FRESH CRAWL re-fetches and re-extracts each
  * page's HTML under the corrected extraction rules.
+ *
+ * v3 -> v4 (Scoring Engine V1 calibration, 2026-09-24): substantively_thin_page
+ * now escalates to 'high' base severity when a page's word count is under
+ * HALF its page-type's expected minimum (was a flat 'medium' regardless of
+ * how extreme the shortfall was — see lib/content/checks/thin-content.ts's
+ * own CRITICALLY_THIN_FRACTION doc comment). A health_score computed under
+ * v3 for a critically thin page is HIGHER than what v4 would compute for
+ * the identical evidence — the exact "stale score overstates quality"
+ * direction this version bump exists to prevent (unlike this same pass's
+ * ceiling-removal changes elsewhere, which only ever raise what a fresh
+ * score CAN be and so were left unversioned as a defensible under-statement
+ * rather than an overstatement). Operates entirely on already-persisted
+ * crawl_pages evidence (word counts, page type) — a Content Re-analyze
+ * action alone is sufficient to get a v4 result for an existing crawl_run,
+ * no fresh crawl required.
  */
-export const ANALYZER_VERSION = 'content-v3'
+export const ANALYZER_VERSION = 'content-v4'
 
 /** Content Intelligence's own extension of the shared CrawlAnalysisRow — adds the optional coverage record only Content currently populates. Every other category engine continues to use the base CrawlAnalysisRow type unchanged. */
 export type ContentAnalysisRow = CrawlAnalysisRow & { coverage: ContentAnalysisCoverage | null }

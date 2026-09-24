@@ -98,6 +98,19 @@ export async function analyzeArchitecture(store: ArchitectureStore, crawlRunId: 
   // Evidence-aware health scoring (2026-09-22) — see lib/architecture/coverage.ts.
   const coverage = computeArchitectureCoverage(evidence.pages, context.totalAnalyzedPages)
 
+  // Scoring Engine V1 calibration (2026-09-24): a prior pass capped the
+  // score at THIN_EVIDENCE_SCORE_CEILING when coverage.level === 'low'.
+  // Removed — a numeric ceiling still implies "we scored this, just not
+  // very high," when the true fact for <2 eligible pages is "there is no
+  // link graph to score at all" (every graph-shaped check — orphan/
+  // underlinked/dead-end — is now itself guarded to never fire below 2
+  // eligible pages; see dead-ends.ts's own doc comment). The category
+  // summary layer (site-architecture-summary.ts) now treats
+  // coverage.level === 'low' as not_analyzed, identically to 'none' —
+  // WITHHOLDING the score is more truthful than capping it, per this
+  // pass's own scoring contract (docs/scoring-contract-v1.md): insufficient
+  // evidence reduces confidence/completeness, it never produces a
+  // discounted number standing in for a real one.
   const analysis = await store.saveAnalysis({
     crawlRunId,
     websiteId: evidence.crawlRun.website_id,

@@ -47,3 +47,36 @@ export function fractionSpread(count: number, total: number): number {
 export function clampScore(score: number): number {
   return Math.min(100, Math.max(0, score))
 }
+
+/**
+ * Scoring Engine V1 calibration (2026-09-24) — REMOVED: a prior pass here
+ * exported `applyEvidenceCeiling`/`THIN_EVIDENCE_SCORE_CEILING` (a flat 84
+ * cap applied whenever a pillar's evidence was judged "thin"). Audited and
+ * removed, not merely re-tuned: its only real justification was staying one
+ * point below lib/scanner/health-label.ts's `>=90` "Excellent" threshold —
+ * a UI-label artifact, not a scoring-semantics argument, and the task that
+ * introduced it said so itself. A numeric ceiling also still implies "this
+ * was scored, just not highly" when the true fact for genuinely
+ * insufficient evidence is "there was nothing applicable here to score."
+ *
+ * Replaced with two more truthful mechanisms, decided per pillar based on
+ * what "insufficient evidence" actually means for that pillar's checks —
+ * see docs/scoring-contract-v1.md for the full contract:
+ *
+ *   1. WITHHOLD (not_analyzed) when a pillar's checks are not merely
+ *      thinly-evidenced but genuinely NOT APPLICABLE — e.g. Site
+ *      Architecture with fewer than 2 eligible pages has no link graph of
+ *      any kind to evaluate (see lib/architecture/coverage.ts and
+ *      app/dashboard/websites/[id]/site-architecture-summary.ts).
+ *   2. Let the DEDUCTION FORMULA earn the score honestly from whatever
+ *      evidence genuinely exists — e.g. Content's thin-content check now
+ *      escalates severity for EXTREME thinness (lib/content/checks/
+ *      thin-content.ts) instead of a separate ceiling layered on top; a
+ *      single well-formed page on On-Page SEO or Technical SEO can
+ *      legitimately reach 100 because its own applicable checks (title/meta/
+ *      heading existence and quality; crawlability/indexability/canonical)
+ *      are fully meaningful with just one page — only the CROSS-page
+ *      comparison checks are inapplicable there, which is an honest
+ *      NOT_APPLICABLE for those specific checks, never a reason to discount
+ *      the whole pillar's otherwise-earned score.
+ */

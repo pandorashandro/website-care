@@ -87,9 +87,22 @@ export default async function DashboardPage() {
     })
   )
 
+  // Scoring Engine V1 contract (2026-09-24, see docs/scoring-contract-v1.md)
+  // — `overallHealth.score` is only ever non-null for a genuinely complete,
+  // fully-adequate seven-pillar assessment now (a 'limited' website's score
+  // is withheld, not merely discounted). `analyzed` is therefore the only
+  // population a numeric average may honestly be built from.
   const analyzed = websites.filter((website) => website.overallHealth.score !== null)
-  const scannedCount = analyzed.length
-  const needsAttentionCount = analyzed.filter((website) => needsAttention(website.overallHealth.score as number)).length
+  const limitedWebsites = websites.filter((website) => website.status === 'limited')
+  // "Scanned" means SOME real result exists, whether a complete score or a
+  // limited/incomplete one — never a websites-count that silently excludes
+  // limited websites as though they were unscanned.
+  const scannedCount = analyzed.length + limitedWebsites.length
+  // A limited website is never confirmed healthy, so it counts toward
+  // "needs attention" here exactly like a genuinely low score would — the
+  // portfolio banner must never silently treat incomplete evidence as a
+  // pass.
+  const needsAttentionCount = analyzed.filter((website) => needsAttention(website.overallHealth.score as number)).length + limitedWebsites.length
   const averageScore = analyzed.length > 0 ? Math.round(analyzed.reduce((sum, website) => sum + (website.overallHealth.score as number), 0) / analyzed.length) : null
 
   return (

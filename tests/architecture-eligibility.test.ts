@@ -137,8 +137,9 @@ describe('eligibility wired into page-level checks (Part H #7-#10)', () => {
   })
 
   it('still detects a genuine, eligible dead-end page (query-string or not) — eligibility is not a blanket exclusion', () => {
+    const home = makePage({ url: 'https://example.com/', depth: 0 })
     const eligibleDeadEnd = makePage({ url: 'https://example.com/thank-you?ref=email' })
-    const evidence = makeEvidence({ pages: [eligibleDeadEnd] })
+    const evidence = makeEvidence({ pages: [home, eligibleDeadEnd], links: [linkFrom(home, eligibleDeadEnd.url)] })
 
     const findings = analyzeDeadEnds(evidence, contextFor(evidence))
     expect(findings.find((f) => f.checkKey === 'dead_end_page')).toBeDefined()

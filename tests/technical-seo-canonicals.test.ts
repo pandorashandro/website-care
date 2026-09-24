@@ -86,4 +86,22 @@ describe('analyzeCanonicals', () => {
     const findings = analyzeCanonicals(evidence, contextFor(evidence))
     expect(findings).toEqual([])
   })
+
+  /**
+   * Scoring Engine V2 false-positive fix (2026-09-24): a self-referencing
+   * canonical on a NOINDEX page — the textbook-correct configuration for an
+   * intentionally excluded utility page (a thank-you/confirmation page,
+   * a login page, etc.) — was previously ALSO flagged as
+   * canonical_target_non_indexable, on top of the separate, correct
+   * noindex_page finding from indexability.ts. "This page's canonical
+   * target is non-indexable" is tautological when the target IS the page
+   * itself declaring its own (intentional) noindex status — it is not a
+   * genuine cross-page canonical problem. Regression for the exact shape
+   * caught by tests/validation-lab.test.ts's noindex-site fixture.
+   */
+  it('a self-referencing canonical on a noindex page is NOT a canonical_target_non_indexable finding — that would be tautological, not a real cross-page problem', () => {
+    const evidence = makeEvidence({ pages: [makePage({ url: 'https://example.com/thank-you', canonical_url: 'https://example.com/thank-you', noindex: true })] })
+    const findings = analyzeCanonicals(evidence, contextFor(evidence))
+    expect(findings.find((f) => f.checkKey === 'canonical_target_non_indexable')).toBeUndefined()
+  })
 })

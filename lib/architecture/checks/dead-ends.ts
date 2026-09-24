@@ -29,7 +29,21 @@ import type { RawFinding } from '../types'
  * it was never a destination a visitor was meant to browse to.
  */
 export function analyzeDeadEnds(evidence: CrawlEvidence, context: AnalyzerContext): RawFinding[] {
-  const deadEndPages = evidence.pages.filter((page) => isArchitectureEligiblePage(page) && outboundCount(context.graph, page.url) === 0)
+  const eligiblePages = evidence.pages.filter(isArchitectureEligiblePage)
+
+  // Scoring Engine V1 calibration (2026-09-24): unlike orphan.ts/
+  // underlinked.ts (which structurally exclude the homepage, so they can
+  // never fire meaninglessly on a genuinely single-page site), a lone
+  // homepage with nothing else on the site to link to trivially has 0
+  // outbound internal links — that is an artifact of there being nothing
+  // yet to link to, not a real navigational defect, and this pillar's own
+  // coverage model (lib/architecture/coverage.ts) already documents that a
+  // real link graph requires at least 2 eligible pages to say anything
+  // meaningful. Guarding here keeps the RAW finding/score itself honest
+  // even before coverage-driven not_analyzed handling applies.
+  if (eligiblePages.length < 2) return []
+
+  const deadEndPages = eligiblePages.filter((page) => outboundCount(context.graph, page.url) === 0)
 
   if (deadEndPages.length === 0) return []
 

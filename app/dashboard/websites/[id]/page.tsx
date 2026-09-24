@@ -33,7 +33,7 @@ import { getMonitoringSettings } from './monitoring-settings'
 import MonitoringStatus from '@/components/monitoring/monitoring-status'
 import { latestNotificationForWebsite } from '@/lib/monitoring/notification-service'
 import { getCurrentUserEntitlements } from '@/lib/entitlements'
-import { computeOverallWebsiteHealth, isOverallHealthPartial } from '@/lib/category-engine/overall-health'
+import { computeOverallWebsiteHealth } from '@/lib/category-engine/overall-health'
 import { computeSiteAccessState, describeMostCommonIneligibilityReason, type SiteAccessState } from '@/lib/category-engine/site-access'
 import type { CrawlPageRow } from '@/lib/crawler/types'
 import FixTheseFirst from '@/components/report/fix-these-first'
@@ -223,7 +223,6 @@ export default async function WebsiteReportPage(props: PageProps<'/dashboard/web
   const canonicalSummaries = [technicalSeo, onPageSeo, siteArchitecture, content, performance, accessibility, security]
   const overallHealth = computeOverallWebsiteHealth(canonicalSummaries)
   const allCategoriesAnalyzed = canonicalSummaries.every((summary) => summary.status === 'analyzed')
-  const overallHealthIsPartial = isOverallHealthPartial(overallHealth)
 
   // Evidence-aware health scoring (2026-09-22) — the ONE, coarse,
   // whole-crawl "did webioom actually get into this website" signal (see
@@ -451,22 +450,24 @@ export default async function WebsiteReportPage(props: PageProps<'/dashboard/web
               />
               <div>
                 <p className="text-xs font-semibold uppercase tracking-wide text-subtle">Overall Health</p>
-                {overallHealth.score === null ? (
+                {overallHealth.score === null && overallHealth.contributingCategoryCount === 0 ? (
                   <p className="mt-1 text-sm text-muted">Run a scan to see this.</p>
-                ) : overallHealthIsPartial ? (
-                  // Evidence-aware health scoring (2026-09-22) — Section 13:
-                  // a score averaged from fewer than half the canonical
-                  // pillars (e.g. a blocked/thin crawl leaving only 1 of 7
-                  // with real evidence) must never read as a confident,
-                  // comprehensive verdict — a neutral badge and explicit
-                  // "partial" wording replace the usual health-tone Badge.
+                ) : overallHealth.score === null ? (
+                  // Scoring Engine V1 contract (2026-09-24, see
+                  // docs/scoring-contract-v1.md) — the score is WITHHELD,
+                  // not merely labeled, whenever fewer than all seven
+                  // canonical pillars have adequate evidence. Showing a raw
+                  // partial-mean number next to a "Limited" badge still
+                  // communicated more certainty than webioom possesses; only
+                  // the badge plus an honest explanation are shown here.
                   <>
                     <Badge tone="neutral" className="mt-1">
-                      Partial
+                      Limited analysis
                     </Badge>
                     <p className="mt-2 text-xs text-muted">
-                      Only {overallHealth.contributingCategoryCount} of {overallHealth.totalCanonicalCategories} pillars had enough evidence to score — not a full
-                      picture yet.
+                      {overallHealth.contributingCategoryCount < overallHealth.totalCanonicalCategories
+                        ? `Only ${overallHealth.contributingCategoryCount} of ${overallHealth.totalCanonicalCategories} pillars have enough evidence to score yet — an overall number isn't shown until all seven do.`
+                        : `All ${overallHealth.totalCanonicalCategories} pillars were analyzed, but at least one didn't have enough evidence to fully support its score — an overall number isn't shown until it does.`}
                     </p>
                   </>
                 ) : (

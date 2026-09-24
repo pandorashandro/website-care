@@ -31,7 +31,7 @@ describe('analyzeContent — execution, idempotency, isolation', () => {
     expect(result.ok).toBe(true)
     if (!result.ok) return
     expect(result.findings.some((f) => f.checkKey === 'substantively_thin_page')).toBe(true)
-    expect(result.analysis.analyzer_version).toBe('content-v3')
+    expect(result.analysis.analyzer_version).toBe('content-v4')
   })
 
   it('persists the health score on the analysis row itself', async () => {

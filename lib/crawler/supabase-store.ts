@@ -2,7 +2,7 @@ import 'server-only'
 import { createAdminClient } from '@/lib/supabase/admin'
 import type { CrawlStore, NewCrawlRunInput, NewCrawlPageInput, CrawlRunCounts } from './store'
 import type { CrawlRunRow, CrawlPageRow, CrawlLinkInsert } from './types'
-import { BUDGET_SKIP_REASON } from './limits'
+import { BUDGET_SKIP_REASON, UNREACHABLE_SKIP_REASON } from './limits'
 
 /**
  * Phase 25A — the real, Supabase-backed CrawlStore. Uses the service-role
@@ -154,17 +154,19 @@ export function createSupabaseCrawlStore(): CrawlStore {
         admin.from('crawl_pages').select('id', { count: 'exact', head: true }).eq('crawl_run_id', crawlRunId).eq('status', 'completed').then(countOrThrow('succeeded')),
         admin.from('crawl_pages').select('id', { count: 'exact', head: true }).eq('crawl_run_id', crawlRunId).eq('status', 'failed').then(countOrThrow('failed')),
         admin.from('crawl_pages').select('id', { count: 'exact', head: true }).eq('crawl_run_id', crawlRunId).eq('status', 'skipped').then(countOrThrow('skippedTotal')),
-        // See BUDGET_SKIP_REASON's own doc comment: a budget-exhausted
-        // skip means this page was never actually claimed/attempted, so it
-        // must NOT count toward pagesProcessed — only a robots-disallowed
-        // skip (a page that WAS claimed and evaluated) does. Both count
-        // toward the user-facing pagesSkipped total either way.
+        // See BUDGET_SKIP_REASON's/UNREACHABLE_SKIP_REASON's own doc
+        // comments: a budget-exhausted OR presumed-unreachable bulk skip
+        // both mean this page was never actually claimed/attempted, so
+        // neither must count toward pagesProcessed — only a
+        // robots-disallowed skip (a page that WAS claimed and evaluated)
+        // does. All three still count toward the user-facing pagesSkipped
+        // total either way.
         admin
           .from('crawl_pages')
           .select('id', { count: 'exact', head: true })
           .eq('crawl_run_id', crawlRunId)
           .eq('status', 'skipped')
-          .eq('error_reason', BUDGET_SKIP_REASON)
+          .in('error_reason', [BUDGET_SKIP_REASON, UNREACHABLE_SKIP_REASON])
           .then(countOrThrow('skippedByBudget')),
       ])
 

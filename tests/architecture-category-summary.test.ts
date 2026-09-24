@@ -99,7 +99,16 @@ describe('buildSiteArchitectureCategorySummary (Phase 27)', () => {
     expect(summary.score).toBeNull()
   })
 
-  it("coverage.level 'low' (exactly 1 eligible page) is still 'analyzed' — a thin graph is not the same as no graph", () => {
+  /**
+   * Scoring Engine V1 calibration (2026-09-24): supersedes this test's own
+   * prior expectation. A single eligible page has no link graph at all —
+   * every graph-shaped check (orphan/underlinked/dead-end) requires at
+   * least 2 eligible pages to have any real relationship to evaluate (see
+   * lib/architecture/checks/dead-ends.ts's own doc comment), so there is no
+   * applicable check left to have earned a numeric score from. Withholding
+   * (not_analyzed) is more truthful than presenting a "thin but real" score.
+   */
+  it("coverage.level 'low' (exactly 1 eligible page) is not_analyzed — no link graph exists yet to score", () => {
     const summary = buildSiteArchitectureCategorySummary(
       { id: 'run-1', status: 'completed' },
       {
@@ -110,8 +119,8 @@ describe('buildSiteArchitectureCategorySummary (Phase 27)', () => {
         coverage: { eligiblePageCount: 1, totalAnalyzedPages: 1, graphChecksAssessed: false, level: 'low' },
       }
     )
-    expect(summary.status).toBe('analyzed')
-    expect(summary.coverage).toBe('low')
+    expect(summary.status).toBe('not_analyzed')
+    expect(summary.score).toBeNull()
   })
 
   it('marks partial when the crawl_run status is partial — preserved, never hidden', () => {
