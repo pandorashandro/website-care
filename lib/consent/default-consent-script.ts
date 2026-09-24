@@ -37,11 +37,33 @@ import { CONSENT_STORAGE_KEY, CONSENT_VERSION } from './types'
  * later — so there is nothing to wait for. The visitor's own later choice
  * (via the banner) is a discrete, open-ended future action, not a bounded
  * resolution window GTM should hold tags open for.
+ *
+ * GOOGLE-STANDARD COMMAND SHAPE (2026-09-25 correction): a production
+ * Tag Assistant investigation found GTM's own "Initializing consent" /
+ * "Initialization" lifecycle checks reporting "the default consent state
+ * has not yet been set" even though window.dataLayer visibly contained a
+ * `['consent','default',{...}]` entry positioned before GTM's own
+ * lifecycle markers. Root cause (see that investigation's own report):
+ * this script previously pushed a custom-shaped raw array via a
+ * differently-named local helper, never defining the conventional
+ * `window.gtag` global Google's own reference snippet always defines and
+ * calls through. This version defines and calls through `window.gtag`
+ * exactly as Google's official Consent Mode installation guide specifies
+ * for Tag Manager-only sites (no separate gtag.js):
+ *
+ *   window.dataLayer = window.dataLayer || [];
+ *   function gtag(){ dataLayer.push(arguments); }
+ *   gtag('consent', 'default', {...});
+ *
+ * — see https://developers.google.com/tag-platform/security/guides/consent.
+ * No values, timing, or storage logic changed — only the mechanism by
+ * which the exact same values reach dataLayer.
  */
 export function buildDefaultConsentScript(): string {
   return `(function () {
-  var dataLayer = window.dataLayer = window.dataLayer || [];
-  function pushConsent(command, values) { dataLayer.push(['consent', command, values]); }
+  window.dataLayer = window.dataLayer || [];
+  function gtag() { window.dataLayer.push(arguments); }
+  window.gtag = window.gtag || gtag;
   var analyticsGranted = false;
   try {
     var raw = window.localStorage.getItem(${JSON.stringify(CONSENT_STORAGE_KEY)});
@@ -52,7 +74,7 @@ export function buildDefaultConsentScript(): string {
       }
     }
   } catch (e) {}
-  pushConsent('default', {
+  gtag('consent', 'default', {
     analytics_storage: analyticsGranted ? 'granted' : 'denied',
     ad_storage: 'denied',
     ad_user_data: 'denied',

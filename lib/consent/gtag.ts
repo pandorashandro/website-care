@@ -1,6 +1,7 @@
 declare global {
   interface Window {
     dataLayer?: unknown[]
+    gtag?: (...args: unknown[]) => void
   }
 }
 
@@ -13,18 +14,41 @@ declare global {
  * a second, separately-loaded GA4/gtag.js implementation — see this
  * module's own restraint from importing or hardcoding any measurement ID).
  *
- * Google Consent Mode does not require gtag.js to be present to receive
- * commands — it works by pushing the exact same arguments-array shape
- * gtag() would produce directly onto `window.dataLayer`, which GTM reads
- * once it loads (see the beforeInteractive default script in
- * lib/consent/default-consent-script.ts, which runs before GTM's own
- * script). This function is the ONE place both the default and any later
- * update ever get pushed from, so the two can never drift in shape.
+ * GOOGLE-STANDARD COMMAND SHAPE (2026-09-25 correction): a production Tag
+ * Assistant investigation found GTM's own consent-initialization checks
+ * reporting the default as never set, traced to this module (and the
+ * beforeInteractive default script) pushing a custom-shaped raw array
+ * directly onto dataLayer instead of defining and calling through the
+ * conventional `window.gtag` stub Google's own reference implementation
+ * always uses — see https://developers.google.com/tag-platform/security/guides/consent
+ * ("function gtag(){dataLayer.push(arguments);}" then "gtag('consent',
+ * 'update', {...})"). `ensureGtag` below defines that exact stub (if
+ * nothing has already defined `window.gtag` — the beforeInteractive
+ * default script normally already has, by the time any of this runs) and
+ * every consent command is issued THROUGH it, matching Google's documented
+ * pattern exactly. No consent VALUES, timing, or storage logic changed —
+ * only the mechanism by which the same values reach dataLayer.
  */
+function ensureGtag(): NonNullable<Window['gtag']> {
+  window.dataLayer = window.dataLayer || []
+  if (!window.gtag) {
+    window.gtag = function gtag() {
+      // Mirrors Google's own documented gtag() stub exactly
+      // (`function gtag(){dataLayer.push(arguments);}`) — `arguments` (not
+      // a rest-param array) is what gtag.js itself uses, and what this
+      // reimplementation must match for compatibility with GTM's own
+      // consent-command recognition.
+      // eslint-disable-next-line prefer-rest-params
+      window.dataLayer!.push(arguments)
+    }
+  }
+  return window.gtag
+}
+
 function pushConsentCommand(command: 'default' | 'update', values: Record<string, string>): void {
   if (typeof window === 'undefined') return
-  window.dataLayer = window.dataLayer || []
-  window.dataLayer.push(['consent', command, values])
+  const gtag = ensureGtag()
+  gtag('consent', command, values)
 }
 
 /**
