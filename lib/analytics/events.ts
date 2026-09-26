@@ -15,11 +15,11 @@
  * database ID, a raw URL) — attempting to would be a compile error, not a
  * runtime PII leak.
  *
- * Only Phase 1's three implemented events are listed. Do not add future
- * roadmap events (website_added, scan_started, scan_completed, scan_failed,
- * report_viewed, ...) here until they are actually implemented.
+ * Only the currently-implemented events are listed. Do not add future
+ * roadmap events (scan_started, scan_completed, scan_failed, report_viewed,
+ * ...) here until they are actually implemented.
  */
-export const ANALYTICS_EVENTS = ['sign_up', 'login', 'pricing_viewed'] as const
+export const ANALYTICS_EVENTS = ['sign_up', 'login', 'pricing_viewed', 'website_added'] as const
 
 export type AnalyticsEventName = (typeof ANALYTICS_EVENTS)[number]
 
@@ -30,4 +30,12 @@ export type AnalyticsEventParams = {
   login: { method: 'email' }
   /** No parameters for V1 — the event itself is the signal. */
   pricing_viewed: undefined
+  /**
+   * Fired only once a website has been persisted AND survived post-insert
+   * entitlement re-verification (see app/dashboard/actions.ts's `addWebsite`
+   * and lib/analytics/website-added-marker.ts for the redirect-marker
+   * mechanism that reports this server-authoritative outcome from the
+   * client). No parameters — never the website's ID, URL, or domain.
+   */
+  website_added: undefined
 }

@@ -24,6 +24,7 @@ import HealthOverview from '@/components/report/health-overview'
 import HealthGauge from '@/components/ui/health-gauge'
 import CategoryScoreGrid from '@/components/report/category-score-grid'
 import { healthLabel, healthTone } from '@/lib/scanner/health-label'
+import TrackWebsiteAdded from '@/components/analytics/track-website-added'
 import ScanWebsiteControls from './scan-website-controls'
 import { getUnifiedCategorySummaries } from './unified-summary'
 import { getFixTheseFirst } from './fix-these-first'
@@ -400,6 +401,8 @@ export default async function WebsiteReportPage(props: PageProps<'/dashboard/web
 
   return (
     <Container size="2xl" className="py-10">
+      <TrackWebsiteAdded />
+
       <Link href="/dashboard" className="text-sm text-muted hover:text-gray-700">
         ← Back to Websites
       </Link>

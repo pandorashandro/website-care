@@ -12,6 +12,7 @@ import type { ScanIssue } from '@/lib/scanner/issue-definitions'
 import { canAddWebsite, canRunManualScan, verifyWebsiteCountAfterInsert, getCurrentUserEntitlements, type EntitlementFailureReason } from '@/lib/entitlements'
 import { getWebsiteLimitUpgradeMessage } from '@/lib/billing/website-limit-message'
 import type { PlanKey } from '@/lib/entitlements/plans'
+import { WEBSITE_ADDED_QUERY_PARAM, WEBSITE_ADDED_QUERY_VALUE } from '@/lib/analytics/website-added-marker'
 
 /**
  * Shared, user-safe copy for every entitlement denial this file can
@@ -131,7 +132,13 @@ export async function addWebsite(
   // already makes Run First Scan the obvious next step — the fastest path
   // to ADD WEBSITE -> RUN FIRST SCAN -> SEE WEBSITE HEALTH, rather than
   // leaving the user to find the new card back on the dashboard themselves.
-  redirect(`/dashboard/websites/${inserted.id}`)
+  //
+  // The appended query param is a one-time analytics marker (this is the
+  // ONLY point in this function that has genuinely finished creating the
+  // website — post-insert entitlement re-verification just passed above) —
+  // see lib/analytics/website-added-marker.ts for why it exists and how the
+  // client consumes and immediately strips it.
+  redirect(`/dashboard/websites/${inserted.id}?${WEBSITE_ADDED_QUERY_PARAM}=${WEBSITE_ADDED_QUERY_VALUE}`)
 }
 
 export type ScanWebsiteState = { error?: string; reason?: EntitlementFailureReason } | null
