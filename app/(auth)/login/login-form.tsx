@@ -4,6 +4,7 @@ import { FormEvent, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { trackEvent } from '@/lib/analytics/track'
 import { Input, Label } from '@/components/ui/input'
 import { PasswordInput } from '@/components/ui/password-input'
 import Button from '@/components/ui/button'
@@ -35,6 +36,8 @@ export default function LoginForm() {
       setLoading(false)
       return
     }
+
+    trackEvent('login', { method: 'email' })
 
     router.push('/dashboard')
     router.refresh()

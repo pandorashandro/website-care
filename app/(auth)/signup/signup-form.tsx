@@ -3,6 +3,7 @@
 import { FormEvent, useState } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
+import { trackEvent } from '@/lib/analytics/track'
 import { Input, Label } from '@/components/ui/input'
 import { PasswordInput } from '@/components/ui/password-input'
 import Button from '@/components/ui/button'
@@ -36,6 +37,7 @@ export default function SignupForm() {
     } else {
       setMessage('Account created! Please check your email to confirm your account.')
       setSucceeded(true)
+      trackEvent('sign_up', { method: 'email' })
     }
 
     setLoading(false)

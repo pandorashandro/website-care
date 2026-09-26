@@ -7,6 +7,7 @@ import Section from '@/components/ui/section'
 import ScrollReveal from '@/components/ui/scroll-reveal'
 import SectionHeading from '@/components/ui/section-heading'
 import FaqAccordion, { type FaqItem } from '@/components/ui/faq-accordion'
+import TrackPageView from '@/components/analytics/track-page-view'
 import PricingCards from './pricing-cards'
 
 const VALUE_POINTS = [
@@ -81,6 +82,7 @@ export default async function PricingPage() {
 
   return (
     <>
+      <TrackPageView eventName="pricing_viewed" />
       <Container size="lg" className="pb-4 pt-20 text-center sm:pt-24">
         <p className="text-sm font-semibold tracking-wide text-brand">Pricing</p>
         <h1 className="mx-auto mt-3 max-w-2xl text-4xl font-semibold tracking-tight text-gray-900 sm:text-5xl">
