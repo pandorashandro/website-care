@@ -3,6 +3,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { startUnifiedScan, continueUnifiedScan, runCategoryAnalyses } from './scan-actions'
+import type { CrawlRunStatus } from '@/lib/crawler/types'
+import { trackScanStarted, trackScanTerminal, classifyTerminalCrawlStatus } from '@/lib/analytics/scan-lifecycle'
 import Button from '@/components/ui/button'
 import Alert from '@/components/ui/alert'
 
@@ -50,7 +52,18 @@ const PHASE_LABELS: Partial<Record<Phase, string>> = {
   preparing: 'Preparing results…',
 }
 
-type DriveResult = { done: true } | { done: false; error?: string }
+/**
+ * Product Analytics Phase 3: `status` on the `done: true` branch threads the
+ * crawl engine's own authoritative terminal status (already returned by
+ * `processCrawlBatch`/`continueUnifiedScan` as `BatchOutcome.status` — see
+ * lib/crawler/engine.ts) through to this component's callers, which
+ * previously discarded it entirely. This is observation only: no crawling,
+ * retry, or analysis behavior changes — `driveCrawlToCompletion`'s callers
+ * still proceed to `runCategoryAnalyses` exactly as before regardless of
+ * this value; it is consulted only to decide what analytics to report (see
+ * lib/analytics/scan-lifecycle.ts's `classifyTerminalCrawlStatus`).
+ */
+type DriveResult = { done: true; status: CrawlRunStatus } | { done: false; error?: string }
 
 export default function ScanWebsiteControls({ websiteId, crawlRun, allCategoriesAnalyzed }: { websiteId: string; crawlRun: UnifiedScanRun; allCategoriesAnalyzed: boolean }) {
   const router = useRouter()
@@ -62,7 +75,7 @@ export default function ScanWebsiteControls({ websiteId, crawlRun, allCategories
     for (let i = 0; i < AUTO_CONTINUE_CAP; i++) {
       const result = await continueUnifiedScan(websiteId, crawlRunId)
       if (!result.ok) return { done: false, error: result.error }
-      if (result.outcome.done) return { done: true }
+      if (result.outcome.done) return { done: true, status: result.outcome.status }
       await new Promise((resolve) => setTimeout(resolve, AUTO_CONTINUE_DELAY_MS))
     }
     return { done: false }
@@ -81,6 +94,15 @@ export default function ScanWebsiteControls({ websiteId, crawlRun, allCategories
 
     try {
       let crawlRunId = existingCrawlRunId
+      // Product Analytics Phase 3: whether THIS crawl run's own crawl-level
+      // outcome was a success — defaults to true because the "already
+      // analyzable, just resuming the analysis step" branch below (neither
+      // `if` nor `else if` matches) only ever runs for a crawl_run whose
+      // status is already in ANALYZABLE_STATUSES, i.e. already succeeded.
+      // Set to false only when a freshly-driven crawl's own terminal status
+      // classifies as a failure. Purely observational — never changes
+      // whether runCategoryAnalyses below actually runs.
+      let crawlSucceeded = true
 
       if (!crawlRunId) {
         const started = await startUnifiedScan(websiteId)
@@ -91,12 +113,24 @@ export default function ScanWebsiteControls({ websiteId, crawlRun, allCategories
         }
         crawlRunId = started.crawlRun.id
 
+        // Exactly the audit's own rule: a genuinely NEW crawl run, never a
+        // resumed already-active one. `started.ok` is already narrowed
+        // `true` here by the early return above.
+        if (!started.alreadyActive) {
+          trackScanStarted(started.crawlRun.id)
+        }
+
         if (!ANALYZABLE_STATUSES.has(started.crawlRun.status)) {
           const driveResult = await driveCrawlToCompletion(crawlRunId)
           if (!driveResult.done) {
             if (driveResult.error) setError(driveResult.error)
             setPhase('stalled')
             return
+          }
+          const outcome = classifyTerminalCrawlStatus(driveResult.status)
+          if (outcome === 'failed') {
+            trackScanTerminal(crawlRunId, 'failed')
+            crawlSucceeded = false
           }
         }
       } else if (ACTIVE_STATUSES.has(crawlRun?.status ?? '')) {
@@ -106,10 +140,27 @@ export default function ScanWebsiteControls({ websiteId, crawlRun, allCategories
           setPhase('stalled')
           return
         }
+        const outcome = classifyTerminalCrawlStatus(driveResult.status)
+        if (outcome === 'failed') {
+          trackScanTerminal(crawlRunId, 'failed')
+          crawlSucceeded = false
+        }
       }
 
       setPhase('analyzing')
       await runCategoryAnalyses(websiteId, crawlRunId)
+
+      // "scan_completed" represents the FULL product pipeline WEBIOOM
+      // itself considers a completed scan — the crawl succeeding is
+      // necessary but not sufficient; the category-analysis pipeline above
+      // must also have finished. A crawl-level failure already reported
+      // scan_failed above and must never ALSO report scan_completed here —
+      // `crawlSucceeded` guards that, and shouldRecordScanTerminal's own
+      // per-run exclusivity (lib/analytics/scan-lifecycle-dedup.ts) is the
+      // second, storage-backed guarantee against ever reporting both.
+      if (crawlSucceeded) {
+        trackScanTerminal(crawlRunId, 'completed')
+      }
 
       setPhase('preparing')
       router.refresh()

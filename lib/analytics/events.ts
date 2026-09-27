@@ -16,10 +16,10 @@
  * runtime PII leak.
  *
  * Only the currently-implemented events are listed. Do not add future
- * roadmap events (scan_started, scan_completed, scan_failed, report_viewed,
- * ...) here until they are actually implemented.
+ * roadmap events (report_viewed, ...) here until they are actually
+ * implemented.
  */
-export const ANALYTICS_EVENTS = ['sign_up', 'login', 'pricing_viewed', 'website_added'] as const
+export const ANALYTICS_EVENTS = ['sign_up', 'login', 'pricing_viewed', 'website_added', 'scan_started', 'scan_completed', 'scan_failed'] as const
 
 export type AnalyticsEventName = (typeof ANALYTICS_EVENTS)[number]
 
@@ -38,4 +38,29 @@ export type AnalyticsEventParams = {
    * client). No parameters — never the website's ID, URL, or domain.
    */
   website_added: undefined
+  /**
+   * Fired only when a genuinely NEW crawl run has been created — never for
+   * a resumed already-active run. See
+   * lib/analytics/scan-lifecycle.ts/app/dashboard/websites/[id]/scan-website-controls.tsx
+   * for the exact `started.ok === true && started.alreadyActive === false`
+   * gate and the per-crawl-run dedup this relies on. No parameters — never
+   * a crawl run ID, website ID, or URL.
+   */
+  scan_started: undefined
+  /**
+   * Fired only once a crawl reaches a genuine successful terminal status
+   * ('completed' or 'partial') AND the subsequent category-analysis
+   * pipeline has itself finished — not merely when crawling stops. See
+   * lib/analytics/scan-lifecycle.ts's `classifyTerminalCrawlStatus`. No
+   * parameters — never a score, findings, or any per-website value.
+   */
+  scan_completed: undefined
+  /**
+   * Fired only when a crawl reaches a genuine terminal failure status
+   * ('failed' or 'cancelled') — never for a stalled/retryable/in-progress
+   * state. Mutually exclusive with scan_completed for the same crawl run
+   * (see lib/analytics/scan-lifecycle-dedup.ts). No parameters — never an
+   * error message or any per-website value.
+   */
+  scan_failed: undefined
 }
