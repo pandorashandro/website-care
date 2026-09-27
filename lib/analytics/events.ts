@@ -15,11 +15,18 @@
  * database ID, a raw URL) — attempting to would be a compile error, not a
  * runtime PII leak.
  *
- * Only the currently-implemented events are listed. Do not add future
- * roadmap events (report_viewed, ...) here until they are actually
- * implemented.
+ * Only the currently-implemented events are listed.
  */
-export const ANALYTICS_EVENTS = ['sign_up', 'login', 'pricing_viewed', 'website_added', 'scan_started', 'scan_completed', 'scan_failed'] as const
+export const ANALYTICS_EVENTS = [
+  'sign_up',
+  'login',
+  'pricing_viewed',
+  'website_added',
+  'scan_started',
+  'scan_completed',
+  'scan_failed',
+  'report_viewed',
+] as const
 
 export type AnalyticsEventName = (typeof ANALYTICS_EVENTS)[number]
 
@@ -63,4 +70,15 @@ export type AnalyticsEventParams = {
    * error message or any per-website value.
    */
   scan_failed: undefined
+  /**
+   * Fired when the main website Overview/report page renders with at least
+   * one canonical category genuinely analyzed (see
+   * lib/analytics/report-viewed-eligibility.ts's `hasAnalyzedCategory` —
+   * eligibility is deliberately based on category status, never on whether
+   * an overall score exists). An engagement/view event, not a lifecycle
+   * event — see components/analytics/track-page-view.tsx for its per-mount
+   * (not persisted) dedup semantics. No parameters — never a website ID,
+   * report/scan ID, score, or pillar name.
+   */
+  report_viewed: undefined
 }

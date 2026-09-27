@@ -25,6 +25,8 @@ import HealthGauge from '@/components/ui/health-gauge'
 import CategoryScoreGrid from '@/components/report/category-score-grid'
 import { healthLabel, healthTone } from '@/lib/scanner/health-label'
 import TrackWebsiteAdded from '@/components/analytics/track-website-added'
+import TrackPageView from '@/components/analytics/track-page-view'
+import { hasAnalyzedCategory } from '@/lib/analytics/report-viewed-eligibility'
 import ScanWebsiteControls from './scan-website-controls'
 import { getUnifiedCategorySummaries } from './unified-summary'
 import { getFixTheseFirst } from './fix-these-first'
@@ -225,6 +227,13 @@ export default async function WebsiteReportPage(props: PageProps<'/dashboard/web
   const overallHealth = computeOverallWebsiteHealth(canonicalSummaries)
   const allCategoriesAnalyzed = canonicalSummaries.every((summary) => summary.status === 'analyzed')
 
+  // Product Analytics Phase 4 — report_viewed eligibility: deliberately "at
+  // least one" analyzed category, not all seven and not a non-null overall
+  // score (see lib/analytics/report-viewed-eligibility.ts's own doc comment
+  // for why). A brand-new website with zero analyzed categories is never
+  // eligible, however it got here.
+  const hasAnalyzedPillar = hasAnalyzedCategory(canonicalSummaries)
+
   // Evidence-aware health scoring (2026-09-22) — the ONE, coarse,
   // whole-crawl "did webioom actually get into this website" signal (see
   // lib/category-engine/site-access.ts's own doc comment). Deliberately
@@ -402,6 +411,7 @@ export default async function WebsiteReportPage(props: PageProps<'/dashboard/web
   return (
     <Container size="2xl" className="py-10">
       <TrackWebsiteAdded />
+      {hasAnalyzedPillar && <TrackPageView eventName="report_viewed" />}
 
       <Link href="/dashboard" className="text-sm text-muted hover:text-gray-700">
         ← Back to Websites
